@@ -12,9 +12,21 @@ using Measurements
 using ProgressLogging: Progress
 using UUIDs: uuid4
 using BSON
+using PyCall
 using PyPlot
 
 const version = VersionNumber(0, 1, 0)
+
+# Global Python package interfaces
+const pybel = PyNULL()
+const pysys = PyNULL()
+const obcr = PyNULL()
+function __init__()
+    copy!(pybel, pyimport_conda("openbabel.pybel", "openbabel")) # Use pyimport_conda to ensure dependency in place.
+    copy!(pysys, pyimport("sys"))
+    copy!(obcr, pyimport("obcr"))
+end
+export pybel, pysys, obcr
 
 include("logging.jl")
 export start_log, end_log, flush_log, flush

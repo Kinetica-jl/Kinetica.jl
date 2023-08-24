@@ -1,3 +1,6 @@
 [submodule "submodules/cde"]
 	path = submodules/cde
 	url = https://github.com/HabershonLab/cde
+[submodule "submodules/OBCanonicalRadicals"]
+	path = submodules/OBCanonicalRadicals
+	url = https://github.com/joegilkes/OBCanonicalRadicals
