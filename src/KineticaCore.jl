@@ -20,12 +20,12 @@ include("logging.jl")
 export start_log, end_log, flush_log, flush
 
 include("utils.jl")
-export tconvert
+export tconvert, create_savepoints
 
 include("conditions/abstract_profiles.jl")
 include("conditions/variable_temperature.jl")
-export NullTemperatureProfile, LinearTemperatureProfile
-export SimpleUpDownTemperatureProfile, SmoothUpDownTemperatureProfile
+export NullTprofile, LinearTprofile
+export SimpleDoubleRampTprofile, SmoothDoubleRampTprofile
 
 include("exploration/network.jl")
 include("exploration/explore_utils.jl")
