@@ -31,6 +31,7 @@ include("exploration/network.jl")
 include("exploration/explore_utils.jl")
 include("exploration/methods.jl")
 include("exploration/molecule_system.jl")
+export system_from_smiles
 
 include("solving/solve_utils.jl")
 include("solving/methods.jl")
