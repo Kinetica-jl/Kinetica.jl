@@ -39,7 +39,13 @@ include("conditions/variable_temperature.jl")
 export NullTprofile, LinearTprofile
 export SimpleDoubleRampTprofile, SmoothDoubleRampTprofile
 
+include("openbabel/conversion.jl")
+export ingest_xyz_system
+include("openbabel/properties.jl")
+include("openbabel/obcr.jl")
+
 include("exploration/network.jl")
+export SpeciesData, push!, push_unique!
 include("exploration/explore_utils.jl")
 include("exploration/methods.jl")
 include("exploration/molecule_system.jl")
