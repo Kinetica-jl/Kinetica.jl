@@ -17,9 +17,10 @@ using PyPlot
 const version = VersionNumber(0, 1, 0)
 
 include("logging.jl")
-export start_log, end_log
+export start_log, end_log, flush_log, flush
 
 include("utils.jl")
+export tconvert
 
 include("conditions/variable_temperature.jl")
 
