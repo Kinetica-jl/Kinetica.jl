@@ -1,5 +1,7 @@
 module KineticaCore
 
+using Logging
+using Dates
 using Catalyst
 using DifferentialEquations
 using LinearAlgebra
@@ -13,6 +15,11 @@ using BSON
 using PyPlot
 
 const version = VersionNumber(0, 1, 0)
+
+include("logging.jl")
+export start_log, end_log
+
+include("utils.jl")
 
 include("conditions/variable_temperature.jl")
 
