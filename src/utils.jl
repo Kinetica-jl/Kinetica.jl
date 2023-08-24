@@ -95,3 +95,29 @@ t_unit_map = Dict{String, Float64}(
     "years" => 3.15576e07,
     "yrs" => 3.15576e07
 )
+
+
+"""
+    create_savepoints(start, stop, step)
+
+Creates a range of savepoints, ensuring that the final time is included.
+
+Safely modifies `step` to account for small floating point errors
+introduced by calling `tconvert`.
+"""
+function create_savepoints(start::tType, stop::tType, step::tType) where {tType <: AbstractFloat}
+    cstep = ((step > 1e-9) && (abs(step - floor(step)) < 1e-9)) ? round(step; sigdigits=9) : step
+    r = collect(start:cstep:stop)
+    if r[end] < stop
+        push!(r, stop)
+    end
+    return r
+end
+
+
+"""
+    trunc(Float64, x)
+
+Overload of `Base.trunc` to allow for truncation of explicitly typed Real numbers.
+"""
+trunc(::Type{T}, x::T) where T<:Real = trunc(x)

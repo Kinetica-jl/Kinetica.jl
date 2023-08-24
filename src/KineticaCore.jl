@@ -22,7 +22,10 @@ export start_log, end_log, flush_log, flush
 include("utils.jl")
 export tconvert
 
+include("conditions/abstract_profiles.jl")
 include("conditions/variable_temperature.jl")
+export NullTemperatureProfile, LinearTemperatureProfile
+export SimpleUpDownTemperatureProfile, SmoothUpDownTemperatureProfile
 
 include("exploration/network.jl")
 include("exploration/explore_utils.jl")
