@@ -11,6 +11,7 @@ using ExtXYZ
 using Measurements
 using ProgressLogging: Progress
 using UUIDs: uuid4
+using StableHashTraits
 using BSON
 using PyCall
 using PyPlot
@@ -42,11 +43,16 @@ export SimpleDoubleRampTprofile, SmoothDoubleRampTprofile
 include("openbabel/conversion.jl")
 export ingest_xyz_system
 include("openbabel/properties.jl")
-include("openbabel/obcr.jl")
 
 include("exploration/network.jl")
 export SpeciesData, push!, push_unique!
+export RxData
+include("exploration/cde_utils.jl")
+export env_multithread
+include("exploration/cde.jl")
+export CDE, ingest_cde_run
 include("exploration/explore_utils.jl")
+export import_mechanism, import_mechanism!
 include("exploration/methods.jl")
 include("exploration/molecule_system.jl")
 export system_from_smiles

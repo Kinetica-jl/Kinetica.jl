@@ -39,7 +39,7 @@ Base.@kwdef mutable struct CDE
     env::Dict
 
     # Optional fields.
-    cde_exec::String = joinpath(dirname(dirname(@__FILE__)), "submodules/cde/bin/cde.x")
+    cde_exec::String = joinpath(dirname(dirname(dirname(@__FILE__))), "submodules/cde/bin/cde.x")
     sampling_seed::Int = 0
     radius::Int = 50
     nrxn::Int = 1
@@ -224,3 +224,62 @@ function (self::CDE)(rcountrange::AbstractUnitRange)
 
 end
 
+
+"""
+    reac_smis, reac_xyzs, prod_smis, prod_xyzs, dH = ingest_cde_run(rdir, rcount[, fix_radicals])
+
+Reads in the results from a CDE run.
+
+Separates out fragment species from each available reaction's
+reactants and products, forming arrays of their SMILES strings
+and ExtXYZ geometries.
+
+OBCanonicalRadicals can be enabled to tidy up radical SMILES
+using the `fix_radicals` parameter.
+"""
+function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
+    rxdir = joinpath(rdir, "reac_$(lpad(rcount, 5, "0"))")
+    @info "Reading in mechanism step xyz files."
+
+    # Read in all reactions as 2-frame trajectories.
+    rxfiles = readdir(rxdir)
+    rxfiles = rxfiles[startswith.(rxfiles, "rxn_")]
+    n_reacs = length(rxfiles)
+    reacs = []
+    prods = []
+    dH = zeros(Float64, n_reacs)
+    for i in 1:n_reacs
+        reaction = read_frames(joinpath(rxdir, rxfiles[i]), 1:2)
+
+        # Separate out reacs and prods, calculate dH.
+        push!(reacs, reaction[1])
+        push!(prods, reaction[2])
+        dH[i] = reaction[2]["info"]["energy"] - reaction[1]["info"]["energy"]
+    end
+
+    @info "Read in $n_reacs reactions."
+    @info "Extracting fragment species from reactions."
+    tmp_xyz = joinpath(rxdir, "kinetica_tmp.xyz")
+
+    reac_smis = Vector{String}[]
+    reac_xyzs = []
+    for reac in reacs
+        write_frame(tmp_xyz, reac)
+        smis, xyzs = ingest_xyz_system(tmp_xyz; fix_radicals)
+        push!(reac_smis, smis)
+        push!(reac_xyzs, xyzs)
+    end
+
+    prod_smis = Vector{String}[]
+    prod_xyzs = []
+    for prod in prods
+        write_frame(tmp_xyz, prod)
+        smis, xyzs = ingest_xyz_system(tmp_xyz; fix_radicals)
+        push!(prod_smis, smis)
+        push!(prod_xyzs, xyzs)
+    end
+
+    rm(tmp_xyz)
+
+    return reac_smis, reac_xyzs, prod_smis, prod_xyzs, dH
+end
