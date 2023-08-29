@@ -65,6 +65,8 @@ include("exploration/methods.jl")
 include("exploration/molecule_system.jl")
 export system_from_smiles
 
+include("solving/calculator.jl")
+export DummyKineticCalculator, PrecalculatedArrheniusCalculator, PrecalculatedLindemannCalculator
 include("solving/solve_utils.jl")
 include("solving/methods.jl")
 
