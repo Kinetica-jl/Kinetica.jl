@@ -88,20 +88,19 @@ function DirectExploreParams(;
 end
 
 """
-    epars = DirectExploreParams(;
-        rdir_head, reac_smiles, maxiters, reacthresh, cde)
+    epars = DirectExploreParams(cde;
+        rdir_head, reac_smiles, maxiters, reacthresh)
 
 Outer constructor method for `DirectExploreParams`.
 
 Requires external manual configuration of CDE interface,
 which can be more difficult but offers additional customisation.
 """
-function DirectExploreParams(;
+function DirectExploreParams(cde::CDE;
         rdir_head::String,
         reac_smiles::Union{String, Vector{String}},
         maxiters::Integer,
-        reacthresh::Integer,
-        cde::CDE)
+        reacthresh::Integer)
     return DirectExploreParams(
         rdir_head = rdir_head,
         reac_smiles = reac_smiles,
@@ -197,7 +196,7 @@ function IterativeExploreParams(;
         parallel_runs = cde_threads,
         parallel_exes = cde_threads
     )
-    return IterativeExploreParams(
+    return IterativeExploreParams{uType}(
         rdir_head = rdir_head,
         reac_smiles = reac_smiles,
         maxiters = maxiters,
@@ -215,24 +214,23 @@ function IterativeExploreParams(;
 end
 
 """
-    epars = IterativeExploreParams(;
+    epars = IterativeExploreParams(cde;
         rdir_head, reac_smiles, maxiters, reacthresh, 
-        cde[, seed_conc, independent_blacklist])
+        [, seed_conc, independent_blacklist])
 
 Outer constructor method for `IterativeExploreParams`.
 
 Requires external manual configuration of CDE interface,
 which can be more difficult but offers additional customisation.
 """
-function IterativeExploreParams(;
+function IterativeExploreParams(cde::CDE;
         rdir_head::String,
         reac_smiles::Union{String, Vector{String}},
         maxiters::Integer,
         reacthresh::Integer,
-        cde::CDE,
         seed_conc::uType = 0.05,
-        independent_blacklist::Vector{String} = [])
-    return IterativeExploreParams(
+        independent_blacklist::Vector{String} = []) where {uType <: AbstractFloat}
+    return IterativeExploreParams{uType}(
         rdir_head = rdir_head,
         reac_smiles = reac_smiles,
         maxiters = maxiters,
