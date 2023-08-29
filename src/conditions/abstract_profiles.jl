@@ -1,14 +1,24 @@
 abstract type AbstractConditionProfile end
 
-# Single variable condition profiles
-abstract type AbstractTprofile <: AbstractConditionProfile end
-abstract type AbstractPprofile <: AbstractConditionProfile end
-abstract type AbstractVprofile <: AbstractConditionProfile end
+abstract type AbstractStaticProfile <: AbstractConditionProfile end
+abstract type AbstractVariableProfile <: AbstractConditionProfile end
 
-# Double variable condition profiles
-abstract type AbstractTPprofile <: AbstractConditionProfile end
-abstract type AbstractTVprofile <: AbstractConditionProfile end
-abstract type AbstractPVprofile <: AbstractConditionProfile end
+abstract type AbstractGradientProfile <: AbstractVariableProfile end
+abstract type AbstractDirectProfile <: AbstractVariableProfile end
 
-# Triple variable condition profiles
-abstract type AbstractTPVprofile <: AbstractConditionProfile end
+
+function isstatic(profile::pType) where {pType <: AbstractStaticProfile}
+    return true
+end
+
+function isstatic(profile::pType) where {pType <: AbstractVariableProfile}
+    return false
+end
+
+function isvariable(profile::pType) where {pType <: AbstractStaticProfile}
+    return false
+end
+
+function isvariable(profile::pType) where {pType <: AbstractVariableProfile}
+    return true
+end

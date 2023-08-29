@@ -36,9 +36,15 @@ include("utils.jl")
 export tconvert, create_savepoints
 
 include("conditions/abstract_profiles.jl")
-include("conditions/variable_temperature.jl")
-export NullTprofile, LinearTprofile
-export SimpleDoubleRampTprofile, SmoothDoubleRampTprofile
+export isstatic, isvariable
+include("conditions/condition_set.jl")
+export ConditionSet, isstatic, isvariable, get_profile
+include("conditions/static.jl")
+include("conditions/direct_variable.jl")
+export NullDirectProfile, LinearDirectProfile
+include("conditions/gradient_variable.jl")
+export NullGradientProfile, LinearGradientProfile
+
 
 include("openbabel/conversion.jl")
 export ingest_xyz_system
