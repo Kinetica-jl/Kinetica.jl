@@ -50,6 +50,10 @@ function isstatic(cs::ConditionSet, sym::Symbol)
     return isstatic(cs.profiles[loc])
 end
 
+function isstatic(cs::ConditionSet)
+    return all([isstatic(profile) for profile in cs.profiles])
+end
+
 function isvariable(cs::ConditionSet, sym::Symbol)
     if !(sym in cs.symbols)
         throw(ErrorException("Condition $sym does not exist in this ConditionSet"))
@@ -58,10 +62,26 @@ function isvariable(cs::ConditionSet, sym::Symbol)
     return isvariable(cs.profiles[loc])
 end
 
+function isvariable(cs::ConditionSet)
+    return all([isvariable(profile) for profile in cs.profiles])
+end
+
 function get_profile(cs::ConditionSet, sym::Symbol)
     if !(sym in cs.symbols)
         throw(ErrorException("Condition $sym does not exist in this ConditionSet"))
     end
     loc = findfirst(==(sym), cs.symbols)
     return cs.profiles[loc]
+end
+
+function get_tstops(cs::ConditionSet)
+    if isstatic(cs) throw(ErrorException("No tstops available, all conditions in ConditionSet are static.")) end
+    all_tstops = [profile.tstops for profile in cs.profiles if isvariable(profile)]
+    return sort(unique(reduce(vcat, all_tstops)))
+end
+
+function get_t_final(cs::ConditionSet)
+    if isstatic(cs) throw(ErrorException("No t_end available, all conditions in ConditionSet are static.")) end
+    all_t_end = [profile.t_end for profile in cs.profiles if isvariable(profile)]
+    return maximum(all_t_end)
 end

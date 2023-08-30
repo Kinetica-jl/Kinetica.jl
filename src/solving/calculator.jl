@@ -78,6 +78,10 @@ function (calc::DummyKineticCalculator{Nothing, uType, tType})(::Nothing, V::Num
     return calc(0.0, V)
 end
 
+function has_conditions(::DummyKineticCalculator, symbols::Vector{Symbol})
+    return all([sym in [:T, :V] for sym in symbols])
+end
+
 
 """
 Arrhenius theory kinetic calculator for precalculated reactions.
@@ -149,6 +153,10 @@ function (calc::PrecalculatedArrheniusCalculator{Nothing, uType, tType})(; T::Nu
     return k_r
 end
 
+function has_conditions(::PrecalculatedArrheniusCalculator, symbols::Vector{Symbol})
+    return all([sym in [:T] for sym in symbols])
+end
+
 
 """
 Pressure-dependent Arrhenius theory kinetic calculator for precalculated reactions.
@@ -213,4 +221,8 @@ end
 # Dispatched without k_max awareness.
 function (calc::PrecalculatedLindemannCalculator{Nothing, uType, tType})(; T::Number, P::Number) where {uType, tType}
     throw(ErrorException("Lindemann rate constants not implemented yet."))
+end
+
+function has_conditions(::PrecalculatedLindemannCalculator, symbols::Vector{Symbol})
+    return all([sym in [:T, :P] for sym in symbols])
 end
