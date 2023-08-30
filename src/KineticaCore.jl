@@ -38,7 +38,8 @@ export tconvert, create_savepoints
 include("conditions/abstract_profiles.jl")
 export isstatic, isvariable
 include("conditions/condition_set.jl")
-export ConditionSet, isstatic, isvariable, get_profile
+export ConditionSet, isstatic, isvariable
+export get_profile, get_tstops, get_t_final
 include("conditions/static.jl")
 include("conditions/direct_variable.jl")
 export NullDirectProfile, LinearDirectProfile
@@ -65,10 +66,15 @@ include("exploration/methods.jl")
 include("exploration/molecule_system.jl")
 export system_from_smiles
 
+include("solving/params.jl")
+export ODESimulationParams
 include("solving/calculator.jl")
 export DummyKineticCalculator, PrecalculatedArrheniusCalculator, PrecalculatedLindemannCalculator
+export has_conditions
 include("solving/solve_utils.jl")
 include("solving/methods.jl")
+export StaticODESolve, VariableODESolve
+export solve_network
 
 include("analysis/io.jl")
 include("analysis/interpolation.jl")
