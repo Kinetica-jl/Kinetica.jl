@@ -35,17 +35,20 @@ export start_log, end_log, flush_log, flush
 include("utils.jl")
 export tconvert, create_savepoints
 
+include("solving/params.jl")
+export ODESimulationParams
+
 include("conditions/abstract_profiles.jl")
 export isstatic, isvariable
-include("conditions/condition_set.jl")
-export ConditionSet, isstatic, isvariable
-export get_profile, get_tstops, get_t_final
 include("conditions/static.jl")
 include("conditions/direct_variable.jl")
 export NullDirectProfile, LinearDirectProfile
 include("conditions/gradient_variable.jl")
 export NullGradientProfile, LinearGradientProfile
-
+include("conditions/condition_set.jl")
+export ConditionSet, isstatic, isvariable
+export get_profile, get_tstops, get_t_final
+export solve_variable_conditions!
 
 include("openbabel/conversion.jl")
 export ingest_xyz_system
@@ -66,8 +69,6 @@ include("exploration/methods.jl")
 include("exploration/molecule_system.jl")
 export system_from_smiles
 
-include("solving/params.jl")
-export ODESimulationParams
 include("solving/calculator.jl")
 export DummyKineticCalculator, PrecalculatedArrheniusCalculator, PrecalculatedLindemannCalculator
 export has_conditions

@@ -17,7 +17,43 @@ For compatibility, all direct profile structs must implement the following field
 * `X_max<:AbstractFloat`
 * `t_end<:AbstractFloat`
 * `tstops::Vector{<:AbstractFloat}`
+* `sol`
 """
+
+
+"""
+    solve_variable_condition!(profile<:AbstractDirectProfile, pars[, reset, solve_kwargs...])
+
+Generates a solution for the specified directly-variable condition profile.
+
+For profiles with direct functions, this requires calculating values
+for the specified `pars.tspan` and wrapping them within an `ODESolution`
+for compatibility with other interfaces (plotting, interpolation, etc.).
+"""
+function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
+    reset=false, solve_kwargs...) where {pType <: AbstractDirectProfile}
+    if isnothing(profile.sol) || reset            
+        save_interval = isnothing(pars.save_interval) ? pars.tspan[2]/1000 : pars.save_interval
+        t = create_savepoints(pars.tspan[1], pars.tspan[2], save_interval)
+        u = [[profile.f(tp)] for tp in t]
+        profile.sol = ODESolution{typeof(profile.X_start), 1}(
+            u,
+            nothing,
+            nothing,
+            t,
+            nothing,
+            nothing,
+            nothing,
+            SciMLBase.LinearInterpolation(t, u),
+            false,
+            0,
+            nothing,
+            nothing,
+            ReturnCode.Default
+        )
+    end
+    return
+end
 
 
 """
@@ -37,6 +73,7 @@ Contains fields for:
 * Maximum value of condition, provided for internal consistency (`X_max`)
 * Time to stop calculation (`t_end`)
 * Times for the ODE solver to ensure calculation at (`tstops`)
+* Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
 """
 mutable struct NullDirectProfile{uType, tType} <: AbstractDirectProfile
     f::Function
@@ -45,6 +82,7 @@ mutable struct NullDirectProfile{uType, tType} <: AbstractDirectProfile
     X_max::uType
     t_end::tType
     tstops::Vector{tType}
+    sol
 end
 
 """
@@ -65,7 +103,7 @@ function NullDirectProfile(;
 
     tstops = [t_end]
 
-    return NullDirectProfile(f, X, X, X, t_end, tstops)
+    return NullDirectProfile(f, X, X, X, t_end, tstops, nothing)
 end
 
 function create_discrete_tstops(profile::NullDirectProfile, ts_update::AbstractFloat)
@@ -89,6 +127,7 @@ Contains fields for:
 * Maximum value of condition (`X_max`)
 * Time to stop calculation (`t_end`)
 * Times for the ODE solver to ensure calculation at (`tstops`)
+* Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
 """
 mutable struct LinearDirectProfile{uType, tType} <: AbstractDirectProfile
     f::Function
@@ -99,6 +138,7 @@ mutable struct LinearDirectProfile{uType, tType} <: AbstractDirectProfile
     X_max::uType
     t_end::tType
     tstops::Vector{tType}
+    sol
 end
 
 """
@@ -116,6 +156,8 @@ function LinearDirectProfile(;
     X_end::uType
 ) where {uType <: AbstractFloat}
     t_end = (X_end - X_start)/rate
+    X_max = maximum([X_start, X_end])
+    X_min = minimum([X_start, X_end])
 
     function f(t)
         return uType(
@@ -127,7 +169,7 @@ function LinearDirectProfile(;
 
     tstops = [t_end]
 
-    return LinearDirectProfile(f, rate, X_start, X_end, X_start, X_end, t_end, tstops)
+    return LinearDirectProfile(f, rate, X_start, X_end, X_min, X_max, t_end, tstops, nothing)
 end
 
 function create_discrete_tstops(profile::LinearDirectProfile, ts_update::AbstractFloat)

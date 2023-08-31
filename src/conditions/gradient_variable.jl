@@ -12,10 +12,35 @@ For compatibility, all gradient profile structs must implement the following fie
 
 * `grad<:Function`
 * `X_start<:AbstractFloat`
+* `X_min<:AbstractFloat`
 * `X_max<:AbstractFloat`
 * `t_end<:AbstractFloat`
 * `tstops::Vector{<:AbstractFloat}`
+* `sol`
 """
+
+
+"""
+    solve_variable_condition!(profile<:AbstractGradientProfile, pars[, reset, solve_kwargs...])
+
+Generates a solution for the specified gradient-variable condition profile.
+
+For gradient-based profiles, this requires constructing an
+ODEProblem around their MTK-derived symbolic gradient expressions
+and solving over the timespan in `pars`.
+"""
+function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
+    reset=false, solve_kwargs...) where {pType <: AbstractGradientProfile}
+    if isnothing(profile.sol) || reset
+        @variables t X(t)
+        D = Differential(t)
+        @named profile_sys = ODESystem([D(X) ~ profile.grad(t)], t)
+        u0map = [Pair(X, profile.X_start)]
+        prob = ODEProblem(profile_sys, u0map, pars.tspan)
+        profile.sol = solve(prob; solve_kwargs...)
+    end
+    return
+end
 
 
 """
@@ -35,6 +60,7 @@ Contains fields for:
 * Maximum value of condition, provided for internal consistency (`X_max`)
 * Time to stop calculation (`t_end`)
 * Times for the ODE solver to ensure calculation at (`tstops`)
+* Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
 """
 mutable struct NullGradientProfile{uType, tType} <: AbstractGradientProfile
     grad::Function
@@ -43,6 +69,7 @@ mutable struct NullGradientProfile{uType, tType} <: AbstractGradientProfile
     X_max::uType
     t_end::tType
     tstops::Vector{tType}
+    sol
 end
 
 """
@@ -57,19 +84,20 @@ function NullGradientProfile(;
     X::uType,
     t_end::tType,
 ) where {uType <: AbstractFloat, tType <: AbstractFloat}
-    function Tgrad(t)
+    function grad(t)
         return 0.0
     end
 
     tstops = [t_end]
 
-    return NullGradientProfile(grad, X, X, X, t_end, tstops)
+    return NullGradientProfile(grad, X, X, X, t_end, tstops, nothing)
 end
 
 function create_discrete_tstops(profile::NullGradientProfile, ts_update::AbstractFloat)
     if ts_update > profile.t_end throw(ArgumentError("Error defining tstops, `ts_update` is too large.")) end
     profile.tstops = collect(0.0:ts_update:profile.t_end)
 end
+
 
 
 """
@@ -87,6 +115,7 @@ Contains fields for:
 * Maximum value of condition (`X_max`)
 * Time to stop calculation (`t_end`)
 * Times for the ODE solver to ensure calculation at (`tstops`)
+* Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
 """
 mutable struct LinearGradientProfile{uType, tType} <: AbstractGradientProfile
     grad::Function
@@ -97,6 +126,7 @@ mutable struct LinearGradientProfile{uType, tType} <: AbstractGradientProfile
     X_max::uType
     t_end::tType
     tstops::Vector{tType}
+    sol
 end
 
 """
@@ -114,17 +144,17 @@ function LinearGradientProfile(;
     X_end::uType
 ) where {uType <: AbstractFloat}
     t_end = (X_end - X_start)/rate
+    X_max = maximum([X_start, X_end])
+    X_min = minimum([X_start, X_end])
 
     function grad(t)
-        return uType(
-            ((t <= t_end) * rate) +
-            ((t > t_end) * 0.0)
-        )
+        return ((t <= t_end) * rate) +
+               ((t > t_end) * 0.0)
     end
 
     tstops = [t_end]
 
-    return LinearGradientProfile(grad, rate, X_start, X_end, X_start, X_end, t_end, tstops)
+    return LinearGradientProfile(grad, rate, X_start, X_end, X_min, X_max, t_end, tstops, nothing)
 end
 
 function create_discrete_tstops(profile::LinearGradientProfile, ts_update::AbstractFloat)

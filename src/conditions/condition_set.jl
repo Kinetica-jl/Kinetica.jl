@@ -85,3 +85,11 @@ function get_t_final(cs::ConditionSet)
     all_t_end = [profile.t_end for profile in cs.profiles if isvariable(profile)]
     return maximum(all_t_end)
 end
+
+function solve_variable_conditions!(cs::ConditionSet, pars::ODESimulationParams; reset=false, kwargs...)
+    for profile in cs.profiles
+        if isvariable(profile)
+            solve_variable_condition!(profile, pars; reset, kwargs...)
+        end
+    end
+end
