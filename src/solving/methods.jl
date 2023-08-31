@@ -75,19 +75,20 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData)
 end
 
 function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData, ::Val{:complete})
-    if hasfield(method.calculator, :setup_network!)
+    if hasfield(typeof(method.calculator), :setup_network!)
         @info " - Setting up network for rate calculation"
         method.calculator.setup_network!(rd, species, method.pars)
     end
 
     @info " - Calculating rate constants"
-    condition_map = [sym => profile.value for (sym, profile) in zip(method.calculator.symbols, method.calculator.profiles)]
+    condition_map = [sym => profile.value for (sym, profile) in zip(method.conditions.symbols, method.conditions.profiles)]
     rates = method.calculator(; condition_map...)
     apply_low_k_cutoff!(rd, method.pars, rates)
 
     @info " - Setting up ReactionSystem"
     @parameters k[1:rd.nr]
-    @variables t (spec(t))[1:species.n]
+    @variables t 
+    @species (spec(t))[1:species.n]
 
     u0 = make_u0(species, method.pars)
     u0map = Pair.(collect(spec), u0)
@@ -101,7 +102,7 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
     oprob = ODEProblem(rs, u0map, method.pars.tspan, pmap;
         jac=method.pars.jac, sparse=method.pars.sparse)
     solvecall_kwargs = Dict{Symbol, Any}(
-        :progress => method.opars.progress,
+        :progress => method.pars.progress,
         :progress_steps => 10,
         :abstol => method.pars.abstol,
         :reltol => method.pars.reltol,
@@ -115,25 +116,26 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
     end
 
     integ = init(oprob, method.pars.solver(; method.pars.solver_kwargs...); solvecall_kwargs...)
-    sol = adaptive_solve!(integ, method.pars, solvecall_kwargs; print_status=true)
+    adaptive_solve!(integ, method.pars, solvecall_kwargs; print_status=true)
 
-    return sol
+    return integ.sol
 end
 
 function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise})
-    if hasfield(method.calculator, :setup_network!)
+    if hasfield(typeof(method.calculator), :setup_network!)
         @info " - Setting up network for rate calculation."
         method.calculator.setup_network!(rd, species)
     end
 
     @info " - Calculating rate constants."
-    condition_map = [sym => profile.value for (sym, profile) in zip(method.calculator.symbols, method.calculator.profiles)]
+    condition_map = [sym => profile.value for (sym, profile) in zip(method.conditions.symbols, method.conditions.profiles)]
     rates = method.calculator(; condition_map...)
     apply_low_k_cutoff!(rd, method.pars, rates)
 
     @info " - Setting up ReactionSystem"
     @parameters k[1:rd.nr]
-    @variables t (spec(t))[1:species.n]
+    @variables t 
+    @species (spec(t))[1:species.n]
 
     u0 = make_u0(species, method.pars)
     u0map = Pair.(collect(spec), u0)
@@ -153,11 +155,11 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
     # Determine how many solution chunks will be required.
     n_chunks_reqd = Int(method.pars.tspan[2] / method.pars.solve_chunkstep)
     save_interval = isnothing(method.pars.save_interval) ? method.pars.solve_chunkstep : method.pars.save_interval
-    saveat_local = collect(0.0:pars.save_interval:opars.solve_chunkstep)
+    saveat_local = collect(0.0:save_interval:method.pars.solve_chunkstep)
 
     # Allocate final solution arrays.
     size_final = (length(saveat_local)-1)*n_chunks_reqd + 1
-    u_final = zeros(uType, size_final, length(u0))
+    u_final = [zeros(uType, length(u0)) for _ in 1:size_final]
     t_final = zeros(tType, size_final)
 
     # Initialise integrator.
@@ -167,7 +169,7 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
         :reltol => method.pars.reltol,
         :dtmin => eps(method.pars.solve_chunkstep),
         :maxiters => method.pars.maxiters,
-        :saveat => isnothing(method.pars.save_interval) ? eltype(method.pars.tspan)[] : method.pars.save_interval,
+        :saveat => save_interval,
         :kwargshandle => KeywordArgError
     )
     if method.pars.ban_negatives
@@ -200,15 +202,18 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
         end_idx = start_idx + length(saveat_local) - 2
 
         # If on the last loop, include final timestep.
-        umat = reduce(vcat, integ.sol.u')
         if nc == n_chunks_reqd-1
             end_idx += 1
-            u_final[start_idx:end_idx, :] = umat[:, :]
-            t_final[start_idx:end_idx] = integ.sol.t .+ (nc*method.pars.solve_chunkstep)
+            for (i, idx) in enumerate(start_idx:end_idx)
+                u_final[idx] .= integ.sol.u[i]
+            end
+            t_final[start_idx:end_idx] .= integ.sol.t .+ (nc*method.pars.solve_chunkstep)
         # Otherwise, insert all but the final saved timesteps
         else
-            u_final[start_idx:end_idx, :] = umat[1:end-1, :]
-            t_final[start_idx:end_idx] = integ.sol.t[1:end-1] .+ (nc*method.pars.solve_chunkstep)
+            for (i, idx) in enumerate(start_idx:end_idx)
+                u_final[idx] .= integ.sol.u[i]
+            end
+            t_final[start_idx:end_idx] .= integ.sol.t[1:end-1] .+ (nc*method.pars.solve_chunkstep)
         end
     end
 
@@ -219,5 +224,12 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
     end
 
     # Somehow remake a normal solution object.
+    sol = SciMLBase.build_solution(
+        oprob,
+        method.pars.solver(; method.pars.solver_kwargs...),
+        t_final,
+        u_final
+    )
 
+    return sol
 end

@@ -90,9 +90,9 @@ function make_u0(species::SpeciesData, pars::ODESimulationParams)
 
         # Create populated u0 vector.
         utype = valtype(pars.u0)
-        u0 = zeros(utype, uniq_frags.n)
+        u0 = zeros(utype, species.n)
         for id in species_ids
-            u0[id] = pars.u0[uniq_frags.toStr[id]]
+            u0[id] = pars.u0[species.toStr[id]]
         end
     end
     return u0
@@ -117,10 +117,10 @@ function make_rs(k, spec, t, rd::RxData; constraints=nothing, combinatoric_ratel
     end
 
     if isnothing(constraints)
-        @named rs = ReactionSystem(rxs, t, collect(frag), collect(k); 
+        @named rs = ReactionSystem(rxs, t, collect(spec), collect(k); 
                                    combinatoric_ratelaws=combinatoric_ratelaws)
     else
-        @named rs = ReactionSystem(rxs, t, collect(frag), collect(k); 
+        @named rs = ReactionSystem(rxs, t, collect(spec), collect(k); 
                                    combinatoric_ratelaws=combinatoric_ratelaws, 
                                    checks=false, systems=[constraints])
     end
@@ -174,6 +174,5 @@ function adaptive_solve!(integrator, pars::ODESimulationParams, solvecall_kwargs
                 reinit!(integrator)
             end
         end
-        lwrite()
     end
 end

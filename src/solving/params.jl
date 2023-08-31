@@ -30,7 +30,7 @@ Contains fields for:
     u0::Union{Dict{String, uType}, Vector{uType}}
 
     # Solver parameters
-    solver::Union{DiffEqBase.AbstractODEAlgorithm, Symbol}
+    solver
     jac::Bool=true
     sparse::Bool=true
     abstol::uType = 1.0e-10
@@ -39,7 +39,7 @@ Contains fields for:
     update_tols::Bool = false
     solve_chunks::Bool = true
     solve_chunkstep::tType = 1e-3
-    maxiters::Int64 = 1e5
+    maxiters::Integer = 100000
     ban_negatives::Bool = false
     solver_kwargs::Dict{Symbol, Any} = Dict{Symbol, Any}()
     progress::Bool = false
