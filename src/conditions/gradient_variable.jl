@@ -12,8 +12,6 @@ For compatibility, all gradient profile structs must implement the following fie
 
 * `grad<:Function`
 * `X_start<:AbstractFloat`
-* `X_min<:AbstractFloat`
-* `X_max<:AbstractFloat`
 * `t_end<:AbstractFloat`
 * `tstops::Vector{<:AbstractFloat}`
 * `sol`
@@ -56,8 +54,6 @@ regular `ODESolve` should always be used instead of an
 Contains fields for:
 * Condition gradient function (`grad`)
 * Initial value of condition (`X_start`)
-* Minimum value of condition (`X_min`)
-* Maximum value of condition, provided for internal consistency (`X_max`)
 * Time to stop calculation (`t_end`)
 * Times for the ODE solver to ensure calculation at (`tstops`)
 * Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
@@ -65,8 +61,6 @@ Contains fields for:
 mutable struct NullGradientProfile{uType, tType} <: AbstractGradientProfile
     grad::Function
     X_start::uType
-    X_min::uType
-    X_max::uType
     t_end::tType
     tstops::Vector{tType}
     sol
@@ -90,7 +84,7 @@ function NullGradientProfile(;
 
     tstops = [t_end]
 
-    return NullGradientProfile(grad, X, X, X, t_end, tstops, nothing)
+    return NullGradientProfile(grad, X, t_end, tstops, nothing)
 end
 
 function create_discrete_tstops(profile::NullGradientProfile, ts_update::AbstractFloat)
@@ -111,8 +105,6 @@ Contains fields for:
 * Rate of change of condition (`rate`)
 * Initial value of condition (`X_start`)
 * Final value of condition (`X_end`)
-* Minimum value of condition (`X_min`)
-* Maximum value of condition (`X_max`)
 * Time to stop calculation (`t_end`)
 * Times for the ODE solver to ensure calculation at (`tstops`)
 * Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
@@ -122,8 +114,6 @@ mutable struct LinearGradientProfile{uType, tType} <: AbstractGradientProfile
     rate::uType
     X_start::uType
     X_end::uType
-    X_min::uType
-    X_max::uType
     t_end::tType
     tstops::Vector{tType}
     sol
@@ -144,8 +134,6 @@ function LinearGradientProfile(;
     X_end::uType
 ) where {uType <: AbstractFloat}
     t_end = (X_end - X_start)/rate
-    X_max = maximum([X_start, X_end])
-    X_min = minimum([X_start, X_end])
 
     function grad(t)
         return ((t <= t_end) * rate) +
@@ -154,7 +142,7 @@ function LinearGradientProfile(;
 
     tstops = [t_end]
 
-    return LinearGradientProfile(grad, rate, X_start, X_end, X_min, X_max, t_end, tstops, nothing)
+    return LinearGradientProfile(grad, rate, X_start, X_end, t_end, tstops, nothing)
 end
 
 function create_discrete_tstops(profile::LinearGradientProfile, ts_update::AbstractFloat)
