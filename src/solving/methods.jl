@@ -50,6 +50,8 @@ struct VariableODESolve <: AbstractODESolveMethod
     function VariableODESolve(pars, conditions, calculator)
         if !has_conditions(calculator, conditions.symbols)
             throw(ArgumentError("Calculator does not support all of the provided conditions."))
+        elseif !conditions.discrete_updates && !allows_continuous(calculator)
+            throw(ArgumentError("Calculator does not support continuous rate updates in simulations."))
         else
             return new(pars, conditions, calculator)
         end
@@ -106,7 +108,7 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
         :progress_steps => 10,
         :abstol => method.pars.abstol,
         :reltol => method.pars.reltol,
-        :dtmin => eps(eltype(method.pars.tspan)),
+        :dtmin => eps(method.pars.tspan[end]),
         :maxiters => method.pars.maxiters,
         :saveat => isnothing(method.pars.save_interval) ? eltype(method.pars.tspan)[] : method.pars.save_interval,
         :kwargshandle => KeywordArgError
@@ -223,13 +225,138 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
         end 
     end
 
-    # Somehow remake a normal solution object.
     sol = SciMLBase.build_solution(
         oprob,
         method.pars.solver(; method.pars.solver_kwargs...),
         t_final,
         u_final
     )
-
     return sol
+end
+
+
+"""
+    sol = solve_network(method::VariableODESolve, rd, species)
+
+Solve a network with variable kinetics.
+
+Automatically dispatches to the correct method based
+on the value of `method.pars.solve_chunks`, as chunkwise
+solution requires a significantly different approach.
+"""
+function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData)
+    split_method = method.pars.solve_chunks ? :chunkwise : :complete
+    update_method = method.conditions.discrete_updates ? :discrete : :continuous
+    sol = solve_network(method, rd, species, Val(split_method), Val(update_method))
+    return sol
+end
+
+function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:complete}, ::Val{:continuous})
+    if hasfield(typeof(method.calculator), :setup_network!)
+        @info " - Setting up network for rate calculation."
+        method.calculator.setup_network!(rd, species)
+    end
+
+    @info "Calculating variable condition profiles."
+    flush_log()
+    solve_variable_conditions!(method.conditions, method.pars)
+    n_static_conditions = count(isstatic.(method.conditions.profiles))
+    n_variable_conditions = count(isvariable.(method.conditions.profiles))
+    variable_condition_symbols = [sym for sym in method.conditions.symbols if isvariable(method.conditions, sym)]
+
+    @info " - Calculating maximum rate constants."
+    flush_log()
+    max_rates = get_max_rates(method.conditions, method.calculator)
+    apply_low_k_cutoff!(rd, method.pars, max_rates)
+
+    @info " - Setting up ReactionSystem"
+    flush_log()
+    @variables t 
+    @species (spec(t))[1:species.n]
+    @variables (k(t))[1:rd.nr]
+    @variables (vc(t)[1:n_variable_conditions])
+
+    u0 = make_u0(species, method.pars)
+    u0map = Pair.(collect(spec), u0)
+    initial_conditions = get_initial_conditions(method.conditions)
+    kmap = Pair.(collect(k), method.calculator(; initial_conditions...))
+    vcmap = Pair.(collect(vc), [p.second for p in initial_conditions])
+    u0map = vcat(u0map, kmap, vcmap)
+
+    vc_symmap = Dict(sym => num for (sym, num) in zip(variable_condition_symbols, collect(vc)))
+
+    # Form constraint system.
+    D = Differential(t)
+    direct_profiles = []
+    gradient_profiles = []
+    gradient_profile_symbols = Symbol[]
+    for sym in keys(vc_symmap)
+        prof = get_profile(method.conditions, sym)
+        if isdirectprofile(prof)
+            push!(direct_profiles, vc_symmap[sym] ~ prof.f(t))
+        elseif isgradientprofile(prof)
+            push!(gradient_profiles, D(vc_symmap[sym]) ~ prof.grad(t))
+            push!(gradient_profile_symbols, sym)
+        else
+            throw(ErrorException("Undefined condition profile type. Something is very wrong..."))
+        end
+    end
+    bound_conditions = vcat(
+        [Pair(sym, vc_symmap[sym]) for sym in keys(vc_symmap)], 
+        get_static_conditions(method.conditions)
+    )
+    
+    @named rate_sys = ODESystem(
+        reduce(vcat, [
+            direct_profiles, 
+            gradient_profiles, 
+            k .~ method.calculator(; bound_conditions...)
+        ]), t
+    )
+    @info "   - Created constraint system for variable conditions."
+    flush_log()
+
+    rs = make_rs(k, spec, t, rd)
+    @named rs_constrained = extend(rate_sys, rs)
+    @info "   - Merged ReactionSystem with constraints."
+    @info "   - Creating ODESystem."
+    flush_log()
+    osys = structural_simplify(convert(ODESystem, rs_constrained))
+
+    @info " - Formulating ODEProblem"
+    @info "   - Sparse? $(method.pars.sparse)"
+    @info "   - Analytic Jacobian? $(method.pars.jac)"
+    flush_log()
+    oprob = ODEProblem(osys, u0map, method.pars.tspan;
+        jac=method.pars.jac, sparse=method.pars.sparse)
+    solvecall_kwargs = Dict{Symbol, Any}(
+        :progress => method.pars.progress,
+        :progress_steps => 10,
+        :abstol => method.pars.abstol,
+        :reltol => method.pars.reltol,
+        :dtmin => eps(method.pars.tspan[end]),
+        :maxiters => method.pars.maxiters,
+        :saveat => isnothing(method.pars.save_interval) ? eltype(method.pars.tspan)[] : method.pars.save_interval,
+        :kwargshandle => KeywordArgError
+    )
+    if method.pars.ban_negatives
+        solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
+    end
+
+    integ = init(oprob, method.pars.solver(; method.pars.solver_kwargs...); solvecall_kwargs...)
+    adaptive_solve!(integ, method.pars, solvecall_kwargs; print_status=true)
+
+    return rebuild_vc_solution(integ.sol, gradient_profile_symbols)
+end
+
+function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise}, ::Val{:continuous})
+    
+end
+
+function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:complete}, ::Val{:discrete})
+    
+end
+
+function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise}, ::Val{:discrete})
+    
 end

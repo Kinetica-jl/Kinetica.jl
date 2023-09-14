@@ -1,4 +1,56 @@
 """
+    max_rates = get_max_rates(conditions, calculator)
+
+Calculates the maximum rate constants for reactions under variable conditions.
+
+Since rate expressions with arbitrary parameters can yield maximum
+rate constants either when individual conditions are at their maxima,
+at their minima, or a combination of both, all permutations of
+minimum and maximum conditions must be explored to find the maximum
+rate constants for a given simulation.
+
+After determining which conditions are variable, constructs all
+possible permutations of minimum/maximum variable conditions by
+means of binary enumeration. Calculates all permutations of rate
+constants by running condition permutations through `calculator`,
+then selects the permutation with the greatest average rate as
+the maximum rates.
+"""
+function get_max_rates(conditions::ConditionSet, calculator::AbstractKineticCalculator)
+    static_condition_map = []
+    minmax_variable_condition_map = []
+    n_conditions = length(conditions.symbols)
+    for i in 1:n_conditions
+        if isstatic(conditions.profiles[i])
+            push!(static_condition_map, Pair(conditions.symbols[i], conditions.profiles[i].value))
+        else
+            push!(minmax_variable_condition_map, [
+                Pair(conditions.symbols[i], minimum(conditions.profiles[i])),
+                Pair(conditions.symbols[i], maximum(conditions.profiles[i]))]
+            )
+        end
+    end
+    n_variable_conditions = length(minmax_variable_condition_map)
+    max_rate_condition_sets = []
+    max_rate_condition_permutations = lpad.(string.(0:(2^n_variable_conditions)-1, base=2), n_variable_conditions, '0')
+    for perm in max_rate_condition_permutations
+        mrcs = []
+        for (cond, sd) in enumerate(perm)
+            d = parse(Int, sd)+1
+            push!(mrcs, minmax_variable_condition_map[cond][d])
+        end
+        mrcs = vcat(mrcs, static_condition_map)
+        push!(max_rate_condition_sets, mrcs)
+    end
+
+    max_rate_permutations = [calculator(; cset...) for cset in max_rate_condition_sets]
+    max_rates = max_rate_permutations[findmax([mean(perm) for perm in max_rate_permutations])[2]]
+
+    return max_rates
+end
+
+
+"""
     n_removed = apply_low_k_cutoff!(rd, pars, rates, cutoff)
 
 Removes low-rate reactions from `rd` according to the cutoff in `pars.low_k_cutoff`.
@@ -100,14 +152,14 @@ end
 
 
 """
-    make_rs(k, spec, t, rd[, constraints, combinatoric_ratelaws])
+    make_rs(k, spec, t, rd[, combinatoric_ratelaws])
 
 Makes a Catalyst ReactionSystem from all currently implemented reactions.
 
 Should always be preceded by a call to `@parameters` to refresh `k` and
 a call to `@variables` to refresh `species` and `t`.
 """
-function make_rs(k, spec, t, rd::RxData; constraints=nothing, combinatoric_ratelaws=false)
+function make_rs(k, spec, t, rd::RxData; combinatoric_ratelaws=false)
     rxs = []
     for i in 1:rd.nr
         sr = rd.stoic_reacs[i]
@@ -116,14 +168,7 @@ function make_rs(k, spec, t, rd::RxData; constraints=nothing, combinatoric_ratel
         push!(rxs, rx)
     end
 
-    if isnothing(constraints)
-        @named rs = ReactionSystem(rxs, t, collect(spec), collect(k); 
-                                   combinatoric_ratelaws=combinatoric_ratelaws)
-    else
-        @named rs = ReactionSystem(rxs, t, collect(spec), collect(k); 
-                                   combinatoric_ratelaws=combinatoric_ratelaws, 
-                                   checks=false, systems=[constraints])
-    end
+    @named rs = ReactionSystem(rxs, t; combinatoric_ratelaws=combinatoric_ratelaws)
     
     return rs
 end

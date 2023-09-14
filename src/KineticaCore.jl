@@ -5,6 +5,7 @@ using Dates
 using Catalyst
 using DifferentialEquations
 using LinearAlgebra
+using Statistics
 using DelimitedFiles
 using DataStructures
 using ExtXYZ
@@ -39,7 +40,7 @@ include("solving/params.jl")
 export ODESimulationParams
 
 include("conditions/abstract_profiles.jl")
-export isstatic, isvariable
+export isstatic, isvariable, minimum, maximum
 include("conditions/static.jl")
 include("conditions/direct_variable.jl")
 export NullDirectProfile, LinearDirectProfile
@@ -48,7 +49,7 @@ export NullGradientProfile, LinearGradientProfile
 include("conditions/condition_set.jl")
 export ConditionSet, isstatic, isvariable
 export get_profile, get_tstops, get_t_final
-export solve_variable_conditions!
+export register_direct_conditions, solve_variable_conditions!
 
 include("openbabel/conversion.jl")
 export ingest_xyz_system
@@ -71,8 +72,9 @@ export system_from_smiles
 
 include("solving/calculator.jl")
 export DummyKineticCalculator, PrecalculatedArrheniusCalculator, PrecalculatedLindemannCalculator
-export has_conditions
+export allows_continuous, has_conditions
 include("solving/solve_utils.jl")
+include("solving/solutions.jl")
 include("solving/methods.jl")
 export StaticODESolve, VariableODESolve
 export solve_network
