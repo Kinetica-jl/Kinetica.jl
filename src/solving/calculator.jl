@@ -1,5 +1,20 @@
 abstract type AbstractKineticCalculator end
 
+"""
+    allows_continuous(calculator)
+
+Indicates whether a `calculator` is allowed to function in continuous variable rate constant simulations.
+
+Should only ever return `true` for calculators with analytic
+expressions for rate constants, as only these can be encoded
+within Symbolics and MTK.
+
+Calculators relying on external function calls should therefore
+return `false`, as these calls cannot be encoded. These calculators
+will only be functional for discrete rate constant update simulations.
+"""
+function allows_continuous end
+
 
 """
 Placeholder kinetic calculator.
@@ -82,6 +97,8 @@ function has_conditions(::DummyKineticCalculator, symbols::Vector{Symbol})
     return all([sym in [:T, :V] for sym in symbols])
 end
 
+allows_continuous(::DummyKineticCalculator) = true
+
 
 """
 Arrhenius theory kinetic calculator for precalculated reactions.
@@ -117,8 +134,8 @@ Outer constructor method for Arrhenius theory kinetic calculator.
 """
 function PrecalculatedArrheniusCalculator(rd::RxData, Ea::Vector{uType}, A::Vector{uType}; 
         k_max::Union{Nothing, uType}=nothing, t_unit::String="s") where {uType <: AbstractFloat}
-    if length(rates) != rd.nr
-        throw(ArgumentError("Number of rates ($(length(rates))) does not match number of reactions in `RxData` ($(rd.nr))"))
+    if length(Ea) != rd.nr || length(A) != rd.nr
+        throw(ArgumentError("Number of parameters (Ea: $(length(Ea)), A: $(length(A))) does not match number of reactions in `RxData` ($(rd.nr))"))
     end
     t_mult = tconvert(t_unit, "s")
     return PrecalculatedArrheniusCalculator(Ea, A, k_max, t_unit, t_mult)
@@ -157,6 +174,7 @@ function has_conditions(::PrecalculatedArrheniusCalculator, symbols::Vector{Symb
     return all([sym in [:T] for sym in symbols])
 end
 
+allows_continuous(::PrecalculatedArrheniusCalculator) = true
 
 """
 Pressure-dependent Arrhenius theory kinetic calculator for precalculated reactions.
@@ -226,3 +244,5 @@ end
 function has_conditions(::PrecalculatedLindemannCalculator, symbols::Vector{Symbol})
     return all([sym in [:T, :P] for sym in symbols])
 end
+
+allows_continuous(::PrecalculatedLindemannCalculator) = true
