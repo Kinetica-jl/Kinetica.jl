@@ -35,8 +35,8 @@ end
 
 Flushes the `IOStream` attached to the `logger`.
 """
-function flush(logger::AbstractLogger)
-    flush(logger.stream)
+function Base.flush(logger::AbstractLogger)
+    Base.flush(logger.stream)
 end
 
 """
@@ -45,7 +45,7 @@ end
 Flushes the `IOStream` attached to the currently scoped logger.
 """
 function flush_log()
-    flush(current_logger().stream)
+    Base.flush(current_logger().stream)
 end
 
 """
