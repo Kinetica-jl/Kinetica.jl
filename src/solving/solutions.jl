@@ -26,6 +26,53 @@ function ODESolutionVC{T, N}(u, u_analytic, vcs, errors, t, k, prob, alg, interp
 end
 
 
+function build_vc_solution(prob::SciMLBase.AbstractODEProblem,
+    alg, t, u::Vector{Vector{T}}, vcs::Dict{Symbol, Vector{T}};
+    dense = false,
+    k = nothing,
+    alg_choice = nothing,
+    interp = SciMLBase.LinearInterpolation(t, u),
+    retcode = ReturnCode.Default, destats = missing, stats = nothing,
+    kwargs...) where {T}
+
+    if prob.u0 === nothing
+        N = 2
+    else
+        N = length((size(prob.u0)..., length(u)))
+    end
+
+    if typeof(prob.f) <: Tuple
+        f = prob.f[1]
+    else
+        f = prob.f
+    end
+
+    if !ismissing(destats)
+        msg = "`destats` kwarg has been deprecated in favor of `stats`"
+        if stats !== nothing
+            msg *= " `stats` kwarg is also provided, ignoring `destats` kwarg."
+        else
+            stats = destats
+        end
+        Base.depwarn(msg, :build_solution)
+    end
+
+    return ODESolutionVC{T, N}(u,
+        nothing,
+        vcs,
+        nothing,
+        t, k,
+        prob,
+        alg,
+        interp,
+        dense,
+        0,
+        stats,
+        alg_choice,
+        retcode)
+end
+
+
 function rebuild_vc_solution(sol::ODESolution, vc_symbols::Vector{Symbol})
     sol_params = typeof(sol).parameters
     T = sol_params[1]
