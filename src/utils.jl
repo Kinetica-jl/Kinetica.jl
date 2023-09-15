@@ -121,3 +121,32 @@ end
 Overload of `Base.trunc` to allow for truncation of explicitly typed Real numbers.
 """
 trunc(::Type{T}, x::T) where T<:Real = trunc(x)
+
+
+"""
+    DummyODEFunction{true}([syms])
+
+Fake `ODEFunction` for use in `DummyODEProblem`.
+"""
+struct DummyODEFunction{iip} <: SciMLBase.AbstractSciMLFunction{iip} 
+    syms
+end
+
+"""
+    DummyODEProblem()
+
+Fake `ODEProblem` implementing blank `p` and `f` fields.
+
+Needed within 'fake' `ODESolution`s for interpolation and plotting.
+
+Symbolic names can be passed to the variables in the surrounding
+`ODESolution` through the `syms` argument.
+"""
+struct DummyODEProblem
+    p
+    f
+end
+function DummyODEProblem(syms=nothing)
+    return DummyODEProblem(nothing, DummyODEFunction{true}(syms))
+end
+
