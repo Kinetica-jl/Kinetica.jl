@@ -17,7 +17,6 @@ Contains fields for:
 * Global timestep at which solution should be reinitialised when `solve_chunks=true` (`solve_chunkstep=1e-3`)
 * Maximum number of ODE solver iterations (`maxiters=1e5`)
 * Whether to explicitly disallow negative values in the solver (`ban_negatives=false`)
-* Keyword arguments to be passed to the solver (`solver_kwargs=Dict()`)
 * Whether to display progress bars - requires `TerminalLogger` initialisation (`progress=false`)
 * Time interval to interpolate solution data on (`save_interval=nothing`)
 * Inert species to add to the network (`inert_species=nothing`)
@@ -41,7 +40,6 @@ Contains fields for:
     solve_chunkstep::tType = 1e-3
     maxiters::Integer = 100000
     ban_negatives::Bool = false
-    solver_kwargs::Dict{Symbol, Any} = Dict{Symbol, Any}()
     progress::Bool = false
 
     # Optional network parameters
