@@ -107,3 +107,20 @@ function rebuild_vc_solution(sol::ODESolution, vc_symbols::Vector{Symbol})
         sol.retcode
     )
 end
+
+
+function build_discrete_rate_solution(sol::ODESolution{T, N}, k::ODESolution{T, N}) where {T, N}
+    ODESolution{T, N}(sol.u,
+        sol.u_analytic,
+        sol.errors,
+        sol.t,
+        k,
+        sol.prob,
+        sol.alg,
+        sol.interp,
+        sol.dense,
+        sol.tslocation,
+        sol.stats,
+        sol.alg_choice,
+        sol.retcode)
+end

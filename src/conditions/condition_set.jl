@@ -153,6 +153,22 @@ end
 
 
 """
+    variable_conditions = get_variable_conditions(conditions)
+
+Extracts `ODESolution`s of variable conditions from ConditionSet.
+"""
+function get_variable_conditions(conditions::ConditionSet)
+    vcs = []
+    for (sym, prof) in zip(conditions.symbols, conditions.profiles)
+        if isvariable(prof)
+            push!(vcs, Pair(sym, prof.sol))
+        end
+    end
+    return vcs
+end
+
+
+"""
     tstops = get_tstops(cs)
 
 Retrieves a sorted array of unique time stops from all condition profiles in `cs`.
@@ -197,7 +213,7 @@ adding runtime-generated functions to the computation graph.
 function register_direct_conditions(cs::ConditionSet)
     for sym in cs.symbols
         profile = get_profile(cs, sym)
-        if KineticaCore.isdirectprofile(profile)
+        if isvariable(profile) && isdirectprofile(profile)
             eval(:(@register_symbolic($profile.f(t))))
         end
     end

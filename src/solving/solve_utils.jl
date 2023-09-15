@@ -51,6 +51,67 @@ end
 
 
 """
+    initial_rates = get_initial_rates(conditions, calculator)
+
+Calculate initial rate constants for a variable condition simulation.
+"""
+function get_initial_rates(conditions::ConditionSet, calculator::AbstractKineticCalculator)
+    bound_conditions = []
+    for (sym, profile) in zip(conditions.symbols, conditions.profiles)
+        if isstatic(profile)
+            push!(bound_conditions, Pair(sym, profile.value))
+        else
+            push!(bound_conditions, Pair(sym, profile.X_start))
+        end
+    end
+    initial_rates = calculator(; bound_conditions...)
+    return initial_rates    
+end
+
+
+"""
+    k = calculate_discrete_rates(conditions, calculator, nr[, uType])
+
+Calculates rate constants over a set of variable conditions.
+
+Returns a 
+"""
+function calculate_discrete_rates(conditions::ConditionSet, calculator::AbstractKineticCalculator, nr::Int; uType=Float64)
+    if !conditions.discrete_updates
+        throw(ErrorException("Cannot calculate discrete rates for a continuous ConditionSet."))
+    end
+
+    tstops = get_tstops(conditions)
+    scs = get_static_conditions(conditions)
+    vcs = get_variable_conditions(conditions)
+    k_precalc = [zeros(uType, nr) for _ in tstops]
+    for (i, tstop) in enumerate(tstops)
+        bound_conditions = vcat(
+            scs,
+            [Pair(vpair.first, vpair.second(tstop)[1]) for vpair in vcs]
+        )
+        k_precalc[i] = calculator(; bound_conditions...)
+    end
+
+    return ODESolution{uType, 2}(
+        k_precalc,
+        nothing,
+        nothing,
+        tstops,
+        nothing,
+        DummyODEProblem([Symbol("k$i") for i in 1:nr]),
+        nothing,
+        SciMLBase.LinearInterpolation(tstops, k_precalc),
+        false,
+        0,
+        nothing,
+        nothing,
+        ReturnCode.Default
+    )
+end
+
+
+"""
     n_removed = apply_low_k_cutoff!(rd, pars, rates, cutoff)
 
 Removes low-rate reactions from `rd` according to the cutoff in `pars.low_k_cutoff`.
@@ -220,4 +281,69 @@ function adaptive_solve!(integrator, pars::ODESimulationParams, solvecall_kwargs
             end
         end
     end
+end
+
+
+"""
+    affect! = CompleteRateUpdateAffect(k_precalc)
+
+Condition function for discrete rate update callback in complete timescale simulations.
+
+For efficiency, and to avoid errors due to FP imprecision,
+keeps track of the number of time stops it has made and
+indexes precalculated rate constants with this, rather than
+trying to index based on the current time.
+
+NOTE: This may be a poor way of implementing this, as it is
+incompatible with other callbacks in the same simulation. If
+this is required, a multidimensional linear interpolator for
+the rate constants may be necessary to deal with arbitrary
+time stops.
+"""
+mutable struct CompleteRateUpdateAffect
+    k_precalc::SciMLBase.AbstractODESolution
+end
+CompleteRateUpdateAffect(k_precalc) = return CompleteRateUpdateAffect(k_precalc, 1)
+function (self::CompleteRateUpdateAffect)(integrator)
+    integrator.p = self.k_precalc(integrator.t)
+end
+
+
+"""
+    condition = ChunkwiseRateUpdateCondition(tstops_local)
+
+Condition function for discrete rate update callback in chunkwise simulations.
+
+Fires when local solver time is an element of `tstops_local`,
+an array of timestops also on this local timescale.
+
+In cases where ``τ_{update} > t_{loop}`` this may be empty, in 
+which case the rate is not updated within this local loop.
+"""
+mutable struct ChunkwiseRateUpdateCondition
+    tstops_local::Vector{Float64}
+end
+function (self::ChunkwiseRateUpdateCondition)(u, t, integrator)
+    t ∈ self.tstops_local
+end
+
+
+"""
+    affect! = ChunkwiseRateUpdateAffect(t_loop, n_loops)
+
+Affect! function for discrete rate update callback in chunkwise simulations.
+
+Fires on request of a `ChunkwiseRateUpdateCondition`. Calculates 
+global simulation time using `t_chunk` and `n_chunks`, then 
+updates rate constants using conditions interpolated from their
+solutions on the global timescale.
+"""
+mutable struct ChunkwiseRateUpdateAffect{tType}
+    t_chunk::tType
+    n_chunks::Int
+    k_precalc::AbstractDiffEqArray
+end
+function (self::ChunkwiseRateUpdateAffect)(integrator)
+    t = integrator.t + (self.n_chunks*self.t_chunk)
+    integrator.p = self.k_precalc(t)
 end

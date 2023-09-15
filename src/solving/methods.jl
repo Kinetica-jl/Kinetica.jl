@@ -117,7 +117,7 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
         solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
     end
 
-    integ = init(oprob, method.pars.solver(; method.pars.solver_kwargs...); solvecall_kwargs...)
+    integ = init(oprob, method.pars.solver; solvecall_kwargs...)
     adaptive_solve!(integ, method.pars, solvecall_kwargs; print_status=true)
 
     return integ.sol
@@ -177,7 +177,7 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
     if method.pars.ban_negatives
         solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
     end
-    integ = init(oprob, method.pars.solver(; method.pars.solver_kwargs...); solvecall_kwargs...)
+    integ = init(oprob, method.pars.solver; solvecall_kwargs...)
 
     # Set up progress bar (if required).
     if method.pars.progress
@@ -227,7 +227,7 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
 
     sol = SciMLBase.build_solution(
         oprob,
-        method.pars.solver(; method.pars.solver_kwargs...),
+        method.pars.solver,
         t_final,
         u_final
     )
@@ -250,6 +250,7 @@ function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesDat
     sol = solve_network(method, rd, species, Val(split_method), Val(update_method))
     return sol
 end
+
 
 function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:complete}, ::Val{:continuous})
     if hasfield(typeof(method.calculator), :setup_network!)
@@ -342,11 +343,12 @@ function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesDat
         solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
     end
 
-    integ = init(oprob, method.pars.solver(; method.pars.solver_kwargs...); solvecall_kwargs...)
+    integ = init(oprob, method.pars.solver; solvecall_kwargs...)
     adaptive_solve!(integ, method.pars, solvecall_kwargs; print_status=true)
 
     return rebuild_vc_solution(integ.sol, gradient_profile_symbols)
 end
+
 
 function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise}, ::Val{:continuous})
     if hasfield(typeof(method.calculator), :setup_network!)
@@ -455,7 +457,7 @@ function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesDat
     if method.pars.ban_negatives
         solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
     end
-    integ = init(oprob, method.pars.solver(; method.pars.solver_kwargs...); solvecall_kwargs...)
+    integ = init(oprob, method.pars.solver; solvecall_kwargs...)
 
     # Set up progress bar (if required).
     if method.pars.progress
@@ -522,7 +524,7 @@ function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesDat
 
     sol = build_vc_solution(
         oprob,
-        method.pars.solver(; method.pars.solver_kwargs...),
+        method.pars.solver,
         t_final,
         u_final,
         vc_final
@@ -531,9 +533,204 @@ function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesDat
 end
 
 function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:complete}, ::Val{:discrete})
-    
+    if hasfield(typeof(method.calculator), :setup_network!)
+        @info " - Setting up network for rate calculation."
+        method.calculator.setup_network!(rd, species)
+    end
+
+    @info "Calculating variable condition profiles."
+    flush_log()
+    solve_variable_conditions!(method.conditions, method.pars)
+
+    @info " - Calculating maximum rate constants."
+    flush_log()
+    max_rates = get_max_rates(method.conditions, method.calculator)
+    apply_low_k_cutoff!(rd, method.pars, max_rates)
+
+    @info " - Setting up ReactionSystem"
+    @parameters k[1:rd.nr]
+    @variables t 
+    @species (spec(t))[1:species.n]
+
+    u0 = make_u0(species, method.pars)
+    u0map = Pair.(collect(spec), u0)
+    pmap = Pair.(collect(k), method.calculator(; get_initial_conditions(method.conditions)...))
+
+    rs = make_rs(k, spec, t, rd)
+    @info " - Created ReactionSystem"
+
+    @info " - Pre-calculating rate constants at discrete time intervals."
+    tstops = get_tstops(method.conditions)
+    k_precalc = calculate_discrete_rates(method.conditions, method.calculator, rd.nr; uType=eltype(u0))
+    affect! = CompleteRateUpdateAffect(k_precalc)
+    cb = PresetTimeCallback(tstops, affect!; save_positions=(false, false))
+    @info " - Created discrete rate constant update callback."
+
+    @info " - Formulating ODEProblem"
+    @info "   - Sparse? $(method.pars.sparse)"
+    @info "   - Analytic Jacobian? $(method.pars.jac)"
+    oprob = ODEProblem(rs, u0map, method.pars.tspan, pmap;
+        jac=method.pars.jac, sparse=method.pars.sparse)
+    solvecall_kwargs = Dict{Symbol, Any}(
+        :callback => cb,
+        :progress => method.pars.progress,
+        :progress_steps => 10,
+        :abstol => method.pars.abstol,
+        :reltol => method.pars.reltol,
+        :dtmin => eps(method.pars.tspan[end]),
+        :maxiters => method.pars.maxiters,
+        :saveat => isnothing(method.pars.save_interval) ? eltype(method.pars.tspan)[] : method.pars.save_interval,
+        :kwargshandle => KeywordArgError
+    )
+    if method.pars.ban_negatives
+        solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
+    end
+
+    integ = init(oprob, method.pars.solver; solvecall_kwargs...)
+    adaptive_solve!(integ, method.pars, solvecall_kwargs; print_status=true)
+
+    return build_discrete_rate_solution(integ.sol, k_precalc)
 end
 
+
 function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise}, ::Val{:discrete})
-    
+    if hasfield(typeof(method.calculator), :setup_network!)
+        @info " - Setting up network for rate calculation."
+        method.calculator.setup_network!(rd, species)
+    end
+
+    @info "Calculating variable condition profiles."
+    flush_log()
+    solve_variable_conditions!(method.conditions, method.pars)
+
+    @info " - Calculating maximum rate constants."
+    flush_log()
+    max_rates = get_max_rates(method.conditions, method.calculator)
+    apply_low_k_cutoff!(rd, method.pars, max_rates)
+
+    @info " - Setting up ReactionSystem"
+    flush_log()
+    @parameters k[1:rd.nr]
+    @variables t 
+    @species (spec(t))[1:species.n]
+
+    u0 = make_u0(species, method.pars)
+    u0map = Pair.(collect(spec), u0)
+    pmap = Pair.(collect(k), method.calculator(; get_initial_conditions(method.conditions)...))
+
+    rs = make_rs(k, spec, t, rd)
+    @info " - Created ReactionSystem"
+    flush_log()
+
+    tType = eltype(method.pars.tspan)
+    uType = eltype(u0)
+    @info " - Pre-calculating rate constants at discrete time intervals."
+    flush_log()
+    k_precalc = calculate_discrete_rates(method.conditions, method.calculator, rd.nr; uType=uType)
+    condition = ChunkwiseRateUpdateCondition(tType[])
+    affect! = ChunkwiseRateUpdateAffect(method.pars.solve_chunkstep, 0, k_precalc)
+    cb = DiscreteCallback(condition, affect!; save_positions=(false, false))
+    @info " - Created callback for discrete rate constant updates."
+
+    @info " - Formulating ODEProblem"
+    @info "   - Sparse? $(method.pars.sparse)"
+    @info "   - Analytic Jacobian? $(method.pars.jac)"
+    flush_log()
+    local_tspan = (0.0, method.pars.solve_chunkstep)
+    global_tstops = get_tstops(method.conditions)
+    oprob = ODEProblem(rs, u0map, local_tspan, pmap;
+        jac=method.pars.jac, sparse=method.pars.sparse)
+
+    # Determine how many solution chunks will be required.
+    n_chunks_reqd = Int(method.pars.tspan[2] / method.pars.solve_chunkstep)
+    save_interval = isnothing(method.pars.save_interval) ? method.pars.solve_chunkstep : method.pars.save_interval
+    saveat_local = collect(0.0:save_interval:method.pars.solve_chunkstep)
+
+    # Allocate final solution arrays.
+    size_final = (length(saveat_local)-1)*n_chunks_reqd + 1
+    u_final = [zeros(uType, length(u0)) for _ in 1:size_final]
+    t_final = zeros(tType, size_final)
+
+    solvecall_kwargs = Dict{Symbol, Any}(
+        :callback => cb,
+        :progress => false,
+        :abstol => method.pars.abstol,
+        :reltol => method.pars.reltol,
+        :dtmin => eps(method.pars.solve_chunkstep),
+        :maxiters => method.pars.maxiters,
+        :saveat => saveat_local,
+        :kwargshandle => KeywordArgError
+    )
+    if method.pars.ban_negatives
+        solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
+    end
+    integ = init(oprob, method.pars.solver; solvecall_kwargs...)
+
+    # Set up progress bar (if required).
+    if method.pars.progress
+        pbar_sid = uuid4()
+        with_global_logger() do
+            @info Progress(pbar_sid, name="Chunkwise ODE")
+        end
+    end
+
+    # Loop over the solution chunks needed to generate the full solution.
+    for nc in 0:n_chunks_reqd-1
+        # Calculate which timestops need to be accounted for in this loop.
+        t_start_global = method.pars.solve_chunkstep * (nc+1)
+        t_end_global = t_start_global + method.pars.solve_chunkstep
+        tstops_local = [tg - (nc*method.pars.solve_chunkstep) for tg in global_tstops if (tg >= t_start_global && tg < t_end_global)]
+        # If the final loop, add a final tstop.
+        if nc == n_chunks_reqd-1
+            push!(tstops_local, method.pars.solve_chunkstep)
+        end
+
+        # Reinitialise the integrator at the current concentrations.
+        condition.tstops_local = tstops_local
+        affect!.n_chunks = nc
+        reinit!(integ, integ.sol.u[end]; tstops=tstops_local)
+
+        adaptive_solve!(integ, method.pars, solvecall_kwargs)
+        if method.pars.progress 
+            with_global_logger() do
+                @info Progress(pbar_sid, (nc+1)/n_chunks_reqd)
+            end
+        end
+        
+        # Determine where to place the loop's results in the final solution arrays.
+        start_idx = nc*(length(saveat_local)-1) + 1
+        end_idx = start_idx + length(saveat_local) - 2
+
+        # If on the last loop, include final timestep.
+        if nc == n_chunks_reqd-1
+            end_idx += 1
+            for (i, idx) in enumerate(start_idx:end_idx)
+                u_final[idx] .= integ.sol.u[i]
+            end
+            t_final[start_idx:end_idx] .= integ.sol.t .+ (nc*method.pars.solve_chunkstep)
+
+        # Otherwise, insert all but the final saved timesteps
+        else
+            for (i, idx) in enumerate(start_idx:end_idx)
+                u_final[idx] .= integ.sol.u[i]
+            end
+            t_final[start_idx:end_idx] .= integ.sol.t[1:end-1] .+ (nc*method.pars.solve_chunkstep)
+        end
+    end
+
+    if method.pars.progress 
+        with_global_logger() do 
+            @info Progress(pbar_sid, done=true)
+        end 
+    end
+
+    sol = SciMLBase.build_solution(
+        oprob,
+        method.pars.solver,
+        t_final,
+        u_final;
+        k = k_precalc,
+        retcode = integ.sol.retcode
+    )
+    return sol
 end
