@@ -154,10 +154,7 @@ Automatically dispatches to a method with correct formula for
 `PrecalculatedArrheniusCalculator`.
 """
 function (calc::PrecalculatedArrheniusCalculator{uType, uType, tType})(; T::Number) where {uType, tType}
-    R = 8.314462618 # Gas constant (J/K/mol)
-    N_A = 6.02214076e23 # Avogadro constant (/mol)
-
-    k_r = calc.A .* exp.(-calc.Ea / (R * T)) * N_A * calc.t_mult
+    k_r = calc.A .* exp.(-calc.Ea / (Constants.R * T)) * Constants.N_A * calc.t_mult
     return 1.0 ./ ((1.0 / calc.k_max) .+ (1.0 ./ k_r))
 end
 
@@ -166,7 +163,7 @@ function (calc::PrecalculatedArrheniusCalculator{Nothing, uType, tType})(; T::Nu
     R = 8.314462618 # Gas constant (J/K/mol)
     N_A = 6.02214076e23 # Avogadro constant (/mol)
 
-    k_r = calc.A .* exp.(-calc.Ea / (R * T)) * N_A * calc.t_mult
+    k_r = calc.A .* exp.(-calc.Ea / (Constants.R * T)) * Constants.N_A * calc.t_mult
     return k_r
 end
 
