@@ -257,7 +257,6 @@ function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
         dH[i] = reaction[2]["info"]["energy"] - reaction[1]["info"]["energy"]
     end
 
-    @info "Read in $n_reacs reactions."
     @info "Extracting fragment species from reactions."
     tmp_xyz = joinpath(rxdir, "kinetica_tmp.xyz")
 
@@ -280,6 +279,12 @@ function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
     end
 
     rm(tmp_xyz)
+
+    # Add in all reverse reactions.
+    reac_smis = vcat(reac_smis, prod_smis)
+    prod_smis = vcat(prod_smis, reac_smis)
+    dH = vcat(dH, -dH)
+    @info "Read in $(n_reacs*2) reactions."
 
     return reac_smis, reac_xyzs, prod_smis, prod_xyzs, dH
 end
