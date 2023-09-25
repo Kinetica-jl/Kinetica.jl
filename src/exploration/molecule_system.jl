@@ -215,15 +215,24 @@ end
 
 
 """
-    system_from_smiles(smiles, saveto[, dmin])
+    system_from_smiles(smiles[, saveto, dmin])
 
 Forms a single XYZ system out of the molecules in `smiles`.
 
 Useful for making unified molecular systems with no overlap
 for feeding into CDE. `dmin` represents the minimum 
 molecule-molecule distance that should be allowed.
+
+If the argument `saveto` is provided, outputs the optimised
+system to a file at this path. If not, returns the optimised
+system as a single ExtXYZ dict.
 """
 function system_from_smiles(smiles::Vector{String}, saveto::String; dmin::Float64=5.0)
+    mol = system_from_smiles(smiles; dmin=dmin)
+    write_frame(saveto, mol)
+end
+
+function system_from_smiles(smiles::Vector{String}; dmin::Float64=5.0)
     for (i, smi) in enumerate(smiles)
         xyz_from_smiles(smi, joinpath(dirname(saveto), "tmp_$i.xyz"))
     end
@@ -234,9 +243,22 @@ function system_from_smiles(smiles::Vector{String}, saveto::String; dmin::Float6
 
     tmols = molsys_opt(mols, dmin)
     mol = combine_mols(tmols)
+    return mol
+end
+
+
+"""
+"""
+function system_from_mols(mols::Vector{Dict{String}{Any}}, saveto::String; dmin::Float64=5.0)
+    mol = system_from_mols(mols; dmin=dmin)
     write_frame(saveto, mol)
 end
 
+function system_from_mols(mols::Vector{Dict{String}{Any}}; dmin::Float64=5.0)
+    tmols = molsys_opt(mols, dmin)
+    mol = combine_mols(tmols)
+    return mol
+end
 
 atom_mass_dict = Dict{String, Float64}(
     "H" => 1.008,

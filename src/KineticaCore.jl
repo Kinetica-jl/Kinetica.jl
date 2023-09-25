@@ -30,6 +30,9 @@ function __init__()
 end
 export pybel, pysys, obcr
 
+include("constants.jl")
+using .Constants
+
 include("logging.jl")
 export start_log, end_log, flush_log, flush
 
@@ -68,7 +71,7 @@ include("exploration/explore_utils.jl")
 export import_mechanism, import_mechanism!
 include("exploration/methods.jl")
 include("exploration/molecule_system.jl")
-export system_from_smiles
+export system_from_smiles, system_from_mols
 
 include("solving/calculator.jl")
 export DummyKineticCalculator, PrecalculatedArrheniusCalculator, PrecalculatedLindemannCalculator
