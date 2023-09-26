@@ -77,11 +77,6 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData)
 end
 
 function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData, ::Val{:complete})
-    if hasfield(typeof(method.calculator), :setup_network!)
-        @info " - Setting up network for rate calculation"
-        method.calculator.setup_network!(rd, species, method.pars)
-    end
-
     @info " - Calculating rate constants"
     condition_map = [sym => profile.value for (sym, profile) in zip(method.conditions.symbols, method.conditions.profiles)]
     rates = method.calculator(; condition_map...)
@@ -124,11 +119,6 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
 end
 
 function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise})
-    if hasfield(typeof(method.calculator), :setup_network!)
-        @info " - Setting up network for rate calculation."
-        method.calculator.setup_network!(rd, species)
-    end
-
     @info " - Calculating rate constants."
     condition_map = [sym => profile.value for (sym, profile) in zip(method.conditions.symbols, method.conditions.profiles)]
     rates = method.calculator(; condition_map...)
@@ -253,11 +243,6 @@ end
 
 
 function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:complete}, ::Val{:continuous})
-    if hasfield(typeof(method.calculator), :setup_network!)
-        @info " - Setting up network for rate calculation."
-        method.calculator.setup_network!(rd, species)
-    end
-
     @info "Calculating variable condition profiles."
     flush_log()
     solve_variable_conditions!(method.conditions, method.pars)
@@ -351,11 +336,6 @@ end
 
 
 function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise}, ::Val{:continuous})
-    if hasfield(typeof(method.calculator), :setup_network!)
-        @info " - Setting up network for rate calculation."
-        method.calculator.setup_network!(rd, species)
-    end
-
     @info "Calculating variable condition profiles."
     flush_log()
     solve_variable_conditions!(method.conditions, method.pars)
@@ -533,11 +513,6 @@ function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesDat
 end
 
 function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:complete}, ::Val{:discrete})
-    if hasfield(typeof(method.calculator), :setup_network!)
-        @info " - Setting up network for rate calculation."
-        method.calculator.setup_network!(rd, species)
-    end
-
     @info "Calculating variable condition profiles."
     flush_log()
     solve_variable_conditions!(method.conditions, method.pars)
@@ -594,11 +569,6 @@ end
 
 
 function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise}, ::Val{:discrete})
-    if hasfield(typeof(method.calculator), :setup_network!)
-        @info " - Setting up network for rate calculation."
-        method.calculator.setup_network!(rd, species)
-    end
-
     @info "Calculating variable condition profiles."
     flush_log()
     solve_variable_conditions!(method.conditions, method.pars)
