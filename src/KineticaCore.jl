@@ -54,13 +54,15 @@ export ConditionSet, isstatic, isvariable
 export get_profile, get_tstops, get_t_final
 export register_direct_conditions, solve_variable_conditions!
 
-include("openbabel/conversion.jl")
-export ingest_xyz_system
-include("openbabel/properties.jl")
-
 include("exploration/network.jl")
 export SpeciesData, push!, push_unique!
 export RxData
+
+include("openbabel/conversion.jl")
+export ingest_xyz_system
+include("openbabel/properties.jl")
+export get_species_stats!
+
 include("exploration/cde_utils.jl")
 export env_multithread
 include("exploration/cde.jl")
