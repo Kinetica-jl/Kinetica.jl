@@ -128,7 +128,7 @@ struct PrecalculatedArrheniusCalculator{kmType, uType, tType} <: AbstractKinetic
 end
 
 """
-    calculator = PrecalculatedArrheniusCalculator(rd, rates[, k_max, t_unit])
+    calculator = PrecalculatedArrheniusCalculator(rd, Ea, A[, k_max, t_unit])
 
 Outer constructor method for Arrhenius theory kinetic calculator.
 """
@@ -204,7 +204,7 @@ struct PrecalculatedLindemannCalculator{kmType, uType, tType} <: AbstractKinetic
 end
 
 """
-    calculator = PrecalculatedLindemannCalculator(rd, rates[, k_max, t_unit])
+    calculator = PrecalculatedLindemannCalculator(rd, Ea, A[, k_max, t_unit])
 
 Outer constructor method for pressure-dependent Arrhenius theory kinetic calculator.
 """
