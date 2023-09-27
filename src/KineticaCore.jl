@@ -70,7 +70,7 @@ export CDE, ingest_cde_run
 include("exploration/params.jl")
 export DirectExploreParams, IterativeExploreParams
 include("exploration/explore_utils.jl")
-export import_mechanism, import_mechanism!
+export import_mechanism, import_mechanism!, import_network
 include("exploration/methods.jl")
 include("exploration/molecule_system.jl")
 export system_from_smiles, system_from_mols

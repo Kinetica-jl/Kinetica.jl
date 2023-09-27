@@ -263,7 +263,7 @@ function RxData(sd::SpeciesData{iType},
         end
     end
 
-    @info " - $dcounter duplicate and $invcounter invalid reactions found."
+    @debug " - $dcounter duplicate and $invcounter invalid reactions found."
 
     return RxData{iType, fType}(nr, reacs_final, prods_final, id_reacs_final, id_prods_final,
             stoic_reacs_final, stoic_prods_final, dH_final, hashes_final)
@@ -324,7 +324,7 @@ function Base.push!(rd::RxData{iType, fType}, sd::SpeciesData,
         end
     end
 
-    @info " - $dcounter duplicate and $invcounter invalid reactions found."
+    @debug " - $dcounter duplicate and $invcounter invalid reactions found."
 
     return
 end

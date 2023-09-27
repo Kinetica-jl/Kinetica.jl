@@ -12,11 +12,11 @@ new logfiles will have dates attached.
 logger = start_log(logdir; label="MyLog")
 ```
 """
-function start_log(logdir::String; label::String="Kinetica")
+function start_log(logdir::String; label::String="Kinetica", min_level=Logging.Info)
     if !isdir(logdir) mkdir(logdir) end
     date = Dates.format(now(), "yymmdd-HHMMSS")
     logio = open(joinpath(logdir, "$(label)_$(date).log"), "w")
-    logger = SimpleLogger(logio)
+    logger = SimpleLogger(logio, min_level)
     return logger
 end
 

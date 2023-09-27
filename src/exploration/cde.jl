@@ -239,7 +239,7 @@ using the `fix_radicals` parameter.
 """
 function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
     rxdir = joinpath(rdir, "reac_$(lpad(rcount, 5, "0"))")
-    @info "Reading in mechanism step xyz files."
+    @debug "Reading in mechanism step xyz files."
 
     # Read in all reactions as 2-frame trajectories.
     rxfiles = readdir(rxdir)
@@ -257,7 +257,7 @@ function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
         dH[i] = reaction[2]["info"]["energy"] - reaction[1]["info"]["energy"]
     end
 
-    @info "Extracting fragment species from reactions."
+    @debug "Extracting fragment species from reactions."
     tmp_xyz = joinpath(rxdir, "kinetica_tmp.xyz")
 
     reac_smis = Vector{String}[]
@@ -284,7 +284,7 @@ function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
     reac_smis = vcat(reac_smis, prod_smis)
     prod_smis = vcat(prod_smis, reac_smis)
     dH = vcat(dH, -dH)
-    @info "Read in $(n_reacs*2) reactions."
+    @debug "Read in $(n_reacs*2) reactions."
 
     return reac_smis, reac_xyzs, prod_smis, prod_xyzs, dH
 end

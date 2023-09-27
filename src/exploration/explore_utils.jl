@@ -66,6 +66,7 @@ Returns the resulting network (an instance of `SpeciesData` and
 `RxData`).
 """
 function import_network(rdir_head::String)
+    @info "Importing all reactions in level tree under $(rdir_head)"
     level_dirs = readdir(rdir_head)
     level_dirs = level_dirs[startswith.(level_dirs, "level_")]
     if length(level_dirs) == 0
@@ -99,6 +100,10 @@ function import_network(rdir_head::String)
             end
         end
     end
+
+    @info "Finished network import."
+    @info "Network contains $(sd.n) species over $(rd.nr) reactions."
+    flush_log()
 
     return sd, rd
 end
