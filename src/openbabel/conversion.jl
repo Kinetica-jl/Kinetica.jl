@@ -52,5 +52,7 @@ function xyz_to_frames(xyz::String)
     path, io = mktemp()
     write(io, xyz)
     close(io)
-    return read_frames(path)
+    frames = read_frames(path)
+    rm(path)
+    return frames
 end
