@@ -129,7 +129,7 @@ end
 
 
 """
-    tmols = molsys_opt(mols, dmin)
+    tmols = molsys_opt(mols, dmin, maxiters)
 
 Optimises positions of molecules in `mols` to ensure they are all at least `dmin` Angstroms apart.
 
@@ -137,7 +137,8 @@ Creates and solves an N-body spring-driven particle system and
 transforms molecular coordinates to these particles to check
 for proximity.
 """
-function molsys_opt(mols::Vector{Dict{String}{Any}}, dmin::Float64)
+function molsys_opt(mols::Vector{Dict{String}{Any}}, dmin::Float64, maxiters::Int)
+    @debug "Starting new molsys optimisation"
     np = length(mols)
 
     x0 = zeros(Float64, np, 3) .+ reshape(rand(np*3), np, 3)
@@ -162,13 +163,14 @@ function molsys_opt(mols::Vector{Dict{String}{Any}}, dmin::Float64)
     tmols = []
     while too_close || oob
         counter += 1
-        if counter >= 200
+        if counter >= maxiters
             error("Max iterations exceeded in molsys_opt().")
         end
 
         new_k = copy(k)
         new_k[end] += r_adj
         new_prob = remake(prob; p=new_k)
+        @debug "Iter $counter - Spring rest length = $(new_prob.p[end])"
         sol = solve(new_prob, Tsit5())
 
         solmat = reduce(vcat, sol.u')
@@ -182,13 +184,17 @@ function molsys_opt(mols::Vector{Dict{String}{Any}}, dmin::Float64)
         oob = position_check(tmols)
         too_close = proximity_check(tmols, dmin)
         if oob && too_close
+            @debug "Transformed molecules too close and out of bounds"
             r_adj -= 5.0
         elseif oob && !too_close
+            @debug "Transformed molecules out of bounds"
             r_adj -= 10.0
         elseif too_close && !oob
+            @debug "Transformed molecules too close"
             r_adj += 10.0
         end
     end
+    @debug "Finished molsys optimisation"
     return tmols
 end
 
@@ -227,12 +233,16 @@ If the argument `saveto` is provided, outputs the optimised
 system to a file at this path. If not, returns the optimised
 system as a single ExtXYZ dict.
 """
-function system_from_smiles(smiles::Vector{String}, saveto::String; dmin::Float64=5.0)
-    mol = system_from_smiles(smiles; dmin=dmin)
+function system_from_smiles(smiles::Vector{String}, 
+        saveto::String; dmin::Float64=5.0, maxiters::Int=200)
+
+    mol = system_from_smiles(smiles; dmin=dmin, maxiters=maxiters)
     write_frame(saveto, mol)
 end
 
-function system_from_smiles(smiles::Vector{String}; dmin::Float64=5.0)
+function system_from_smiles(smiles::Vector{String}; 
+        dmin::Float64=5.0, maxiters::Int=200)
+
     for (i, smi) in enumerate(smiles)
         xyz_from_smiles(smi, joinpath(dirname(saveto), "tmp_$i.xyz"))
     end
@@ -241,7 +251,7 @@ function system_from_smiles(smiles::Vector{String}; dmin::Float64=5.0)
         rm(joinpath(dirname(saveto), "tmp_$i.xyz"))
     end
 
-    tmols = molsys_opt(mols, dmin)
+    tmols = molsys_opt(mols, dmin, maxiters)
     mol = combine_mols(tmols)
     return mol
 end
@@ -249,13 +259,17 @@ end
 
 """
 """
-function system_from_mols(mols::Vector{Dict{String}{Any}}, saveto::String; dmin::Float64=5.0)
-    mol = system_from_mols(mols; dmin=dmin)
+function system_from_mols(mols::Vector{Dict{String}{Any}}, saveto::String; 
+        dmin::Float64=5.0, maxiters::Int=200)
+
+    mol = system_from_mols(mols; dmin=dmin, maxiters=maxiters)
     write_frame(saveto, mol)
 end
 
-function system_from_mols(mols::Vector{Dict{String}{Any}}; dmin::Float64=5.0)
-    tmols = molsys_opt(mols, dmin)
+function system_from_mols(mols::Vector{Dict{String}{Any}}; 
+        dmin::Float64=5.0, maxiters::Int=200)
+
+    tmols = molsys_opt(mols, dmin, maxiters)
     mol = combine_mols(tmols)
     return mol
 end
