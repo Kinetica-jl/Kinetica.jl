@@ -23,17 +23,34 @@ function ingest_xyz_system(xyz_file::String; fix_radicals::Bool=true)
         end
     end
 
-    # Pretty horrible way of converting to ExtXYZ dicts, but read_frames 
-    # only accepts actual files it seems.
+    # Collate individual xyzs and convert to ExtXYZ frames.
     all_xyzs = ""
     for frag in fragments
         all_xyzs *= frag.write("xyz")
     end
-    open("/tmp/kinetica.xyz", "w") do f
-        write(f, all_xyzs)
-    end
-    xyz_list = read_frames("/tmp/kinetica.xyz")
-    rm("/tmp/kinetica.xyz")
+    xyz_list = xyz_to_frames(all_xyzs)
 
     return smi_list, xyz_list
+end
+
+
+"""
+    frames = xyz_to_frames(xyz)
+
+Convenient handler for converting string-form xyz to ExtXYZ frames.
+
+ExtXYZ is very resistant to reading in frames from memory,
+instead requiring a file to load from. Handles creation of
+a temporary file for this purpose, and reading back in of
+the resulting frames.
+
+Can also be used to go directly from a pbmol to frame:
+
+    frames = xyz_to_frames(pbmol.write("xyz"))
+"""
+function xyz_to_frames(xyz::String)
+    path, io = mktemp()
+    write(io, xyz)
+    close(io)
+    return read_frames(path)
 end

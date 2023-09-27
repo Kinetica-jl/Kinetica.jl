@@ -59,7 +59,7 @@ export SpeciesData, push!, push_unique!
 export RxData
 
 include("openbabel/conversion.jl")
-export ingest_xyz_system
+export ingest_xyz_system, xyz_to_frames
 include("openbabel/properties.jl")
 export get_species_stats!
 
