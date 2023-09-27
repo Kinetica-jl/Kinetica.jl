@@ -112,6 +112,95 @@ end
 
 
 """
+    insert_inert!(rd, sd, inert_species)
+
+Inserts inert species into all unimolecular reactions.
+
+Updates `sd` to have fragment data for the new species,
+then converts all unimolecular reactions to 'bimolecular' reactions
+where the inert species is a bystander for the sake of being a
+collision partner.
+
+When multiple `inert_species` are present, creates new reactions
+to allow for multiple reactive channels through different collision
+partners.
+"""
+function insert_inert!(rd::RxData, sd::SpeciesData, inert_species::Vector{String})
+    # Generate geometries for inert species.
+    inert_species_xyzs = []
+    for species in inert_species
+        pbmol = pybel.readstring("smi", species)
+        pbmol.addh()
+        pbmol.make3D()
+        push!(inert_species_xyzs, xyz_to_frames(pbmol.write("xyz"))[1])
+    end
+
+    # Add inert species to SpeciesData, if not already present.
+    inert_species_ids = []
+    for (species, xyz) in zip(inert_species, inert_species_xyzs)
+        if !(species in keys(sd.toInt))
+            inert_id = sd.n + 1
+            push!(inert_species_ids, inert_id)
+            sd.toInt[species] = inert_id
+            sd.toStr[inert_id] = species
+            sd.xyz[inert_id] = xyz
+            sd.n += 1
+        end
+    end
+
+    # Identify all unimolecular reactions.
+    uni_reactions = [i for i in 1:rd.nr if length(rd.reacs[i]) == 1 && rd.stoic_reacs[i][1] == 1]
+
+    # Modify all unimolecular reactions to be bimolecular with the inert species as a collision partner.
+    for (i, (species, sid)) in enumerate(zip(inert_species, inert_species_ids))
+        # On all inert species except the last, create new bimolecular reactions.
+        # Leave the original unimolecular reaction as a template to copy from.
+        if i < length(inert_species)
+            for rid in uni_reactions
+                new_reacs = vcat(rd.reacs[rid], species)
+                new_prods = vcat(rd.prods[rid], species)
+                new_id_reacs = vcat(rd.id_reacs[rid], sid)
+                new_id_prods = vcat(rd.id_prods[rid], sid)
+                new_stoic_reacs = vcat(rd.stoic_reacs[rid], 1)
+                new_stoic_prods = vcat(rd.stoic_prods[rid], 1)
+                new_dH = rd.dH[rid]
+
+                all_reacs = sort(reduce(vcat, [[spec for _ in new_stoic_reacs[spos]] for (spos, spec) in enumerate(new_reacs)]))
+                all_prods = sort(reduce(vcat, [[spec for _ in new_stoic_prods[spos]] for (spos, spec) in enumerate(new_prods)]))
+                new_rhash = stable_hash(vcat(all_reacs, all_prods))
+
+                push!(rd.reacs, new_reacs)
+                push!(rd.prods, new_prods)
+                push!(rd.id_reacs, new_id_reacs)
+                push!(rd.id_prods, new_id_prods)
+                push!(rd.stoic_reacs, new_stoic_reacs)
+                push!(rd.stoic_prods, new_stoic_prods)
+                push!(rd.dH, new_dH)
+                push!(rd.rhash, new_rhash)
+                rd.nr += 1
+            end
+        # On the final inert species, modify the unimolecular template reaction.
+        else
+            for rid in uni_reactions
+                push!(rd.reacs[rid], species)
+                push!(rd.prods[rid], species)
+                push!(rd.id_reacs[rid], sid)
+                push!(rd.id_prods[rid], sid)
+                push!(rd.stoic_reacs[rid], 1)
+                push!(rd.stoic_prods[rid], 1)
+
+                # Update reaction hash for new reactants.
+                all_reacs = sort(reduce(vcat, [[spec for _ in rd.stoic_reacs[rid][spos]] for (spos, spec) in enumerate(rd.reacs[rid])]))
+                all_prods = sort(reduce(vcat, [[spec for _ in rd.stoic_prods[rid][spos]] for (spos, spec) in enumerate(rd.prods[rid])]))
+                rhash = stable_hash(vcat(all_reacs, all_prods))
+                rd.rhash[rid] = rhash
+            end
+        end
+    end
+end
+
+
+"""
     n_removed = apply_low_k_cutoff!(rd, pars, rates, cutoff)
 
 Removes low-rate reactions from `rd` according to the cutoff in `pars.low_k_cutoff`.
