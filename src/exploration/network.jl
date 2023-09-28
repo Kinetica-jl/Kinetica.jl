@@ -328,3 +328,25 @@ function Base.push!(rd::RxData{iType, fType}, sd::SpeciesData,
 
     return
 end
+
+
+"""
+    splice!(rd, rids)
+
+Removes reactions at indeces `rids` from `rd`.
+"""
+function Base.splice!(rd::RxData, rids::Vector{Int})
+    for rid in rids
+        @debug "Removing reaction $rid from network:"
+        @debug "$(rd.reacs[rid]) ($(rd.stoic_reacs[rid])) -> $(rd.prods[rid]) ($(rd.stoic_prods[rid]))"
+    end
+
+    if length(rids) > 0
+        for f in fieldnames(RxData)
+            if f != :nr
+                splice!(getfield(rd, f), rids)
+            end
+        end
+        rd.nr -= length(rids)
+    end
+end

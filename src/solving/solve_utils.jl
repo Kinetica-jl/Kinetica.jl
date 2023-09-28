@@ -26,25 +26,29 @@ function get_max_rates(conditions::ConditionSet, calculator::AbstractKineticCalc
         else
             push!(minmax_variable_condition_map, [
                 Pair(conditions.symbols[i], minimum(conditions.profiles[i])),
-                Pair(conditions.symbols[i], maximum(conditions.profiles[i]))]
-            )
+                Pair(conditions.symbols[i], maximum(conditions.profiles[i]))
+            ])
         end
     end
     n_variable_conditions = length(minmax_variable_condition_map)
-    max_rate_condition_sets = []
-    max_rate_condition_permutations = lpad.(string.(0:(2^n_variable_conditions)-1, base=2), n_variable_conditions, '0')
-    for perm in max_rate_condition_permutations
-        mrcs = []
-        for (cond, sd) in enumerate(perm)
-            d = parse(Int, sd)+1
-            push!(mrcs, minmax_variable_condition_map[cond][d])
+    if n_variable_conditions == 0
+        max_rates = calculator(; static_condition_map...)
+    else
+        max_rate_condition_sets = []
+        max_rate_condition_permutations = lpad.(string.(0:(2^n_variable_conditions)-1, base=2), n_variable_conditions, '0')
+        for perm in max_rate_condition_permutations
+            mrcs = []
+            for (cond, sd) in enumerate(perm)
+                d = parse(Int, sd)+1
+                push!(mrcs, minmax_variable_condition_map[cond][d])
+            end
+            mrcs = vcat(mrcs, static_condition_map)
+            push!(max_rate_condition_sets, mrcs)
         end
-        mrcs = vcat(mrcs, static_condition_map)
-        push!(max_rate_condition_sets, mrcs)
-    end
 
-    max_rate_permutations = [calculator(; cset...) for cset in max_rate_condition_sets]
-    max_rates = max_rate_permutations[findmax([mean(perm) for perm in max_rate_permutations])[2]]
+        max_rate_permutations = [calculator(; cset...) for cset in max_rate_condition_sets]
+        max_rates = max_rate_permutations[findmax([mean(perm) for perm in max_rate_permutations])[2]]
+    end
 
     return max_rates
 end
@@ -201,9 +205,9 @@ end
 
 
 """
-    n_removed = apply_low_k_cutoff!(rd, pars, rates, cutoff)
+    n_removed = apply_low_k_cutoff!(rd, calc, pars, conditions)
 
-Removes low-rate reactions from `rd` according to the cutoff in `pars.low_k_cutoff`.
+Removes low-rate reactions from `rd` and `calc` according to the cutoff in `pars.low_k_cutoff`.
 
 If the cutoff is a numeric value, it is used directly. If it is
 `:auto`, automatically decides on a safe value where the removed
@@ -211,8 +215,10 @@ reactions would not contribute to the network over the timespan
 of the simulation. If it is `:none`, does not apply a cutoff and
 returns.
 """
-function apply_low_k_cutoff!(rd::RxData{iType, fType}, pars::ODESimulationParams,
-        rates::Vector{uType}) where {iType, fType, uType <: Base.AbstractFloat}
+function apply_low_k_cutoff!(rd::RxData{iType, fType}, calc::cType, 
+        pars::ODESimulationParams, conditions::ConditionSet) where {
+        iType, fType, cType <: AbstractKineticCalculator}
+
     # Establish what the value of the cutoff should be.
     if pars.low_k_cutoff == :none
         @info " - Low rate cutoff: none"
@@ -224,25 +230,20 @@ function apply_low_k_cutoff!(rd::RxData{iType, fType}, pars::ODESimulationParams
         k_cutoff = uType(pars.low_k_cutoff)
         @info " - Low rate cutoff: manual (cutoff = $(k_cutoff))"
     end
+
+    # Calculate maximum rate constants.
+    max_rates = get_max_rates(conditions, calc)
     
     # Find low rate reactions.
     low_rate_ids = Vector{iType}()
-    for (i, rate) in enumerate(rates)
+    for (i, rate) in enumerate(max_rates)
         if rate < k_cutoff
             push!(low_rate_ids, i)
         end
     end
 
     # Remove from network.
-    if length(low_rate_ids) > 0
-        for f in fieldnames(typeof(rd))
-            if f != :nr
-                splice!(getfield(rd, f), low_rate_ids)
-            end
-        end
-        rd.nr -= length(low_rate_ids)
-        splice!(rates, low_rate_ids)
-    end
+    splice!(rd, calc, low_rate_ids)
 
     @info "   - Removed $(length(low_rate_ids)) low-rate reactions from network."
     return length(low_rate_ids)

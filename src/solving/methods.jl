@@ -71,16 +71,18 @@ on the value of `method.pars.solve_chunks`, as chunkwise
 solution requires a significantly different approach.
 """
 function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData)
+    setup_network!(species, rd, method.calculator)
     split_method = method.pars.solve_chunks ? :chunkwise : :complete
     sol = solve_network(method, rd, species, Val(split_method))
     return sol
 end
 
 function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData, ::Val{:complete})
+    @info "Removing low-rate reactions"
+    apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
+
     @info " - Calculating rate constants"
-    condition_map = [sym => profile.value for (sym, profile) in zip(method.conditions.symbols, method.conditions.profiles)]
-    rates = method.calculator(; condition_map...)
-    apply_low_k_cutoff!(rd, method.pars, rates)
+    rates = get_initial_rates(method.conditions, method.calculator)
 
     @info " - Setting up ReactionSystem"
     @parameters k[1:rd.nr]
@@ -119,10 +121,11 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
 end
 
 function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise})
-    @info " - Calculating rate constants."
-    condition_map = [sym => profile.value for (sym, profile) in zip(method.conditions.symbols, method.conditions.profiles)]
-    rates = method.calculator(; condition_map...)
-    apply_low_k_cutoff!(rd, method.pars, rates)
+    @info "Removing low-rate reactions"
+    apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
+
+    @info " - Calculating rate constants"
+    rates = get_initial_rates(method.conditions, method.calculator)
 
     @info " - Setting up ReactionSystem"
     @parameters k[1:rd.nr]
@@ -235,6 +238,11 @@ on the value of `method.pars.solve_chunks`, as chunkwise
 solution requires a significantly different approach.
 """
 function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData)
+    @info "Calculating variable condition profiles."
+    flush_log()
+    solve_variable_conditions!(method.conditions, method.pars)
+
+    setup_network!(species, rd, method.calculator)
     split_method = method.pars.solve_chunks ? :chunkwise : :complete
     update_method = method.conditions.discrete_updates ? :discrete : :continuous
     sol = solve_network(method, rd, species, Val(split_method), Val(update_method))
@@ -243,16 +251,12 @@ end
 
 
 function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:complete}, ::Val{:continuous})
-    @info "Calculating variable condition profiles."
+    @info "Removing low-rate reactions"
     flush_log()
-    solve_variable_conditions!(method.conditions, method.pars)
+    apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
+
     n_variable_conditions = count(isvariable.(method.conditions.profiles))
     variable_condition_symbols = [sym for sym in method.conditions.symbols if isvariable(method.conditions, sym)]
-
-    @info " - Calculating maximum rate constants."
-    flush_log()
-    max_rates = get_max_rates(method.conditions, method.calculator)
-    apply_low_k_cutoff!(rd, method.pars, max_rates)
 
     @info " - Setting up ReactionSystem"
     flush_log()
@@ -336,16 +340,12 @@ end
 
 
 function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise}, ::Val{:continuous})
-    @info "Calculating variable condition profiles."
+    @info "Removing low-rate reactions"
     flush_log()
-    solve_variable_conditions!(method.conditions, method.pars)
+    apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
+
     n_variable_conditions = count(isvariable.(method.conditions.profiles))
     variable_condition_symbols = [sym for sym in method.conditions.symbols if isvariable(method.conditions, sym)]
-
-    @info " - Calculating maximum rate constants."
-    flush_log()
-    max_rates = get_max_rates(method.conditions, method.calculator)
-    apply_low_k_cutoff!(rd, method.pars, max_rates)
 
     @info " - Setting up ReactionSystem"
     flush_log()
@@ -513,14 +513,9 @@ function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesDat
 end
 
 function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:complete}, ::Val{:discrete})
-    @info "Calculating variable condition profiles."
+    @info "Removing low-rate reactions"
     flush_log()
-    solve_variable_conditions!(method.conditions, method.pars)
-
-    @info " - Calculating maximum rate constants."
-    flush_log()
-    max_rates = get_max_rates(method.conditions, method.calculator)
-    apply_low_k_cutoff!(rd, method.pars, max_rates)
+    apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
     @info " - Setting up ReactionSystem"
     @parameters k[1:rd.nr]
@@ -569,14 +564,9 @@ end
 
 
 function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise}, ::Val{:discrete})
-    @info "Calculating variable condition profiles."
+    @info "Removing low-rate reactions"
     flush_log()
-    solve_variable_conditions!(method.conditions, method.pars)
-
-    @info " - Calculating maximum rate constants."
-    flush_log()
-    max_rates = get_max_rates(method.conditions, method.calculator)
-    apply_low_k_cutoff!(rd, method.pars, max_rates)
+    apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
     @info " - Setting up ReactionSystem"
     flush_log()

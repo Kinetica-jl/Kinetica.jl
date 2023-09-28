@@ -17,6 +17,47 @@ function allows_continuous end
 
 
 """
+    setup_network!(sd, rd, calculator)
+
+Sets up a network for calculation with the provided `calculator`.
+
+Must be implemented for each `calculator`. Called at the
+start of a kinetic simulation to check compatibility of
+network with calculator, and to populate network-dependent
+fields within the calculator.
+"""
+function setup_network! end
+
+
+"""
+    splice!(calculator, rids)
+
+Removes all information from the reactions at `rids` from `calculator`.
+
+Useful in conjunction with `splice!(rd, rids)` for removing
+e.g. low-rate reactions that have been removed from a network
+from that network's calculator.
+
+Relies on a calculator-specific implementation, as it
+directly modifies fields of that calculator.
+"""
+function Base.splice!(calc::cType, rids::Vector{Int}) where {cType <: AbstractKineticCalculator}
+    splice!(calc, rids)
+end
+
+
+"""
+    splice!(rd, calculator, rids)
+
+Convenience wrapper for deleting reaction data from both a network and its calculator.
+"""
+function Base.splice!(rd::RxData, calculator::cType, rids::Vector{Int}) where {cType <: AbstractKineticCalculator}
+    splice!(rd, rid)
+    splice!(calculator, rid)
+end
+
+
+"""
 Placeholder kinetic calculator.
 
 Kinetic calculator that always returns an array of original
@@ -31,7 +72,7 @@ Has support for dispatching with/without a maximum rate constant
 `k_max` and scaling by time unit `t_unit` (assuming rates are
 provided in units of /s).
 """
-struct DummyKineticCalculator{kmType, uType, tType} <: AbstractKineticCalculator
+mutable struct DummyKineticCalculator{kmType, uType, tType} <: AbstractKineticCalculator
     rates::Vector{uType}
     k_max::kmType
     t_unit::String
@@ -39,17 +80,25 @@ struct DummyKineticCalculator{kmType, uType, tType} <: AbstractKineticCalculator
 end
 
 """
-    calculator = DummyKineticCalculator(rd, rates[, k_max, t_unit])
+    calculator = DummyKineticCalculator(rates[, k_max, t_unit])
 
 Outer constructor method for placeholder kinetic calculator.
 """
-function DummyKineticCalculator(rd::RxData, rates::Vector{uType}; 
+function DummyKineticCalculator(rates::Vector{uType}; 
         k_max::Union{Nothing, uType}=nothing, t_unit::String="s") where {uType <: AbstractFloat}
-    if length(rates) != rd.nr
-        throw(ArgumentError("Number of rates ($(length(rates))) does not match number of reactions in `RxData` ($(rd.nr))"))
-    end
+
     t_mult = tconvert(t_unit, "s")
     return DummyKineticCalculator(rates, k_max, t_unit, t_mult)
+end
+
+function setup_network!(sd::SpeciesData, rd::RxData, calc::DummyKineticCalculator)
+    if length(calc.rates) != rd.nr
+        throw(ArgumentError("Number of rates ($(length(calc.rates))) does not match number of reactions in `RxData` ($(rd.nr))"))
+    end
+end
+
+function Base.splice!(calc::DummyKineticCalculator, rids)
+    splice!(calc.rates, rids)
 end
 
 # Dispatched with k_max awareness.
@@ -119,7 +168,7 @@ Has support for dispatching with/without a maximum rate constant
 `k_max` and scaling by time unit `t_unit` (assuming rates are
 provided in units of /s).
 """
-struct PrecalculatedArrheniusCalculator{kmType, uType, tType} <: AbstractKineticCalculator
+mutable struct PrecalculatedArrheniusCalculator{kmType, uType, tType} <: AbstractKineticCalculator
     Ea::Vector{uType}
     A::Vector{uType}
     k_max::kmType
@@ -128,17 +177,26 @@ struct PrecalculatedArrheniusCalculator{kmType, uType, tType} <: AbstractKinetic
 end
 
 """
-    calculator = PrecalculatedArrheniusCalculator(rd, Ea, A[, k_max, t_unit])
+    calculator = PrecalculatedArrheniusCalculator(Ea, A[, k_max, t_unit])
 
 Outer constructor method for Arrhenius theory kinetic calculator.
 """
-function PrecalculatedArrheniusCalculator(rd::RxData, Ea::Vector{uType}, A::Vector{uType}; 
+function PrecalculatedArrheniusCalculator(Ea::Vector{uType}, A::Vector{uType}; 
         k_max::Union{Nothing, uType}=nothing, t_unit::String="s") where {uType <: AbstractFloat}
-    if length(Ea) != rd.nr || length(A) != rd.nr
-        throw(ArgumentError("Number of parameters (Ea: $(length(Ea)), A: $(length(A))) does not match number of reactions in `RxData` ($(rd.nr))"))
-    end
+    
     t_mult = tconvert(t_unit, "s")
     return PrecalculatedArrheniusCalculator(Ea, A, k_max, t_unit, t_mult)
+end
+
+function setup_network!(sd::SpeciesData, rd::RxData, calc::PrecalculatedArrheniusCalculator)
+    if length(calc.Ea) != rd.nr || length(calc.A) != rd.nr
+        throw(ArgumentError("Number of parameters (Ea: $(length(calc.Ea)), A: $(length(calc.A))) does not match number of reactions in `RxData` ($(rd.nr))"))
+    end
+end
+
+function Base.splice!(calc::PrecalculatedArrheniusCalculator, rids::Vector{Int})
+    splice!(calc.Ea, rids)
+    splice!(calc.A, rids)
 end
 
 # Dispatched with k_max awareness.
@@ -173,6 +231,7 @@ end
 
 allows_continuous(::PrecalculatedArrheniusCalculator) = true
 
+
 """
 Pressure-dependent Arrhenius theory kinetic calculator for precalculated reactions.
 
@@ -204,17 +263,27 @@ struct PrecalculatedLindemannCalculator{kmType, uType, tType} <: AbstractKinetic
 end
 
 """
-    calculator = PrecalculatedLindemannCalculator(rd, Ea, A[, k_max, t_unit])
+    calculator = PrecalculatedLindemannCalculator(Ea, A[, k_max, t_unit])
 
 Outer constructor method for pressure-dependent Arrhenius theory kinetic calculator.
 """
-function PrecalculatedLindemannCalculator(rd::RxData, Ea::Vector{uType}, A::Vector{uType}; 
+function PrecalculatedLindemannCalculator(Ea::Vector{uType}, A_0::Vector{uType}, A_inf::Vector{uType}; 
         k_max::Union{Nothing, uType}=nothing, t_unit::String="s") where {uType <: AbstractFloat}
-    if length(rates) != rd.nr
-        throw(ArgumentError("Number of rates ($(length(rates))) does not match number of reactions in `RxData` ($(rd.nr))"))
-    end
+    
     t_mult = tconvert(t_unit, "s")
-    return PrecalculatedLindemannCalculator(Ea, A, k_max, t_unit, t_mult)
+    return PrecalculatedLindemannCalculator(Ea, A_0, A_inf, k_max, t_unit, t_mult)
+end
+
+function setup_network!(sd::SpeciesData, rd::RxData, calc::PrecalculatedLindemannCalculator)
+    if any([length(p) != rd.nr for p in [calc.Ea, calc.A_0, calc.A_inf]])
+        throw(ArgumentError("Number of parameters (Ea: $(length(calc.Ea)), A_0: $(length(calc.A_0)), A_inf: $(length(calc.A_inf))) does not match number of reactions in `RxData` ($(rd.nr))"))
+    end
+end
+
+function Base.splice!(calc::PrecalculatedLindemannCalculator, rids::Vector{Int})
+    splice!(calc.Ea, rids)
+    splice!(calc.A_0, rids)
+    splice!(calc.A_inf, rids)
 end
 
 # Dispatched with k_max awareness.
