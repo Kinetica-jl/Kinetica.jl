@@ -69,6 +69,21 @@ end
 
 
 """
+    center_mols!(mols)
+
+Centers the geometric centres of an array of molecules on the origin.
+"""
+function center_mols!(mols::Vector{Dict{String, Any}})
+    for mol in mols
+        geometric_centre = [mean(mol["arrays"]["pos"][i, :]) for i in 1:3]
+        for i in 1:mol["N_atoms"]
+            mol["arrays"]["pos"][:, i] -= geometric_centre
+        end
+    end
+end
+
+
+"""
     transform_mol!(mol, vec)
 
 Transforms coordinates of `mol` by applying cartesian vector `vec`.
@@ -169,7 +184,9 @@ function molsys_opt(mols::Vector{Dict{String}{Any}}, dmin::Float64, maxiters::In
 
         new_k = copy(k)
         new_k[end] += r_adj
-        new_prob = remake(prob; p=new_k)
+        new_u0 = copy(prob.u0)
+        new_u0[(np*3)+1:end] = zeros(Float64, np, 3) .+ reshape(rand(np*3), np, 3)
+        new_prob = remake(prob; u0=new_u0, p=new_k)
         @debug "Iter $counter - Spring rest length = $(new_prob.p[end])"
         sol = solve(new_prob, Tsit5())
 
@@ -251,6 +268,7 @@ function system_from_smiles(smiles::Vector{String};
         rm(joinpath(dirname(saveto), "tmp_$i.xyz"))
     end
 
+    center_mols!(mols)
     tmols = molsys_opt(mols, dmin, maxiters)
     mol = combine_mols(tmols)
     return mol
@@ -269,6 +287,7 @@ end
 function system_from_mols(mols::Vector{Dict{String}{Any}}; 
         dmin::Float64=5.0, maxiters::Int=200)
 
+    center_mols!(mols)
     tmols = molsys_opt(mols, dmin, maxiters)
     mol = combine_mols(tmols)
     return mol
