@@ -319,7 +319,7 @@ function make_rs(k, spec, t, rd::RxData; combinatoric_ratelaws=false)
         push!(rxs, rx)
     end
 
-    @named rs = ReactionSystem(rxs, t; combinatoric_ratelaws=combinatoric_ratelaws)
+    @named rs = ReactionSystem(rxs, t, spec, k; combinatoric_ratelaws=combinatoric_ratelaws)
     
     return rs
 end
@@ -331,7 +331,10 @@ end
 
 """
 function adaptive_solve!(integrator, pars::ODESimulationParams, solvecall_kwargs::Dict{Symbol, Any}; print_status::Bool=false)
-    if print_status @info " - Solving..." end
+    if print_status 
+        @info " - Solving..." 
+        flush_log()
+    end
 
     # Attempt solutions with lower tolerances to attempt to ensure convergence.
     success = false
@@ -344,7 +347,10 @@ function adaptive_solve!(integrator, pars::ODESimulationParams, solvecall_kwargs
         end
         if SciMLBase.successful_retcode(integrator.sol.retcode)
             success = true
-            if print_status @info " - Solved!" end
+            if print_status 
+                @info " - Solved!" 
+                flush_log()
+            end
             if pars.update_tols && solvecall_kwargs[:abstol] != opars.abstol
                 @info "   - Writing new tolerances back to ODEParams."
                 pars.abstol = solvecall_kwargs[:abstol]
@@ -365,6 +371,7 @@ function adaptive_solve!(integrator, pars::ODESimulationParams, solvecall_kwargs
                 solvecall_kwargs[:reltol] /= 10
                 @warn "   - ODE solution failed at current solver tolerances."
                 @warn "   - Reducing tolerances to abstol = $(solvecall_kwargs[:abstol]) reltol = $(solvecall_kwargs[:reltol])"
+                flush_log()
                 integrator.opts.abstol = solvecall_kwargs[:abstol]
                 integrator.opts.reltol = solvecall_kwargs[:reltol]
                 reinit!(integrator)

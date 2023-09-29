@@ -62,7 +62,7 @@ end
 
 
 """
-    sol = solve_network(method::StaticODESolve, rd, species)
+    sol = solve_network(method::StaticODESolve, rd, sd)
 
 Solve a network with static kinetics.
 
@@ -70,26 +70,26 @@ Automatically dispatches to the correct method based
 on the value of `method.pars.solve_chunks`, as chunkwise
 solution requires a significantly different approach.
 """
-function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData)
-    setup_network!(species, rd, method.calculator)
+function solve_network(method::StaticODESolve, rd::RxData, sd::SpeciesData)
+    setup_network!(sd, rd, method.calculator)
     split_method = method.pars.solve_chunks ? :chunkwise : :complete
-    sol = solve_network(method, rd, species, Val(split_method))
+    sol = solve_network(method, rd, sd, Val(split_method))
     return sol
 end
 
-function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData, ::Val{:complete})
-    @info "Removing low-rate reactions"
+function solve_network(method::StaticODESolve, rd::RxData, sd::SpeciesData, ::Val{:complete})
+    @info " - Removing low-rate reactions"; flush_log()
     apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
-    @info " - Calculating rate constants"
+    @info " - Calculating rate constants"; flush_log()
     rates = get_initial_rates(method.conditions, method.calculator)
 
-    @info " - Setting up ReactionSystem"
+    @info " - Setting up ReactionSystem"; flush_log()
     @parameters k[1:rd.nr]
     @variables t 
-    @species (spec(t))[1:species.n]
+    @species (spec(t))[1:sd.n]
 
-    u0 = make_u0(species, method.pars)
+    u0 = make_u0(sd, method.pars)
     u0map = Pair.(collect(spec), u0)
     pmap = Pair.(collect(k), rates)
 
@@ -98,6 +98,7 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
     @info " - Formulating ODEProblem"
     @info "   - Sparse? $(method.pars.sparse)"
     @info "   - Analytic Jacobian? $(method.pars.jac)"
+    flush_log()
     oprob = ODEProblem(rs, u0map, method.pars.tspan, pmap;
         jac=method.pars.jac, sparse=method.pars.sparse)
     solvecall_kwargs = Dict{Symbol, Any}(
@@ -120,27 +121,29 @@ function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData,
     return integ.sol
 end
 
-function solve_network(method::StaticODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise})
-    @info "Removing low-rate reactions"
+function solve_network(method::StaticODESolve, rd::RxData, sd::SpeciesData, ::Val{:chunkwise})
+    @info " - Removing low-rate reactions"; flush_log()
     apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
-    @info " - Calculating rate constants"
+    @info " - Calculating rate constants"; flush_log()
     rates = get_initial_rates(method.conditions, method.calculator)
 
-    @info " - Setting up ReactionSystem"
+    @info " - Setting up ReactionSystem"; flush_log()
     @parameters k[1:rd.nr]
     @variables t 
-    @species (spec(t))[1:species.n]
+    @species (spec(t))[1:sd.n]
 
-    u0 = make_u0(species, method.pars)
+    u0 = make_u0(sd, method.pars)
     u0map = Pair.(collect(spec), u0)
     pmap = Pair.(collect(k), rates)
 
     rs = make_rs(k, spec, t, rd)
+    @info " - Created ReactionSystem"
 
     @info " - Formulating ODEProblem"
     @info "   - Sparse? $(method.pars.sparse)"
     @info "   - Analytic Jacobian? $(method.pars.jac)"
+    flush_log()
     tType = eltype(method.pars.tspan)
     uType = eltype(u0)
     local_tspan = (tType(0.0), tType(method.pars.solve_chunkstep))
@@ -229,7 +232,7 @@ end
 
 
 """
-    sol = solve_network(method::VariableODESolve, rd, species)
+    sol = solve_network(method::VariableODESolve, rd, sd)
 
 Solve a network with variable kinetics.
 
@@ -237,35 +240,32 @@ Automatically dispatches to the correct method based
 on the value of `method.pars.solve_chunks`, as chunkwise
 solution requires a significantly different approach.
 """
-function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData)
-    @info "Calculating variable condition profiles."
-    flush_log()
+function solve_network(method::VariableODESolve, rd::RxData, sd::SpeciesData)
+    @info "Calculating variable condition profiles."; flush_log()
     solve_variable_conditions!(method.conditions, method.pars)
 
-    setup_network!(species, rd, method.calculator)
+    setup_network!(sd, rd, method.calculator)
     split_method = method.pars.solve_chunks ? :chunkwise : :complete
     update_method = method.conditions.discrete_updates ? :discrete : :continuous
-    sol = solve_network(method, rd, species, Val(split_method), Val(update_method))
+    sol = solve_network(method, rd, sd, Val(split_method), Val(update_method))
     return sol
 end
 
 
-function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:complete}, ::Val{:continuous})
-    @info "Removing low-rate reactions"
-    flush_log()
+function solve_network(method::VariableODESolve, rd::RxData, sd::SpeciesData, ::Val{:complete}, ::Val{:continuous})
+    @info " - Removing low-rate reactions"; flush_log()
     apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
     n_variable_conditions = count(isvariable.(method.conditions.profiles))
     variable_condition_symbols = [sym for sym in method.conditions.symbols if isvariable(method.conditions, sym)]
 
-    @info " - Setting up ReactionSystem"
-    flush_log()
+    @info " - Setting up ReactionSystem"; flush_log()
     @variables t 
-    @species (spec(t))[1:species.n]
+    @species (spec(t))[1:sd.n]
     @variables (k(t))[1:rd.nr]
     @variables (vc(t)[1:n_variable_conditions])
 
-    u0 = make_u0(species, method.pars)
+    u0 = make_u0(sd, method.pars)
     u0map = Pair.(collect(spec), u0)
     initial_conditions = get_initial_conditions(method.conditions)
     kmap = Pair.(collect(k), method.calculator(; initial_conditions...))
@@ -302,8 +302,7 @@ function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesDat
             k .~ method.calculator(; bound_conditions...)
         ]), t
     )
-    @info "   - Created constraint system for variable conditions."
-    flush_log()
+    @info "   - Created constraint system for variable conditions."; flush_log()
 
     rs = make_rs(k, spec, t, rd)
     @named rs_constrained = extend(rate_sys, rs)
@@ -339,23 +338,21 @@ function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesDat
 end
 
 
-function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise}, ::Val{:continuous})
-    @info "Removing low-rate reactions"
-    flush_log()
+function solve_network(method::VariableODESolve, rd::RxData, sd::SpeciesData, ::Val{:chunkwise}, ::Val{:continuous})
+    @info " - Removing low-rate reactions"; flush_log()
     apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
     n_variable_conditions = count(isvariable.(method.conditions.profiles))
     variable_condition_symbols = [sym for sym in method.conditions.symbols if isvariable(method.conditions, sym)]
 
-    @info " - Setting up ReactionSystem"
-    flush_log()
+    @info " - Setting up ReactionSystem"; flush_log()
     @variables t 
-    @species (spec(t))[1:species.n]
+    @species (spec(t))[1:sd.n]
     @variables (k(t))[1:rd.nr]
     @variables (vc(t)[1:n_variable_conditions])
     @parameters chunktime n_chunks
 
-    u0 = make_u0(species, method.pars)
+    u0 = make_u0(sd, method.pars)
     u0map = Pair.(collect(spec), u0)
     initial_conditions = get_initial_conditions(method.conditions)
     kmap = Pair.(collect(k), method.calculator(; initial_conditions...))
@@ -393,8 +390,7 @@ function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesDat
             k .~ method.calculator(; bound_conditions...)
         ]), t
     )
-    @info "   - Created constraint system for variable conditions."
-    flush_log()
+    @info "   - Created constraint system for variable conditions."; flush_log()
 
     rs = make_rs(k, spec, t, rd)
     @named rs_constrained = extend(rate_sys, rs)
@@ -512,24 +508,23 @@ function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesDat
     return sol
 end
 
-function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:complete}, ::Val{:discrete})
-    @info "Removing low-rate reactions"
-    flush_log()
+function solve_network(method::VariableODESolve, rd::RxData, sd::SpeciesData, ::Val{:complete}, ::Val{:discrete})
+    @info " - Removing low-rate reactions"; flush_log()
     apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
-    @info " - Setting up ReactionSystem"
+    @info " - Setting up ReactionSystem"; flush_log()
     @parameters k[1:rd.nr]
     @variables t 
-    @species (spec(t))[1:species.n]
+    @species (spec(t))[1:sd.n]
 
-    u0 = make_u0(species, method.pars)
+    u0 = make_u0(sd, method.pars)
     u0map = Pair.(collect(spec), u0)
     pmap = Pair.(collect(k), method.calculator(; get_initial_conditions(method.conditions)...))
 
     rs = make_rs(k, spec, t, rd)
     @info " - Created ReactionSystem"
 
-    @info " - Pre-calculating rate constants at discrete time intervals."
+    @info " - Pre-calculating rate constants at discrete time intervals."; flush_log()
     tstops = get_tstops(method.conditions)
     k_precalc = calculate_discrete_rates(method.conditions, method.calculator, rd.nr; uType=eltype(u0))
     affect! = CompleteRateUpdateAffect(k_precalc)
@@ -539,6 +534,7 @@ function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesDat
     @info " - Formulating ODEProblem"
     @info "   - Sparse? $(method.pars.sparse)"
     @info "   - Analytic Jacobian? $(method.pars.jac)"
+    flush_log()
     oprob = ODEProblem(rs, u0map, method.pars.tspan, pmap;
         jac=method.pars.jac, sparse=method.pars.sparse)
     solvecall_kwargs = Dict{Symbol, Any}(
@@ -563,29 +559,25 @@ function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesDat
 end
 
 
-function solve_network(method::VariableODESolve, rd::RxData, species::SpeciesData, ::Val{:chunkwise}, ::Val{:discrete})
-    @info "Removing low-rate reactions"
-    flush_log()
+function solve_network(method::VariableODESolve, rd::RxData, sd::SpeciesData, ::Val{:chunkwise}, ::Val{:discrete})
+    @info " - Removing low-rate reactions"; flush_log()
     apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
-    @info " - Setting up ReactionSystem"
-    flush_log()
+    @info " - Setting up ReactionSystem"; flush_log()
     @parameters k[1:rd.nr]
     @variables t 
-    @species (spec(t))[1:species.n]
+    @species (spec(t))[1:sd.n]
 
-    u0 = make_u0(species, method.pars)
+    u0 = make_u0(sd, method.pars)
     u0map = Pair.(collect(spec), u0)
     pmap = Pair.(collect(k), method.calculator(; get_initial_conditions(method.conditions)...))
 
     rs = make_rs(k, spec, t, rd)
     @info " - Created ReactionSystem"
-    flush_log()
 
     tType = eltype(method.pars.tspan)
     uType = eltype(u0)
-    @info " - Pre-calculating rate constants at discrete time intervals."
-    flush_log()
+    @info " - Pre-calculating rate constants at discrete time intervals."; flush_log()
     k_precalc = calculate_discrete_rates(method.conditions, method.calculator, rd.nr; uType=uType)
     condition = ChunkwiseRateUpdateCondition(tType[])
     affect! = ChunkwiseRateUpdateAffect(method.pars.solve_chunkstep, 0, k_precalc)
