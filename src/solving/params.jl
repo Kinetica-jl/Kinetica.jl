@@ -19,7 +19,6 @@ Contains fields for:
 * Whether to explicitly disallow negative values in the solver (`ban_negatives=false`)
 * Whether to display progress bars - requires `TerminalLogger` initialisation (`progress=false`)
 * Time interval to interpolate solution data on (`save_interval=nothing`)
-* Inert species to add to the network (`inert_species=nothing`)
 * Cutoff below which reactions with low rate constants are removed from the network (`low_k_cutoff=:auto`)
 * Whether to allow a vector `u0` to be shorter than the number of species in the network (`allow_short_u0=false`)
 """
@@ -44,7 +43,6 @@ Contains fields for:
 
     # Optional network parameters
     save_interval::Union{tType, Nothing}=nothing
-    inert_species::Union{Vector{String}, Nothing}=nothing
     low_k_cutoff::Union{uType, Symbol}=:auto
     allow_short_u0::Bool=false
 end
