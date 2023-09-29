@@ -77,7 +77,7 @@ export system_from_smiles, system_from_mols
 
 include("solving/calculator.jl")
 export DummyKineticCalculator, PrecalculatedArrheniusCalculator, PrecalculatedLindemannCalculator
-export allows_continuous, has_conditions
+export allows_continuous, has_conditions, setup_network!
 include("solving/solve_utils.jl")
 include("solving/solutions.jl")
 include("solving/methods.jl")

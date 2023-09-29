@@ -52,8 +52,8 @@ end
 Convenience wrapper for deleting reaction data from both a network and its calculator.
 """
 function Base.splice!(rd::RxData, calculator::cType, rids::Vector{Int}) where {cType <: AbstractKineticCalculator}
-    splice!(rd, rid)
-    splice!(calculator, rid)
+    splice!(rd, rids)
+    splice!(calculator, rids)
 end
 
 
@@ -253,7 +253,7 @@ Has support for dispatching with/without a maximum rate constant
 `k_max` and scaling by time unit `t_unit` (assuming rates are
 provided in units of /s).
 """
-struct PrecalculatedLindemannCalculator{kmType, uType, tType} <: AbstractKineticCalculator
+mutable struct PrecalculatedLindemannCalculator{kmType, uType, tType} <: AbstractKineticCalculator
     Ea::Vector{uType}
     A_0::Vector{uType}
     A_inf::Vector{uType}
