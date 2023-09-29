@@ -331,6 +331,29 @@ end
 
 
 """
+    sd, rd = init_network([iType, fType])
+
+Initialises an empty reaction network.
+"""
+function init_network(; iType=Int64, fType=Float64)
+    sd = SpeciesData{iType}(
+        Dict{String, iType}(), Dict{iType, String}(),
+        0, 
+        Dict{iType, Dict{String, Any}}(), Dict()
+    )
+    rd = RxData{iType, fType}(
+        0, 
+        Vector{String}[], Vector{String}[],
+        Vector{iType}[], Vector{iType}[], 
+        Vector{iType}[], Vector{iType}[], 
+        fType[], Vector{UInt8}[]
+    )
+
+    return sd, rd
+end
+
+
+"""
     splice!(rd, rids)
 
 Removes reactions at indeces `rids` from `rd`.

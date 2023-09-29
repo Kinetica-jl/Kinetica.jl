@@ -74,18 +74,7 @@ function import_network(rdir_head::String)
     end
     
     # Initialise network with blank sd and rd.
-    sd = SpeciesData{Int64}(
-        Dict{String, Int64}(), Dict{Int64, String}(),
-        0, 
-        Dict{Int64, Dict{String, Any}}(), Dict()
-    )
-    rd = RxData{Int64, Float64}(
-        0, 
-        Vector{String}[], Vector{String}[],
-        Vector{Int64}[], Vector{Int64}[], 
-        Vector{Int64}[], Vector{Int64}[], 
-        Float64[], Vector{UInt8}[]
-    )
+    sd, rd = init_network()
 
     # Loop through each level, adding each subspace.
     for lv in level_dirs
