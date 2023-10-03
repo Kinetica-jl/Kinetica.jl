@@ -40,7 +40,7 @@ function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
             nothing,
             t,
             nothing,
-            DummyODEProblem(),
+            DummyODEProblem(; u0=[profile.X_start], tspan=[t[begin], t[end]]),
             nothing,
             SciMLBase.LinearInterpolation(t, u),
             false,

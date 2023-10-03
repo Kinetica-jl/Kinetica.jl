@@ -103,7 +103,7 @@ function calculate_discrete_rates(conditions::ConditionSet, calculator::Abstract
         nothing,
         tstops,
         nothing,
-        DummyODEProblem([Symbol("k$i") for i in 1:nr]),
+        DummyODEProblem(; u0=k_precalc[1], tspan=[tstops[begin], tstops[end]], syms=[Symbol("k$i") for i in 1:nr]),
         nothing,
         SciMLBase.LinearInterpolation(tstops, k_precalc),
         false,

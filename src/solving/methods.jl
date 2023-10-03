@@ -62,22 +62,39 @@ end
 
 
 """
-    sol = solve_network(method::StaticODESolve, rd, sd)
+    sol = solve_network(method::StaticODESolve, sd, rd[, copy_network])
 
 Solve a network with static kinetics.
 
 Automatically dispatches to the correct method based
 on the value of `method.pars.solve_chunks`, as chunkwise
 solution requires a significantly different approach.
+
+Setting `copy_network=true` generates a `deepcopy` of
+the original network in `rd` and `sd` and uses these in
+the solution, to avoid side effects from calculators
+modifying the original network that is passed in. The
+copied (modified) network is retruned as part of the 
+resulting `ODESolveOutput`.
 """
-function solve_network(method::StaticODESolve, rd::RxData, sd::SpeciesData)
-    setup_network!(sd, rd, method.calculator)
+function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData; copy_network::Bool=false)
+    if copy_network
+        sd_active = deepcopy(sd)
+        rd_active = deepcopy(rd)
+    else
+        sd_active = sd
+        rd_active = rd
+    end
+
+    setup_network!(sd_active, rd_active, method.calculator)
     split_method = method.pars.solve_chunks ? :chunkwise : :complete
-    sol = solve_network(method, rd, sd, Val(split_method))
-    return sol
+    sol = solve_network(method, sd_active, rd_active, Val(split_method))
+
+    res = ODESolveOutput(sd_active, rd_active, sol, method.pars, method.conditions)
+    return res
 end
 
-function solve_network(method::StaticODESolve, rd::RxData, sd::SpeciesData, ::Val{:complete})
+function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData, ::Val{:complete})
     @info " - Removing low-rate reactions"; flush_log()
     apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
@@ -121,7 +138,7 @@ function solve_network(method::StaticODESolve, rd::RxData, sd::SpeciesData, ::Va
     return integ.sol
 end
 
-function solve_network(method::StaticODESolve, rd::RxData, sd::SpeciesData, ::Val{:chunkwise})
+function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData, ::Val{:chunkwise})
     @info " - Removing low-rate reactions"; flush_log()
     apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
@@ -232,27 +249,44 @@ end
 
 
 """
-    sol = solve_network(method::VariableODESolve, rd, sd)
+    sol = solve_network(method::VariableODESolve, sd, rd[, copy_network])
 
 Solve a network with variable kinetics.
 
 Automatically dispatches to the correct method based
 on the value of `method.pars.solve_chunks`, as chunkwise
 solution requires a significantly different approach.
+
+Setting `copy_network=true` generates a `deepcopy` of
+the original network in `rd` and `sd` and uses these in
+the solution, to avoid side effects from calculators
+modifying the original network that is passed in. The
+copied (modified) network is retruned as part of the 
+resulting `ODESolveOutput`.
 """
-function solve_network(method::VariableODESolve, rd::RxData, sd::SpeciesData)
+function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData; copy_network::Bool=true)
+    if copy_network
+        sd_active = deepcopy(sd)
+        rd_active = deepcopy(rd)
+    else
+        sd_active = sd
+        rd_active = rd
+    end
+
     @info "Calculating variable condition profiles."; flush_log()
     solve_variable_conditions!(method.conditions, method.pars)
 
-    setup_network!(sd, rd, method.calculator)
+    setup_network!(sd_active, rd_active, method.calculator)
     split_method = method.pars.solve_chunks ? :chunkwise : :complete
     update_method = method.conditions.discrete_updates ? :discrete : :continuous
-    sol = solve_network(method, rd, sd, Val(split_method), Val(update_method))
-    return sol
+    sol = solve_network(method, sd_active, rd_active, Val(split_method), Val(update_method))
+
+    res = ODESolveOutput(sd_active, rd_active, sol, method.pars, method.conditions)
+    return res
 end
 
 
-function solve_network(method::VariableODESolve, rd::RxData, sd::SpeciesData, ::Val{:complete}, ::Val{:continuous})
+function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::Val{:complete}, ::Val{:continuous})
     @info " - Removing low-rate reactions"; flush_log()
     apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
@@ -338,7 +372,7 @@ function solve_network(method::VariableODESolve, rd::RxData, sd::SpeciesData, ::
 end
 
 
-function solve_network(method::VariableODESolve, rd::RxData, sd::SpeciesData, ::Val{:chunkwise}, ::Val{:continuous})
+function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::Val{:chunkwise}, ::Val{:continuous})
     @info " - Removing low-rate reactions"; flush_log()
     apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
@@ -508,7 +542,7 @@ function solve_network(method::VariableODESolve, rd::RxData, sd::SpeciesData, ::
     return sol
 end
 
-function solve_network(method::VariableODESolve, rd::RxData, sd::SpeciesData, ::Val{:complete}, ::Val{:discrete})
+function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::Val{:complete}, ::Val{:discrete})
     @info " - Removing low-rate reactions"; flush_log()
     apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
@@ -559,7 +593,7 @@ function solve_network(method::VariableODESolve, rd::RxData, sd::SpeciesData, ::
 end
 
 
-function solve_network(method::VariableODESolve, rd::RxData, sd::SpeciesData, ::Val{:chunkwise}, ::Val{:discrete})
+function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::Val{:chunkwise}, ::Val{:discrete})
     @info " - Removing low-rate reactions"; flush_log()
     apply_low_k_cutoff!(rd, method.calculator, method.pars, method.conditions)
 
