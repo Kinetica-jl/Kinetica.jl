@@ -1,6 +1,7 @@
 module KineticaCore
 
 using Logging
+using LoggingExtras
 using Dates
 using Catalyst
 using DifferentialEquations

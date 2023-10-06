@@ -16,7 +16,12 @@ function start_log(logdir::String; label::String="Kinetica", min_level=Logging.I
     if !isdir(logdir) mkdir(logdir) end
     date = Dates.format(now(), "yymmdd-HHMMSS")
     logio = open(joinpath(logdir, "$(label)_$(date).log"), "w")
-    logger = SimpleLogger(logio, min_level)
+    if min_level < Logging.Info
+        logger = MinLevelLogger(FileLogger(logio), min_level)
+    else
+        logformat(io, args) = println(io, args._module, " | ", "[", args.level, "] ", args.message)
+        logger = MinLevelLogger(FormatLogger(logformat, logio; always_flush=false), min_level)
+    end
     return logger
 end
 
@@ -36,7 +41,15 @@ end
 Flushes the `IOStream` attached to the `logger`.
 """
 function Base.flush(logger::AbstractLogger)
-    Base.flush(logger.stream)
+    flush(logger.stream)
+end
+
+function Base.flush(logfilter::MinLevelLogger)
+    flush(logfilter.logger)
+end
+
+function Base.flush(logger::FileLogger)
+    flush(logger.logger)
 end
 
 """
@@ -45,7 +58,7 @@ end
 Flushes the `IOStream` attached to the currently scoped logger.
 """
 function flush_log()
-    Base.flush(current_logger().stream)
+    flush(current_logger())
 end
 
 """
