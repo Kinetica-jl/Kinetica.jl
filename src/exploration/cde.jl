@@ -1,15 +1,14 @@
 """
-    cde = CDE(rdir, tdir, init_xyz, env[, sampling_seed, radius])
+    cde = CDE(rdir, template_dir, init_xyz, env[, sampling_seed, radius])
 
 CDE runner. Initialised through struct, run through functor.
 
 Struct contains fields for:
-* Main reaction directory (`rdir`)
-* CDE template directory (`tdir`)
-* XYZ file of starting molecule/material (`init_xyz`)
-* Environment variable dictionary, modified for running CDE calculations (`env`)
+
+* CDE template directory (`template_dir`)
+* Environment variable dictionary, modified for running CDE calculations (Optional, defaults to current environment; `env`)
 * Path to CDE executable (Optional, defaults to CDE compiled by KineticaCore's build process; `cde_exec`)
-* Seed for CDE's RNG (Optional; `sampling_seed`)
+* Seed for CDE's RNG (Optional, setting to 0 indicates seed should be random; `sampling_seed`)
 * Radius for exploration of breakdown space (Optional, Default = 50; `radius`)
 * Number of mechanisms to generate within a single CDE run (Optional, Default = 1; `nrxn`)
 * Number of parallel CDE runs to execute (Optional, Default = 1; `parallel_runs`)
@@ -18,36 +17,30 @@ Struct contains fields for:
 * Whether to write CDE's stderr to file (Optional, Default = `false`; `write_stderr`)
 * Whether to allow functions to continue running if CDE errors are detected (Optional, Default = `false`; `allow_errors`)
 
---- Functor definition ---
+Additionally, some fields are usually modified within Kinetica,
+and are not intended to be changed by users.
 
-    cderun(rcount)
-
-Functor for running CDE with the parameters set in the struct.
-
-`rcount` should the the next available reaction ID, not the current
-one in the rcount file.
-
-Sets up directories for CDE calculation of the next available mechanism,
-then runs the calculation and reports any errors.
-
+* Main reaction directory (`rdir`)
+* XYZ file of starting molecule/material (`init_xyz`)
 """
-Base.@kwdef mutable struct CDE
-    # Mandatory fields.
-    rdir::String
-    tdir::String
-    init_xyz::String
-    env::Dict
-
-    # Optional fields.
+@kwdef mutable struct CDE
+    template_dir::String
+    
+    # Optional fields
+    env::Dict = ENV
     cde_exec::String = joinpath(dirname(dirname(dirname(@__FILE__))), "submodules/cde/bin/cde.x")
     sampling_seed::Int = 0
     radius::Int = 50
     nrxn::Int = 1
     parallel_runs::Int = 1
-    parallel_exes::Int = 1
+    parallel_exes::Int = parallel_runs
     write_stdout::Bool = true
     write_stderr::Bool = false
     allow_errors::Bool = false
+
+    # Fields usually handled by Kinetica
+    rdir::String = "CHANGEME"
+    init_xyz::String = "seeds.xyz"
 end
 
 
@@ -66,7 +59,7 @@ function (self::CDE)(rcount::Int)
 
     # Prepare new directory structure.
     rxdir = joinpath(self.rdir, "reac_$(lpad(rcount, 5, "0"))")
-    cp(self.tdir, rxdir)
+    cp(self.template_dir, rxdir)
     cp(self.init_xyz, joinpath(rxdir, "Start.xyz"))
 
     # Prepare sampling input.
@@ -144,7 +137,7 @@ function (self::CDE)(rcountrange::AbstractUnitRange)
     for rc in rcountrange
         rxdir = joinpath(self.rdir, "reac_$(lpad(rc, 5, "0"))")
         push!(rxdirs, rxdir)
-        cp(self.tdir, rxdir)
+        cp(self.template_dir, rxdir)
         cp(self.init_xyz, joinpath(rxdir, "Start.xyz"))
 
         # Prepare sampling input.
