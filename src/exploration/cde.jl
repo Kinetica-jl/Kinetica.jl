@@ -54,7 +54,7 @@ Serial runner, only spawns 1 CDE process.
 function (self::CDE)(rcount::Int)
 
     @info "--- Reaction $rcount ---"
-    @info "Starting new reaction mechanism generation."
+    @info " - Starting new reaction mechanism generation."
     flush_log()
 
     # Prepare new directory structure.
@@ -69,8 +69,8 @@ function (self::CDE)(rcount::Int)
         write(f, "nrxn $(self.radius)\n")
         write(f, "ranseed $seed\n")
     end
-    @info "Set up single-ended breakdown path sampling in $rxdir."
-    @info "Running sampling..."
+    @info "   - Set up single-ended breakdown path sampling in $rxdir."
+    @info "   - Running sampling..."
     flush_log()
 
     # Run single-ended sampling for breakdown products.
@@ -96,7 +96,7 @@ function (self::CDE)(rcount::Int)
 
     # Report success and update reaction counter.
     if success
-        @info "Sampling completed successfully!\n"
+        @info "   - Sampling completed successfully!"
         open(joinpath(self.rdir, "rcount"), "w") do f
             write(f, "$(lpad(rcount, 5, "0"))")
         end
@@ -106,9 +106,9 @@ function (self::CDE)(rcount::Int)
         if !self.allow_errors
             emsg = "Forbidden error in CDE run, stopping exploration."
             @error emsg
-            throw(ErrorException("Forbidden error in CDE run, stopping exploration."))
+            throw(ErrorException(emsg))
         end
-        @info "Sampling failed, removing directory.\n"
+        @info "   - Sampling failed, removing directory."
         rm(rxdir; recursive=true)
         flush_log()
         return false
@@ -129,7 +129,7 @@ calculations and run in parallel. Otherwise, runs calculations in serial.
 function (self::CDE)(rcountrange::AbstractUnitRange)
 
     @info "--- Reactions $(rcountrange.start) - $(rcountrange.stop) ---"
-    @info "Starting new reaction mechanism generation."
+    @info " - Starting new reaction mechanism generation."
     flush_log()
 
     # Prepare new directory structure.
@@ -148,8 +148,8 @@ function (self::CDE)(rcountrange::AbstractUnitRange)
             write(f, "ranseed $seed\n")
         end
     end
-    @info "Set up single-ended breakdown path sampling in $(length(rcountrange)) directories."
-    @info "Running sampling..."
+    @info "   - Set up single-ended breakdown path sampling in $(length(rcountrange)) directories."
+    @info "   - Running sampling..."
     flush_log()
 
     # Run single-ended sampling for breakdown products.
@@ -183,7 +183,7 @@ function (self::CDE)(rcountrange::AbstractUnitRange)
 
     # Report success and update reaction counter.
     if all(success)
-        @info "Sampling completed successfully!\n"
+        @info "   - Sampling completed successfully!"
         open(joinpath(self.rdir, "rcount"), "w") do f
             write(f, "$(lpad(rcountrange.stop, 5, "0"))")
         end
@@ -195,11 +195,11 @@ function (self::CDE)(rcountrange::AbstractUnitRange)
         end
         for (i, s) in enumerate(success)
             if !s
-                @info "Sampling failed in CDE run $i, removing directory."
+                @info " - Sampling failed in CDE run $i, removing directory."
                 rm(rxdirs[i]; recursive=true)
             end
         end
-        @info "Reordering reactions.\n"
+        @info "   - Reordering reactions."
         counter = 0
         for i in 1:length(rcountrange)
             if success[i]

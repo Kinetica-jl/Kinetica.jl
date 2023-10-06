@@ -132,8 +132,10 @@ function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData, ::Va
         solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
     end
 
+    @info " - Solving network..."
     integ = init(oprob, method.pars.solver; solvecall_kwargs...)
     adaptive_solve!(integ, method.pars, solvecall_kwargs; print_status=true)
+    @info " - Solved.\n"
 
     return integ.sol
 end
@@ -190,6 +192,7 @@ function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData, ::Va
     if method.pars.ban_negatives
         solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
     end
+    @info " - Solving network..."
     integ = init(oprob, method.pars.solver; solvecall_kwargs...)
 
     # Set up progress bar (if required).
@@ -237,6 +240,7 @@ function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData, ::Va
             @info Progress(pbar_sid, done=true)
         end 
     end
+    @info " - Solved.\n"
 
     sol = SciMLBase.build_solution(
         oprob,
@@ -273,9 +277,10 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData; co
         rd_active = rd
     end
 
-    @info "Calculating variable condition profiles."; flush_log()
+    @info " - Calculating variable condition profiles."; flush_log()
     solve_variable_conditions!(method.conditions, method.pars)
 
+    @info " - Performing calculator-specific network setup."; flush_log()
     setup_network!(sd_active, rd_active, method.calculator)
     split_method = method.pars.solve_chunks ? :chunkwise : :complete
     update_method = method.conditions.discrete_updates ? :discrete : :continuous
@@ -365,8 +370,10 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
         solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
     end
 
+    @info " - Solving network..."
     integ = init(oprob, method.pars.solver; solvecall_kwargs...)
     adaptive_solve!(integ, method.pars, solvecall_kwargs; print_status=true)
+    @info " - Solved.\n"
 
     return rebuild_vc_solution(integ.sol, gradient_profile_symbols)
 end
@@ -467,6 +474,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     if method.pars.ban_negatives
         solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
     end
+    @info " - Solving network..."
     integ = init(oprob, method.pars.solver; solvecall_kwargs...)
 
     # Set up progress bar (if required).
@@ -531,6 +539,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
             @info Progress(pbar_sid, done=true)
         end 
     end
+    @info " - Solved.\n"
 
     sol = build_vc_solution(
         oprob,
@@ -586,8 +595,10 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
         solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
     end
 
+    @info " - Solving network..."
     integ = init(oprob, method.pars.solver; solvecall_kwargs...)
     adaptive_solve!(integ, method.pars, solvecall_kwargs; print_status=true)
+    @info " - Solved.\n"
 
     return build_discrete_rate_solution(integ.sol, k_precalc)
 end
@@ -650,6 +661,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     if method.pars.ban_negatives
         solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
     end
+    @info " - Solving network..."
     integ = init(oprob, method.pars.solver; solvecall_kwargs...)
 
     # Set up progress bar (if required).
@@ -709,6 +721,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
             @info Progress(pbar_sid, done=true)
         end 
     end
+    @info " - Solved.\n"
 
     sol = SciMLBase.build_solution(
         oprob,

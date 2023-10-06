@@ -68,6 +68,11 @@ function explore_network(exploremethod::DirectExplore,
                          solvemethod::AbstractSolveMethod,
                          savedir::Union{String, Nothing})
 
+    @info "#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#"
+    @info "Kinetica Direct CRN Exploration"
+    @info "#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#\n"
+    flush_log()
+
     if !isdir(exploremethod.rdir_head) mkdir(exploremethod.rdir_head) end
     if !isnothing(savedir) && !isdir(savedir) mkdir(savedir) end
 
@@ -80,11 +85,11 @@ function explore_network(exploremethod::DirectExplore,
             push_unique!(sd, rsmi, rmol)
         end
         setup_level(loc, sd, seeds)
-        @info "Starting breakdown generation within a radius of $(exploremethod.cde.radius) reactions."
+        @info "Starting breakdown generation within a radius of $(exploremethod.cde.radius) reactions.\n"
     else
         cleanup_network(loc.rdir_head)
         sd, rd = import_network(loc.rdir_head)
-        @info "Continuing breakdown generation within a radius of $(exploremethod.cde.radius) reactions."
+        @info "Continuing breakdown generation within a radius of $(exploremethod.cde.radius) reactions.\n"
     end
     
     n_seeds = length(seeds)
@@ -124,6 +129,11 @@ function explore_network(exploremethod::IterativeExplore,
                          solvemethod::AbstractSolveMethod,
                          savedir::Union{String, Nothing})
 
+    @info "#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-"
+    @info "Kinetica Iterative CRN Exploration"
+    @info "#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-\n"
+    flush_log()
+
     if !isdir(exploremethod.rdir_head) mkdir(exploremethod.rdir_head) end
     if !isnothing(savedir) && !isdir(savedir) mkdir(savedir) end
 
@@ -159,7 +169,7 @@ function explore_network(exploremethod::IterativeExplore,
         n_seeds = length(current_seeds)
         n_subspaces = n_seeds == 1 ? 1 : n_seeds + 1
 
-        @info "Exploring reaction subspaces ($(loc.subspace)/$(n_subspaces))."; flush_log()
+        @info "Exploring reaction subspaces ($(loc.subspace)/$(n_subspaces)).\n"; flush_log()
         while loc.subspace < n_subspaces
             spec = current_seeds[loc.subspace]
             if spec in explored_seeds
@@ -239,12 +249,15 @@ iterations have passed without any new reactions being added to
 the network. 
 """
 function explore_subspace!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, exploremethod::AbstractExploreMethod)
-    @info "\nENTERING SUBSPACE $(loc.subspace)"
+    @info "--------------------------"
+    @info "ENTERING SUBSPACE $(loc.subspace)"
+    @info "--------------------------\n"
+    flush_log()
 
     # Check if subspace is already converged.
     cpath = joinpath(pathof(loc), "isconv")
     if isfile(cpath)
-        @info "Subspace is already converged."
+        @info "Subspace is already converged.\n"
         return
     end
 
@@ -260,9 +273,9 @@ function explore_subspace!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, explore
     counter = 0
     no_new_reacs_iters = 0
     if rcount == 0
-        @info "Starting iterations."
+        @info " - Starting iterations.\n"
     else
-        @info "Continuing iterations."
+        @info " - Continuing iterations.\n"
     end
     flush_log()
 
@@ -273,7 +286,7 @@ function explore_subspace!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, explore
         end
 
         counter += 1
-        @info "\nITERATION $counter"
+        @info "--- ITERATION $counter ---"
         rcount += 1
         rcountrange = nothing
 
@@ -297,7 +310,7 @@ function explore_subspace!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, explore
         end
 
         # Load in new mechanism data.
-        @info "Importing generated reactions."
+        @info " - Importing generated reactions."
         n_reacs_prev = rd.nr
         if exploremethod.cde.parallel_runs > 1
             for rc in rcountrange
@@ -307,7 +320,7 @@ function explore_subspace!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, explore
         else
             import_mechanism!(sd, rd, pathof(loc), rcount)
         end
-        @info "Reaction network now contains $(rd.nr) reactions over $(sd.n) unique fragments."
+        @info "   - Reaction network now contains $(rd.nr) reactions over $(sd.n) unique fragments."
         flush_log()
 
         # Check if rd has changed, increment convergence counter.
@@ -315,18 +328,18 @@ function explore_subspace!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, explore
         # reactions are still being discovered.
         if n_reacs_prev != rd.nr
             no_new_reacs_iters = 0
-            @info "New reactions discovered, reaction network not converged."
-            @info "Skipping to next iteration."
+            @info " - New reactions discovered, reaction network not converged."
+            @info " - Skipping to next iteration.\n"
             flush_log()
             continue
         end
 
         no_new_reacs_iters += 1
-        @info "No new reactions discovered for $(no_new_reacs_iters)/$(exploremethod.rxn_convergence_threshold) iterations."
+        @info " - No new reactions discovered for $(no_new_reacs_iters)/$(exploremethod.rxn_convergence_threshold) iterations."
 
         # Check for convergence of reaction network.
         if no_new_reacs_iters >= exploremethod.rxn_convergence_threshold
-            @info "Species subspace converged!"
+            @info "   - Species subspace converged!\n"
             cpath = joinpath(pathof(loc), "isconv")
             open(cpath, "w") do f
                 write(f, "true")

@@ -219,14 +219,14 @@ function apply_low_k_cutoff!(rd::RxData{iType, fType}, calc::cType,
 
     # Establish what the value of the cutoff should be.
     if pars.low_k_cutoff == :none
-        @info " - Low rate cutoff: none"
+        @info "   - Low rate cutoff: none"
         return 0
     elseif pars.low_k_cutoff == :auto
         k_cutoff = pars.reltol/pars.tspan[end]
-        @info " - Low rate cutoff: automatic (cutoff = $(k_cutoff))"
+        @info "   - Low rate cutoff: automatic (cutoff = $(k_cutoff))"
     else
         k_cutoff = uType(pars.low_k_cutoff)
-        @info " - Low rate cutoff: manual (cutoff = $(k_cutoff))"
+        @info "   - Low rate cutoff: manual (cutoff = $(k_cutoff))"
     end
 
     # Calculate maximum rate constants.

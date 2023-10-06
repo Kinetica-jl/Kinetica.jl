@@ -91,7 +91,7 @@ function import_network(rdir_head::String)
     end
 
     @info "Finished network import."
-    @info "Network contains $(sd.n) species over $(rd.nr) reactions."
+    @info "Network contains $(sd.n) species over $(rd.nr) reactions.\n"
     flush_log()
 
     return sd, rd
