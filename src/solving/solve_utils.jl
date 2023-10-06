@@ -130,25 +130,23 @@ to allow for multiple reactive channels through different collision
 partners.
 """
 function insert_inert!(rd::RxData, sd::SpeciesData, inert_species::Vector{String})
-    # Generate geometries for inert species.
-    inert_species_xyzs = []
-    for species in inert_species
-        pbmol = pybel.readstring("smi", species)
-        pbmol.addh()
-        pbmol.make3D()
-        push!(inert_species_xyzs, xyz_to_frames(pbmol.write("xyz"))[1])
-    end
-
     # Add inert species to SpeciesData, if not already present.
     inert_species_ids = []
-    for (species, xyz) in zip(inert_species, inert_species_xyzs)
+    for species in inert_species
         if !(species in keys(sd.toInt))
+            pbmol = pybel.readstring("smi", species)
+            pbmol.addh()
+            pbmol.make3D()
+            xyz = xyz_to_frames(pbmol.write("xyz"))[1]
+
             inert_id = sd.n + 1
             push!(inert_species_ids, inert_id)
             sd.toInt[species] = inert_id
             sd.toStr[inert_id] = species
             sd.xyz[inert_id] = xyz
             sd.n += 1
+        else
+            push!(inert_species_ids, sd.toInt[species])
         end
     end
 
