@@ -56,3 +56,35 @@ function xyz_to_frames(xyz::String)
     rm(path)
     return frames
 end
+
+
+"""
+    xyz_from_smiles(smi, saveto)
+
+Generates approximate coordinates for a molecule from SMILES.
+
+Saves to an XYZ file at `saveto`
+"""
+function xyz_from_smiles(smi::String, saveto::String; overwrite::Bool=false)
+    pbmol = pybel.readstring("smi", smi)
+    ff = smi == "[H][H]" ? "uff" : "mmff94"
+    pbmol.make3D(forcefield=ff)
+    pbmol.write("xyz", saveto; overwrite=true)
+end
+
+
+"""
+    mol_from_smiles(smi)
+
+Generates approximate coordinates for a molecule from SMILES.
+
+Returns an ExtXYZ molecule dictionary.
+"""
+function mol_from_smiles(smi::String)
+    path, io = mktemp()
+    xyz_from_smiles(smi, path; overwrite=true)
+    close(io)
+    mol = read_frame(path)
+    rm(path)
+    return mol
+end
