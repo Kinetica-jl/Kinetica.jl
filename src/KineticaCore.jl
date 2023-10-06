@@ -15,6 +15,7 @@ using ProgressLogging: Progress
 using UUIDs: uuid4
 using StableHashTraits
 using BSON
+using OrderedCollections
 using PyCall
 using PyPlot
 
@@ -58,6 +59,7 @@ export register_direct_conditions, solve_variable_conditions!
 include("exploration/network.jl")
 export SpeciesData, push!, push_unique!
 export RxData
+export init_network
 
 include("openbabel/conversion.jl")
 export ingest_xyz_system, xyz_to_frames
@@ -68,11 +70,9 @@ include("exploration/cde_utils.jl")
 export env_multithread
 include("exploration/cde.jl")
 export CDE, ingest_cde_run
-include("exploration/params.jl")
-export DirectExploreParams, IterativeExploreParams
+include("exploration/location.jl")
 include("exploration/explore_utils.jl")
 export import_mechanism, import_mechanism!, import_network
-include("exploration/methods.jl")
 include("exploration/molecule_system.jl")
 export system_from_smiles, system_from_mols
 
@@ -85,7 +85,12 @@ include("solving/methods.jl")
 export StaticODESolve, VariableODESolve
 export solve_network
 
+include("exploration/methods.jl")
+export DirectExplore, IterativeExplore
+export explore_network
+
 include("analysis/io.jl")
+export ODESolveOutput, save_output, load_output
 include("analysis/interpolation.jl")
 include("analysis/plotting.jl")
 
