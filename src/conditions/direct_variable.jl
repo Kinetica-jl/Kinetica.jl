@@ -145,6 +145,11 @@ function LinearDirectProfile(;
     X_start::uType,
     X_end::uType
 ) where {uType <: AbstractFloat}
+
+    if (X_end < X_start && rate > 0) || (X_end > X_start && rate < 0)
+        error("Impossible temperature ramp defined. Check heating rates have the correct signs.")
+    end
+
     t_end = (X_end - X_start)/rate
 
     function f(t)

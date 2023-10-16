@@ -51,6 +51,7 @@ function ConditionSet(d::Dict{Symbol, <:Any})
     end
     cs = ConditionSet(symbols, profiles, false, nothing)
     register_direct_conditions(cs)
+    register_gradient_conditions(cs)
     return cs
 end
 
@@ -69,6 +70,7 @@ function ConditionSet(d::Dict{Symbol, <:Any}, ts_update::AbstractFloat)
     end
     cs = ConditionSet(symbols, profiles, true, ts_update)
     register_direct_conditions(cs)
+    register_gradient_conditions(cs)
     return cs
 end
 
@@ -215,6 +217,25 @@ function register_direct_conditions(cs::ConditionSet)
         profile = get_profile(cs, sym)
         if isvariable(profile) && isdirectprofile(profile)
             eval(:(@register_symbolic($profile.f(t))))
+        end
+    end
+end
+
+"""
+    register_gradient_conditions(cs)
+
+Calls `@register_symbolic` on all `AbstractGradientProfile` functions.
+
+Workaround for otherwise needing to call the macro in the scope
+of the `Main` module, once for each direct profile. Instead,
+handles this nicely without the user having to worry about explicitly
+adding runtime-generated functions to the computation graph.
+"""
+function register_gradient_conditions(cs::ConditionSet)
+    for sym in cs.symbols
+        profile = get_profile(cs, sym)
+        if isvariable(profile) && isgradientprofile(profile)
+            eval(:(@register_symbolic($profile.grad(t))))
         end
     end
 end

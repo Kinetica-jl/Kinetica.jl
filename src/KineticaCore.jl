@@ -50,7 +50,7 @@ include("conditions/static.jl")
 include("conditions/direct_variable.jl")
 export NullDirectProfile, LinearDirectProfile
 include("conditions/gradient_variable.jl")
-export NullGradientProfile, LinearGradientProfile
+export NullGradientProfile, LinearGradientProfile, DoubleRampGradientProfile
 include("conditions/condition_set.jl")
 export ConditionSet, isstatic, isvariable
 export get_profile, get_tstops, get_t_final
