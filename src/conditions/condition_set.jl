@@ -242,7 +242,7 @@ end
 
 
 """
-    solve_variable_conditions!(cs, pars[, reset, kwargs...])
+    solve_variable_conditions!(cs, pars[, reset, solver, solve_kwargs])
 
 Solves all variable condition profiles over the timespan in `pars.tspan`.
 
@@ -250,10 +250,12 @@ Places all condition profile solutions in their `sol` field. In the
 case of `AbstractDirectProfile`s, this creates an `ODESolution` to mimic
 the regular DiffEq solver interface.
 """
-function solve_variable_conditions!(cs::ConditionSet, pars::ODESimulationParams; reset=false, kwargs...)
+function solve_variable_conditions!(cs::ConditionSet, pars::ODESimulationParams; 
+    reset=false, solver=OwrenZen5(), solve_kwargs=Dict{Symbol, Any}(:abstol => 1e6, :reltol => 1e-4))
+
     for profile in cs.profiles
         if isvariable(profile)
-            solve_variable_condition!(profile, pars; reset, kwargs...)
+            solve_variable_condition!(profile, pars; reset, solver, solve_kwargs)
         end
     end
 end

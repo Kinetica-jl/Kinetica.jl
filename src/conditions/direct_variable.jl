@@ -20,16 +20,19 @@ For compatibility, all direct profile structs must implement the following field
 
 
 """
-    solve_variable_condition!(profile<:AbstractDirectProfile, pars[, reset, solve_kwargs...])
+    solve_variable_condition!(profile<:AbstractDirectProfile, pars[, reset, solver, solve_kwargs])
 
 Generates a solution for the specified directly-variable condition profile.
 
 For profiles with direct functions, this requires calculating values
 for the specified `pars.tspan` and wrapping them within an `ODESolution`
 for compatibility with other interfaces (plotting, interpolation, etc.).
+
+Arguments `solver` and `solve_kwargs` are provided for compatibility
+with callers, do nothing and should be ignored.
 """
 function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
-    reset=false, solve_kwargs...) where {pType <: AbstractDirectProfile}
+    reset=false, solver=nothing, solve_kwargs=nothing) where {pType <: AbstractDirectProfile}
     if isnothing(profile.sol) || reset            
         save_interval = isnothing(pars.save_interval) ? pars.tspan[2]/1000 : pars.save_interval
         t = create_savepoints(pars.tspan[1], pars.tspan[2], save_interval)

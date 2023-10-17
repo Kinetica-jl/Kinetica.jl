@@ -19,23 +19,32 @@ For compatibility, all gradient profile structs must implement the following fie
 
 
 """
-    solve_variable_condition!(profile<:AbstractGradientProfile, pars[, reset, solve_kwargs...])
+    solve_variable_condition!(profile<:AbstractGradientProfile, pars[, reset, solver, solve_kwargs])
 
 Generates a solution for the specified gradient-variable condition profile.
 
 For gradient-based profiles, this requires constructing an
 ODEProblem around their MTK-derived symbolic gradient expressions
 and solving over the timespan in `pars`.
+
+The ODE solver and the arguments passed to the `solve()` call
+can be controlled with the `solver` and `solve_kwargs` arguments
+respectively.
 """
 function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
-    reset=false, solve_kwargs...) where {pType <: AbstractGradientProfile}
+    reset=false, solver, solve_kwargs) where {pType <: AbstractGradientProfile}
     if isnothing(profile.sol) || reset
         @variables t X(t)
         D = Differential(t)
         @named profile_sys = ODESystem([D(X) ~ profile.grad(t)], t)
+
         u0map = [Pair(X, profile.X_start)]
+        profile_solve_kwargs = deepcopy(solve_kwargs)
+        profile_solve_kwargs[:tstops] = profile.tstops
+        profile_solve_kwargs[:saveat] = profile.tstops
+
         prob = ODEProblem(profile_sys, u0map, pars.tspan)
-        profile.sol = solve(prob; solve_kwargs...)
+        profile.sol = solve(prob, solver; profile_solve_kwargs...)
     end
     return
 end
