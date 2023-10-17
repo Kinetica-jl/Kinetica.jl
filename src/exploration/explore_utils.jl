@@ -293,7 +293,7 @@ function identify_next_seeds(sol, sd::SpeciesData, seed_conc::AbstractFloat;
             continue
         end
         spectrace = umat[:, species]
-        if any(spectrace .< seed_conc)
+        if any(spectrace .> seed_conc)
             spec_na = sd.xyz[species]["N_atoms"]
             if elim_small_na > 0 && spec_na < elim_small_na
                 continue
