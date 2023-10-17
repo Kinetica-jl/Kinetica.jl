@@ -141,6 +141,7 @@ function explore_network(exploremethod::IterativeExplore,
     loc = find_current_loc(exploremethod.rdir_head); flush_log()
     if loc.level == 0
         sd, rd = init_network()
+        make_inert_file(exploremethod.rdir_head, exploremethod.inert_species)
         for rsmi in vcat(exploremethod.reac_smiles, exploremethod.inert_species)
             rmol = mol_from_smiles(rsmi)
             push_unique!(sd, rsmi, rmol)
@@ -197,7 +198,7 @@ function explore_network(exploremethod::IterativeExplore,
         res = solve_network(solvemethod, sd, rd)
 
         if !isnothing(savedir)
-            @info "\nSaving incomplete network..."; flush_log()
+            @info "Saving incomplete network..."; flush_log()
             saveto = joinpath(savedir, "level_network_1-$(loc.level).bson")
             save_output(res, saveto)
             @info "Network saved to $saveto\n"; flush_log()
@@ -335,7 +336,7 @@ function explore_subspace!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, explore
         end
 
         no_new_reacs_iters += 1
-        @info " - No new reactions discovered for $(no_new_reacs_iters)/$(exploremethod.rxn_convergence_threshold) iterations."
+        @info " - No new reactions discovered for $(no_new_reacs_iters)/$(exploremethod.rxn_convergence_threshold) iterations.\n"
 
         # Check for convergence of reaction network.
         if no_new_reacs_iters >= exploremethod.rxn_convergence_threshold

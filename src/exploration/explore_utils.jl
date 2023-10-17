@@ -24,6 +24,29 @@ end
 
 
 """
+    make_inert_file(path, inert_species)
+
+Makes an inert species file at the given directory `dir`.
+
+If an empty vector of species is supplied, returns without creating
+a file. Otherwise, creates a file listing all inert species, overwriting
+any other existing species file.
+"""
+function make_inert_file(dir::String, inert_species::Vector{String})
+    if length(inert_species) == 0
+        return
+    else
+        open(joinpath(dir, "inert.in"), "w") do f
+            for spec in inert_species
+                write(f, "$spec\n")
+            end
+        end
+    end
+    return
+end
+
+
+"""
     sd, rd = import_mechanism(rdir, rcount[, max_molecularity])
 
 Create a CRN's initial `SpeciesData` and `RxData` from a CDE generated mechanism(s).
@@ -72,9 +95,23 @@ function import_network(rdir_head::String)
     if length(level_dirs) == 0
         error("ERROR: No network levels found in rdir_head.")
     end
+
+    inert_file = joinpath(rdir_head, "inert.in")
+    inert_species = []
+    if isfile(inert_file)
+        @debug "Inert species file found."
+        inert_species = [line for line in eachline(inert_file) if length(line) > 0]
+        @debug "Loaded inert species: $(inert_species)"
+    end
     
     # Initialise network with blank sd and rd.
     sd, rd = init_network()
+
+    # Add inert species, if there are any.
+    for spec in inert_species
+        mol = mol_from_smiles(spec)
+        push_unique!(sd, spec, mol)
+    end
 
     # Loop through each level, adding each subspace.
     for lv in level_dirs
