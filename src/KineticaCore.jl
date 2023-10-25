@@ -3,6 +3,7 @@ module KineticaCore
 using Logging
 using LoggingExtras
 using Dates
+using RecipesBase
 using Catalyst
 using DifferentialEquations
 using LinearAlgebra
@@ -91,7 +92,6 @@ export explore_network
 
 include("analysis/io.jl")
 export ODESolveOutput, save_output, load_output
-include("analysis/interpolation.jl")
 include("analysis/plotting.jl")
 
 end
