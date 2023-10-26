@@ -53,37 +53,18 @@ end
         error("First argument of conditionsplot must be a ConditionSet or an ODESolveOutput containing a ConditionSet.")
     end
 
-    vcs = [get_profile(cs, sym) for sym in cs.symbols if isvariable(cs, sym)]
-    n_vcs = length(vcs)
-    if n_vcs < 1
-        error("No variable conditions in the provided ConditionSet.")
-    end
-    vc_syms = [sym for sym in cs.symbols if isvariable(cs, sym)]
-    labels = length(cp.args) == 2 ? cp.args[2] : [String(sym) for sym in vc_syms]
-    if length(labels) != n_vcs
-        error("Number of labels does not match number of variable conditions in the provided ConditionSet.")
+    csym = cp.args[2]
+    profile = get_profile(cs, csym)
+    if !isvariable(profile)
+        error("Profile for condition $csym is not variable.")
     end
 
-    layout --> (1, n_vcs)
     xlabel --> "Time / $tunit"
-    ylabel --> (n_vcs > 1 ? labels : labels[1])
+    ylabel --> csym
+    legend --> false
+    x := profile.sol.t
+    y := reduce(vcat, profile.sol.u)
 
-    x = res.sol.t
-    for i in 1:n_vcs
-        profile = vcs[i]
-        y = reduce(vcat, profile.sol(x).u)
-        slabel = labels[i]
-        coords = [(xi, yi) for (xi, yi) in zip(x, y)]
-
-        @series begin
-            seriestype := :path
-            ylabel --> slabel
-            label --> ""
-            coords
-        end
-    end
-
-    primary := false
     ()
 end
 
