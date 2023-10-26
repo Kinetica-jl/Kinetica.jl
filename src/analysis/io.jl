@@ -163,6 +163,10 @@ function load_output(outfile::String)
         savedict[:sd][:xyz],
         Dict()
     )
+    # For some reason ExtXYZ dicts can get a bit type unstable, species arrays need special handling.
+    for i in 1:sd.n
+        sd.xyz[i]["arrays"]["species"] = [elem for elem in sd.xyz[i]["arrays"]["species"]]
+    end
 
     rd_iType = typeof(savedict[:rd][:nr])
     rd_reacs = [[sd.toStr[sid] for sid in reac] for reac in savedict[:rd][:id_reacs]]
