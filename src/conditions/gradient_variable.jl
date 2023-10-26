@@ -266,14 +266,20 @@ function DoubleRampGradientProfile(;
         )
     end
 
-    tstops = [t_end]
-
     if isnothing(t_blend)
+        tstops = [t_startr1, t_endr1, t_startr2, t_endr2, t_end]
         return DoubleRampGradientProfile(
             grad, rate1, rate2, X_start, X_mid, X_end, 
             t_start_plateau, t_mid_plateau, t_end_plateau, 
             tType(0.0), t_end, tstops, nothing)
     else
+        tstops = [
+            t_startr1-t_blend, t_startr1+t_blend,
+            t_endr1-t_blend, t_endr1+t_blend,
+            t_startr2-t_blend, t_startr2+t_blend,
+            t_endr2-t_blend, t_endr2+t_blend,
+            t_end
+        ]
         return DoubleRampGradientProfile(
             grad_blend, rate1, rate2, X_start, X_mid, X_end,
             t_start_plateau, t_mid_plateau, t_end_plateau,
