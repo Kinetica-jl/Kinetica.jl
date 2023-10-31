@@ -147,11 +147,12 @@ end
     yticks := (yvals, top_names)
     yflip := true
     xlabel := "Concentration / mol dm⁻³"
+    legend := false
 
     if xscale == :identity
         xlims := (0.0, top_quantity[1])
     else
-        low_lim = 10^floor(log(10, top_quantity[end]))
+        low_lim = 10^floor(log(10, minimum(top_quantity[end-1:end])))
         xlims := (low_lim, 10^ceil(log(10, top_quantity[1])))
         fillrange := low_lim
     end
