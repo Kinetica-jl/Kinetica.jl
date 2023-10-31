@@ -287,28 +287,32 @@ function identify_next_seeds(sol, sd::SpeciesData, seed_conc::AbstractFloat;
                              ignore::Vector{String} = [],
                              saveto::Union{String, Nothing} = nothing)
     next_seeds = String[]
+    next_seed_concs = Float64[]
     umat = reduce(vcat, sol.u')
     for species in axes(umat, 2)
         if !isnothing(ignore) && sd.toStr[species] in ignore
             continue
         end
         spectrace = umat[:, species]
-        if any(spectrace .> seed_conc)
+        spec_max_conc = maximum(spectrace)
+        if spec_max_conc >= seed_conc
             spec_na = sd.xyz[species]["N_atoms"]
             if elim_small_na > 0 && spec_na < elim_small_na
                 continue
             else
                 push!(next_seeds, sd.toStr[species])
+                push!(next_seed_concs, spec_max_conc)
             end
         end
     end
     
     if !isnothing(saveto)
+        max_smi_length = maximum(length.(next_seeds))
         open(saveto, "w") do f
             write(f, "$(length(next_seeds))\n")
-            write(f, "SID   SMILES\n")
-            for (sid, smi) in enumerate(next_seeds)
-                write(f, "$sid    $smi\n")
+            write(f, "SID   $(rpad("SMILES", max_smi_length))   Max. Conc.\n")
+            for (sid, (smi, conc)) in enumerate(zip(next_seeds, next_seed_concs))
+                write(f, "$(rpad(sid, 5)) $(rpad(smi, max_smi_length))   $conc\n")
             end
         end
     end
