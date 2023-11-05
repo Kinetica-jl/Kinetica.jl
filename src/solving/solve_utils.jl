@@ -167,8 +167,8 @@ function insert_inert!(rd::RxData, sd::SpeciesData, inert_species::Vector{String
                 new_stoic_prods = vcat(rd.stoic_prods[rid], 1)
                 new_dH = rd.dH[rid]
 
-                all_reacs = sort(reduce(vcat, [[spec for _ in new_stoic_reacs[spos]] for (spos, spec) in enumerate(new_reacs)]))
-                all_prods = sort(reduce(vcat, [[spec for _ in new_stoic_prods[spos]] for (spos, spec) in enumerate(new_prods)]))
+                all_reacs = sort(reduce(vcat, [[spec for _ in 1:new_stoic_reacs[spos]] for (spos, spec) in enumerate(new_reacs)]))
+                all_prods = sort(reduce(vcat, [[spec for _ in 1:new_stoic_prods[spos]] for (spos, spec) in enumerate(new_prods)]))
                 new_rhash = stable_hash(vcat(all_reacs, all_prods))
 
                 push!(rd.reacs, new_reacs)
@@ -192,8 +192,8 @@ function insert_inert!(rd::RxData, sd::SpeciesData, inert_species::Vector{String
                 push!(rd.stoic_prods[rid], 1)
 
                 # Update reaction hash for new reactants.
-                all_reacs = sort(reduce(vcat, [[spec for _ in rd.stoic_reacs[rid][spos]] for (spos, spec) in enumerate(rd.reacs[rid])]))
-                all_prods = sort(reduce(vcat, [[spec for _ in rd.stoic_prods[rid][spos]] for (spos, spec) in enumerate(rd.prods[rid])]))
+                all_reacs = sort(reduce(vcat, [[spec for _ in 1:rd.stoic_reacs[rid][spos]] for (spos, spec) in enumerate(rd.reacs[rid])]))
+                all_prods = sort(reduce(vcat, [[spec for _ in 1:rd.stoic_prods[rid][spos]] for (spos, spec) in enumerate(rd.prods[rid])]))
                 rhash = stable_hash(vcat(all_reacs, all_prods))
                 rd.rhash[rid] = rhash
             end
