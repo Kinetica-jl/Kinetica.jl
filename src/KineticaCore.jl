@@ -18,7 +18,6 @@ using StableHashTraits
 using BSON
 using OrderedCollections
 using PyCall
-using PyPlot
 
 const version = VersionNumber(0, 1, 0)
 
