@@ -251,27 +251,20 @@ function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
     end
 
     @debug "Extracting fragment species from reactions."
-    tmp_xyz = joinpath(rxdir, "kinetica_tmp.xyz")
-
     reac_smis = Vector{String}[]
     reac_xyzs = []
     for reac in reacs
-        write_frame(tmp_xyz, reac)
-        smis, xyzs = ingest_xyz_system(tmp_xyz; fix_radicals)
+        smis, xyzs = ingest_xyz_system(frame_to_xyz(reac); fix_radicals)
         push!(reac_smis, smis)
         push!(reac_xyzs, xyzs)
     end
-
     prod_smis = Vector{String}[]
     prod_xyzs = []
     for prod in prods
-        write_frame(tmp_xyz, prod)
-        smis, xyzs = ingest_xyz_system(tmp_xyz; fix_radicals)
+        smis, xyzs = ingest_xyz_system(frame_to_xyz(prod); fix_radicals)
         push!(prod_smis, smis)
         push!(prod_xyzs, xyzs)
     end
-
-    rm(tmp_xyz)
 
     # Add in all reverse reactions.
     reac_smis = vcat(reac_smis, prod_smis)

@@ -260,13 +260,7 @@ end
 function system_from_smiles(smiles::Vector{String}; 
         dmin::Float64=5.0, maxiters::Int=200)
 
-    for (i, smi) in enumerate(smiles)
-        xyz_from_smiles(smi, joinpath(dirname(saveto), "tmp_$i.xyz"))
-    end
-    mols = [read_frame(joinpath(dirname(saveto), "tmp_$i.xyz")) for i in 1:length(smiles)]
-    for i in 1:length(smiles)
-        rm(joinpath(dirname(saveto), "tmp_$i.xyz"))
-    end
+    mols = [frame_from_smiles(smi) for smi in smiles]
 
     center_mols!(mols)
     tmols = molsys_opt(mols, dmin, maxiters)

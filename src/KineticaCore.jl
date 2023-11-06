@@ -25,10 +25,12 @@ const version = VersionNumber(0, 1, 0)
 const pybel = PyNULL()
 const pysys = PyNULL()
 const obcr = PyNULL()
+const pyextxyz = PyNULL()
 function __init__()
     copy!(pybel, pyimport_conda("openbabel.pybel", "openbabel")) # Use pyimport_conda to ensure dependency in place.
     copy!(pysys, pyimport("sys"))
     copy!(obcr, pyimport("obcr"))
+    copy!(pyextxyz, pyimport("extxyz"))
 end
 export pybel, pysys, obcr
 
@@ -62,7 +64,7 @@ export RxData
 export init_network
 
 include("openbabel/conversion.jl")
-export ingest_xyz_system, xyz_to_frames
+export ingest_xyz_system, xyz_to_frame, frame_to_xyz, xyz_file_to_str
 include("openbabel/properties.jl")
 export get_species_stats!
 

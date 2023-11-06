@@ -145,7 +145,7 @@ end
 
 Add an array of species to `SpeciesData`, as long as each does not already exist there.
 """
-function push_unique!(sd::SpeciesData, smis::Vector{String}, xyzs::Vector{Any})
+function push_unique!(sd::SpeciesData, smis::Vector{String}, xyzs::Vector{Dict{String, Any}})
     for (smi, xyz) in zip(smis, xyzs)
         push_unique!(sd, smi, xyz)
     end

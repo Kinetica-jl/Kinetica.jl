@@ -60,6 +60,7 @@ flush_log()
 flush_log()
 Conda.add(["numpy", "openbabel"]; channel="conda-forge")
 Conda.pip_interop(true)
+Conda.pip("install", ["extxyz"])
 Conda.pip("install", ["--no-deps", "-e", "$(obcrdir)"])
 @info "Python setup complete."
 

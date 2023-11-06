@@ -137,7 +137,7 @@ function insert_inert!(rd::RxData, sd::SpeciesData, inert_species::Vector{String
             pbmol = pybel.readstring("smi", species)
             pbmol.addh()
             pbmol.make3D()
-            xyz = xyz_to_frames(pbmol.write("xyz"))[1]
+            xyz = xyz_to_frame(pbmol.write("xyz"))
 
             inert_id = sd.n + 1
             push!(inert_species_ids, inert_id)
