@@ -6,59 +6,72 @@ abstract type AbstractSSASolveMethod <: AbstractSolveMethod end
 """
 Static kinetic CRN solver type.
 
-Combines all parameter inputs, condtions and
-a calculator into a single type to be passed
-to the solver.
+Combines all parameter inputs, conditions, a calculator and
+a set of reaction finters into a single type to be passed to
+the solver.
 
-All conditions in the provided `ConditionSet`
-must be static (defined as a single number),
-and also must be compatible with the calculator.
+All conditions in the provided `ConditionSet` must be static 
+(defined as a single number), and also must be compatible with
+the provided calculator.
+
+Allows for optional specification of `RxFilter`. If not defined,
+creates a filter that allows all reactions.
 """
 struct StaticODESolve <: AbstractODESolveMethod
     pars::ODESimulationParams
     conditions::ConditionSet
     calculator::AbstractKineticCalculator
-    function StaticODESolve(pars, conditions, calculator)
+    filter::RxFilter
+    function StaticODESolve(pars, conditions, calculator, filter)
         if !isstatic(conditions)
             throw(ArgumentError("All conditions must be static to run a StaticODESolve."))
         elseif !has_conditions(calculator, conditions.symbols)
             throw(ArgumentError("Calculator does not support all of the provided conditions."))
         else
-            return new(pars, conditions, calculator)
+            return new(pars, conditions, calculator, filter)
         end
     end
 end
 
+function StaticODESolve(pars::ODESimulationParams, conditions::ConditionSet, calculator::AbstractKineticCalculator)
+    return StaticODESolve(pars, conditions, calculator, RxFilter())
+end
+
+
 """
 Variable kinetic CRN solver type.
 
-Combines all parameter inputs, condtions and
-a calculator into a single type to be passed
-to the solver.
+Combines all parameter inputs, conditions, a calculator and
+a set of reaction finters into a single type to be passed to
+the solver.
 
-Conditions in the provided `ConditionSet` must
-be compatible with the calculator and can be 
-a combination of static and variable. However,
-this will throw an error if all conditions are
-static, as a `StaticODESolve` should be used
-instead.
+Conditions in the provided `ConditionSet` must be compatible
+with the calculator and can be a combination of static and 
+variable. However, this will throw an error if all conditions 
+are static, as a `StaticODESolve` should be used instead.
+
+Allows for optional specification of `RxFilter`. If not defined,
+creates a filter that allows all reactions.
 """
 struct VariableODESolve <: AbstractODESolveMethod
     pars::ODESimulationParams
     conditions::ConditionSet
     calculator::AbstractKineticCalculator
-    function VariableODESolve(pars, conditions, calculator)
+    filter::RxFilter
+    function VariableODESolve(pars, conditions, calculator, filter)
         if !has_conditions(calculator, conditions.symbols)
             throw(ArgumentError("Calculator does not support all of the provided conditions."))
         elseif !conditions.discrete_updates && !allows_continuous(calculator)
             throw(ArgumentError("Calculator does not support continuous rate updates in simulations."))
         else
-            return new(pars, conditions, calculator)
+            return new(pars, conditions, calculator, filter)
         end
     end
 end
 
-
+function VariableODESolve(pars::ODESimulationParams, conditions::ConditionSet, calculator::AbstractKineticCalculator)
+    return VariableODESolve(pars, conditions, calculator, RxFilter())
+end
 
 
 """
@@ -85,6 +98,11 @@ function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData; copy
         sd_active = sd
         rd_active = rd
     end
+
+    @info " - Filtering reactions..."
+    mask = get_filter_mask(method.filter, sd, rd)
+    splice!(rd, findall(mask))
+    @info "   - Removed $(count(mask)) filtered reactions from network"
 
     setup_network!(sd_active, rd_active, method.calculator)
     split_method = method.pars.solve_chunks ? :chunkwise : :complete
@@ -279,6 +297,11 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData; co
 
     @info " - Calculating variable condition profiles."; flush_log()
     solve_variable_conditions!(method.conditions, method.pars)
+
+    @info " - Filtering reactions..."
+    mask = get_filter_mask(method.filter, sd, rd)
+    splice!(rd, findall(mask))
+    @info "   - Removed $(count(mask)) filtered reactions from network"
 
     @info " - Performing calculator-specific network setup."; flush_log()
     setup_network!(sd_active, rd_active, method.calculator)

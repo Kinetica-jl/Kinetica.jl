@@ -82,6 +82,8 @@ include("solving/calculator.jl")
 export DummyKineticCalculator, PrecalculatedArrheniusCalculator, PrecalculatedLindemannCalculator
 export allows_continuous, has_conditions, setup_network!
 include("solving/solve_utils.jl")
+include("solving/filters.jl")
+export RxFilter, get_filter_mask
 include("solving/solutions.jl")
 include("solving/methods.jl")
 export StaticODESolve, VariableODESolve
