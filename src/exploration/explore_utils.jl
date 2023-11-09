@@ -109,8 +109,8 @@ function import_network(rdir_head::String)
 
     # Add inert species, if there are any.
     for spec in inert_species
-        mol = mol_from_smiles(spec)
-        push_unique!(sd, spec, mol)
+        xyz = frame_from_smiles(spec)
+        push_unique!(sd, spec, xyz)
     end
 
     # Loop through each level, adding each subspace.

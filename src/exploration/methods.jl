@@ -81,8 +81,8 @@ function explore_network(exploremethod::DirectExplore,
     if loc.level == 0
         sd, rd = init_network()
         for rsmi in unique(seeds)
-            rmol = mol_from_smiles(rsmi)
-            push_unique!(sd, rsmi, rmol)
+            rxyz = frame_from_smiles(rsmi)
+            push_unique!(sd, rsmi, rxyz)
         end
         setup_level(loc, sd, seeds)
         @info "Starting breakdown generation within a radius of $(exploremethod.cde.radius) reactions.\n"
@@ -143,8 +143,8 @@ function explore_network(exploremethod::IterativeExplore,
         sd, rd = init_network()
         make_inert_file(exploremethod.rdir_head, exploremethod.inert_species)
         for rsmi in vcat(exploremethod.reac_smiles, exploremethod.inert_species)
-            rmol = mol_from_smiles(rsmi)
-            push_unique!(sd, rsmi, rmol)
+            rxyz = frame_from_smiles(rsmi)
+            push_unique!(sd, rsmi, rxyz)
         end
         explored_seeds = String[]
         current_seeds = exploremethod.reac_smiles
@@ -159,6 +159,7 @@ function explore_network(exploremethod::IterativeExplore,
     # Loop over levels of reaction space until converged
     do_next_level = true
     convergence_count = 0
+    res = nothing
     while do_next_level
         @info "##########################"
         @info "ENTERING LEVEL $(loc.level)"

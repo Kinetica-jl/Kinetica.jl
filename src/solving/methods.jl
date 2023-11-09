@@ -100,8 +100,8 @@ function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData; copy
     end
 
     @info " - Filtering reactions..."
-    mask = get_filter_mask(method.filter, sd, rd)
-    splice!(rd, findall(mask))
+    mask = get_filter_mask(method.filter, sd_active, rd_active)
+    splice!(rd_active, findall(mask))
     @info "   - Removed $(count(mask)) filtered reactions from network"
 
     setup_network!(sd_active, rd_active, method.calculator)
@@ -299,8 +299,8 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData; co
     solve_variable_conditions!(method.conditions, method.pars)
 
     @info " - Filtering reactions..."
-    mask = get_filter_mask(method.filter, sd, rd)
-    splice!(rd, findall(mask))
+    mask = get_filter_mask(method.filter, sd_active, rd_active)
+    splice!(rd_active, findall(mask))
     @info "   - Removed $(count(mask)) filtered reactions from network"
 
     @info " - Performing calculator-specific network setup."; flush_log()
