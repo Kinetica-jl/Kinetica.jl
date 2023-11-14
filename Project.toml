@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
+CDE_jll = "519a0aee-8577-56a6-9f9d-1e74151fa0e1"
 Catalyst = "479239e8-5488-4da2-87a7-35f2df7eef83"
 Conda = "8f4d0f93-b110-5947-807f-2305c1781a2d"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"

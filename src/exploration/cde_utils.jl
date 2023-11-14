@@ -35,3 +35,16 @@ function env_multithread(nthreads::Int)
 
     return env
 end
+
+"""
+    env_multithread!(cmd, nthreads)
+
+Set up environment variables for CDE calculations by modifying an existing Cmd.
+
+Sets OMP/MKL thread counts (for xTB calculations within CDE).
+"""
+function env_multithread!(cmd::Cmd, nthreads::Int)
+    push!(cmd.env, "OMP_NUM_THREADS=$nthreads")
+    push!(cmd.env, "MKL_NUM_THREADS=$nthreads")
+    push!(cmd.env, "MKL_DYNAMIC=FALSE")
+end

@@ -18,6 +18,7 @@ using StableHashTraits
 using BSON
 using OrderedCollections
 using PyCall
+using CDE_jll
 
 const version = VersionNumber(0, 1, 0)
 

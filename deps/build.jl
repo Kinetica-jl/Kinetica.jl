@@ -14,9 +14,8 @@ end
 
 # Get dependencies
 depsdir = joinpath(PROJECT_DIR, "submodules")
-cdedir = joinpath(depsdir, "cde")
 obcrdir = joinpath(depsdir, "OBCanonicalRadicals")
-if readdir(cdedir) != String[] && readdir(obcrdir) != String[]
+if readdir(obcrdir) != String[]
     @info string("Submodules already initialised, checking for updates...")
     gitcmd = run(Cmd(`git submodule update`, dir=PROJECT_DIR))
     if gitcmd.exitcode == 1
@@ -34,24 +33,6 @@ else
         error("Error initialising Git submodules.")
     end
     @info string("All submodules initialised.")
-end
-flush_log()
-
-# Compile CDE.
-@info string("CDE may require some configuration before compilation.")
-cdemake = lowercase(get(ENV, "KINETICA_BUILD_CDE", "true"))
-if cdemake == "true"
-    @info string("Compiling CDE...")
-    flush_log()
-    cdemakecmd = run(Cmd(`make`, dir=cdedir))
-    if cdemakecmd.exitcode == 1
-        error("CDE failed to compile!")
-    end
-    @info string("CDE compilation complete.")
-elseif cdemake == "false"
-    @info string("ENV[\"KINETICA_BUILD_CDE\"] is false, skipping CDE compilation.")
-else
-    error("Unknown value for ENV[\"KINETICA_BUILD_CDE\"]: $(cdemake)")
 end
 flush_log()
 

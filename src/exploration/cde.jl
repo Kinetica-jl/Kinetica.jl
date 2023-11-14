@@ -6,8 +6,8 @@ CDE runner. Initialised through struct, run through functor.
 Struct contains fields for:
 
 * CDE template directory (`template_dir`)
-* Environment variable dictionary, modified for running CDE calculations (Optional, defaults to current environment; `env`)
-* Path to CDE executable (Optional, defaults to CDE compiled by KineticaCore's build process; `cde_exec`)
+* Environmental multithreading number of threads (Optional, defaults to 1 thread; `env_threads`)
+* Path to CDE executable (Optional, defaults to CDE packaged within CDE_jll; `cde_exec`)
 * Seed for CDE's RNG (Optional, setting to 0 indicates seed should be random; `sampling_seed`)
 * Radius for exploration of breakdown space (Optional, Default = 50; `radius`)
 * Number of mechanisms to generate within a single CDE run (Optional, Default = 1; `nrxn`)
@@ -27,8 +27,8 @@ and are not intended to be changed by users.
     template_dir::String
     
     # Optional fields
-    env::Dict = ENV
-    cde_exec::String = joinpath(dirname(dirname(dirname(@__FILE__))), "submodules/cde/bin/cde.x")
+    env_threads::Int = 1
+    cde_exec::Union{String, Cmd} = run_cde()
     sampling_seed::Int = 0
     radius::Int = 50
     nrxn::Int = 1
@@ -76,7 +76,13 @@ function (self::CDE)(rcount::Int)
     # Run single-ended sampling for breakdown products.
     outfile = self.write_stdout ? joinpath(rxdir, "cde.out") : devnull
     errfile = self.write_stderr ? joinpath(rxdir, "cde.err") : devnull
-    run(pipeline(Cmd(`$(self.cde_exec) input`, env=self.env, dir=rxdir), stdout=outfile, stderr=errfile))
+    if self.cde_exec isa Cmd
+        env_multithread!(self.cde_exec, self.env_threads)
+        run(pipeline(Cmd(`$(self.cde_exec) input`, dir=rxdir), stdout=outfile, stderr=errfile))
+    else
+        mt_env = env_multithread(self.env_threads)
+        run(pipeline(Cmd(`$(self.cde_exec) input`, env=mt_env, dir=rxdir), stdout=outfile, stderr=errfile))
+    end
 
     # Check calculation ran correctly.
     success = true
@@ -154,11 +160,21 @@ function (self::CDE)(rcountrange::AbstractUnitRange)
 
     # Run single-ended sampling for breakdown products.
     parallel_procs = []
+    if self.cde_exec isa Cmd
+        env_multithread!(self.cde_exec, self.env_threads)
+    else
+        mt_env = env_multithread(self.env_threads)
+    end
     for i in 1:length(rcountrange)
         outfile = self.write_stdout ? joinpath(rxdirs[i], "cde.out") : devnull
         errfile = self.write_stderr ? joinpath(rxdirs[i], "cde.err") : devnull
-        push!(parallel_procs, pipeline(Cmd(`$(self.cde_exec) input`, env=self.env, dir=rxdirs[i]), 
+        if self.cde_exec isa Cmd
+            push!(parallel_procs, pipeline(Cmd(`$(self.cde_exec) input`, dir=rxdirs[i]), 
+                stdout=outfile, stderr=errfile))
+        else
+            push!(parallel_procs, pipeline(Cmd(`$(self.cde_exec) input`, env=mt_env, dir=rxdirs[i]), 
               stdout=outfile, stderr=errfile))
+        end
     end
 
     parallel_run(parallel_procs; ntasks=self.parallel_exes)
