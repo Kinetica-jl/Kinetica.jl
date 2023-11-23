@@ -77,6 +77,9 @@ function explore_network(exploremethod::DirectExplore,
     if !isnothing(savedir) && !isdir(savedir) mkdir(savedir) end
 
     loc = find_current_loc(exploremethod.rdir_head)
+    if loc.level > 1
+        error("Current CRN level is greater than 1. Are you trying to continue an iterative exploration?")
+    end
     seeds = exploremethod.reac_smiles
     if loc.level == 0
         sd, rd = init_network()
@@ -85,6 +88,7 @@ function explore_network(exploremethod::DirectExplore,
             push_unique!(sd, rsmi, rxyz)
         end
         setup_level(loc, sd, seeds)
+        inc_level!(loc)
         @info "Starting breakdown generation within a radius of $(exploremethod.cde.radius) reactions.\n"
     else
         cleanup_network(loc.rdir_head)
@@ -96,7 +100,7 @@ function explore_network(exploremethod::DirectExplore,
     n_subspaces = n_seeds == 1 ? 1 : n_seeds + 1
     explored_seeds = []
     while loc.subspace < n_subspaces
-        spec = current_seeds[loc.subspace]
+        spec = seeds[loc.subspace]
         if spec in explored_seeds
             cpath = joinpath(pathof(loc), "isconv")
             open(cpath, "w") do f
@@ -106,6 +110,7 @@ function explore_network(exploremethod::DirectExplore,
             @info "Skipping Subspace $(loc.subspace)\n"; flush_log()
         else
             explore_subspace!(sd, rd, loc, exploremethod)
+            push!(explored_seeds, spec)
         end
         inc_subspace!(loc)
     end
