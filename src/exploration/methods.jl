@@ -87,8 +87,8 @@ function explore_network(exploremethod::DirectExplore,
             rxyz = frame_from_smiles(rsmi)
             push_unique!(sd, rsmi, rxyz)
         end
-        setup_level(loc, sd, seeds)
         inc_level!(loc)
+        setup_level(loc, sd, seeds)
         @info "Starting breakdown generation within a radius of $(exploremethod.cde.radius) reactions.\n"
     else
         cleanup_network(loc.rdir_head)
