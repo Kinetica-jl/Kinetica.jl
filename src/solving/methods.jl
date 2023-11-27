@@ -366,7 +366,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     )
     @info "   - Created constraint system for variable conditions."; flush_log()
 
-    rs = make_rs(k, spec, t, rd)
+    rs = make_rs(k, spec, t, rd; variable_rates=true)
     @named rs_constrained = extend(rate_sys, rs)
     @info "   - Merged ReactionSystem with constraints."
     @info "   - Creating ODESystem."
@@ -393,10 +393,8 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
         solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
     end
 
-    @info " - Solving network..."
     integ = init(oprob, method.pars.solver; solvecall_kwargs...)
     adaptive_solve!(integ, method.pars, solvecall_kwargs; print_status=true)
-    @info " - Solved.\n"
 
     return rebuild_vc_solution(integ.sol, gradient_profile_symbols)
 end
@@ -456,7 +454,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     )
     @info "   - Created constraint system for variable conditions."; flush_log()
 
-    rs = make_rs(k, spec, t, rd)
+    rs = make_rs(k, spec, t, rd; variable_rates=true)
     @named rs_constrained = extend(rate_sys, rs)
     @info "   - Merged ReactionSystem with constraints."
     @info "   - Creating ODESystem."
@@ -618,10 +616,8 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
         solvecall_kwargs[:isoutofdomain] = (u,p,t)->any(x->x<0,u)
     end
 
-    @info " - Solving network..."
     integ = init(oprob, method.pars.solver; solvecall_kwargs...)
     adaptive_solve!(integ, method.pars, solvecall_kwargs; print_status=true)
-    @info " - Solved.\n"
 
     return build_discrete_rate_solution(integ.sol, k_precalc)
 end

@@ -308,7 +308,7 @@ Makes a Catalyst ReactionSystem from all currently implemented reactions.
 Should always be preceded by a call to `@parameters` to refresh `k` and
 a call to `@variables` to refresh `species` and `t`.
 """
-function make_rs(k, spec, t, rd::RxData; combinatoric_ratelaws=false)
+function make_rs(k, spec, t, rd::RxData; variable_rates=false, combinatoric_ratelaws=false)
     rxs = []
     for i in 1:rd.nr
         sr = rd.stoic_reacs[i]
@@ -317,7 +317,12 @@ function make_rs(k, spec, t, rd::RxData; combinatoric_ratelaws=false)
         push!(rxs, rx)
     end
 
-    @named rs = ReactionSystem(rxs, t, spec, k; combinatoric_ratelaws=combinatoric_ratelaws)
+    if variable_rates
+        states = vcat(spec, k)
+        @named rs = ReactionSystem(rxs, t, states, []; combinatoric_ratelaws=combinatoric_ratelaws)
+    else
+        @named rs = ReactionSystem(rxs, t, spec, k; combinatoric_ratelaws=combinatoric_ratelaws)
+    end
     
     return rs
 end
@@ -330,7 +335,7 @@ end
 """
 function adaptive_solve!(integrator, pars::ODESimulationParams, solvecall_kwargs::Dict{Symbol, Any}; print_status::Bool=false)
     if print_status 
-        @info " - Solving..." 
+        @info " - Solving network..." 
         flush_log()
     end
 
@@ -346,7 +351,7 @@ function adaptive_solve!(integrator, pars::ODESimulationParams, solvecall_kwargs
         if SciMLBase.successful_retcode(integrator.sol.retcode)
             success = true
             if print_status 
-                @info " - Solved!" 
+                @info " - Solved!\n" 
                 flush_log()
             end
             if pars.update_tols && solvecall_kwargs[:abstol] != opars.abstol
