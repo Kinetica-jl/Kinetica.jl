@@ -382,23 +382,14 @@ end
 """
     affect! = CompleteRateUpdateAffect(k_precalc)
 
-Condition function for discrete rate update callback in complete timescale simulations.
+Affect! function for discrete rate update callback in complete timescale simulations.
 
-For efficiency, and to avoid errors due to FP imprecision,
-keeps track of the number of time stops it has made and
-indexes precalculated rate constants with this, rather than
-trying to index based on the current time.
-
-NOTE: This may be a poor way of implementing this, as it is
-incompatible with other callbacks in the same simulation. If
-this is required, a multidimensional linear interpolator for
-the rate constants may be necessary to deal with arbitrary
-time stops.
+Calculates new rate constants from direct interpolation on
+`k_precalc::AbstractODESolution`.
 """
 mutable struct CompleteRateUpdateAffect
     k_precalc::SciMLBase.AbstractODESolution
 end
-CompleteRateUpdateAffect(k_precalc) = return CompleteRateUpdateAffect(k_precalc, 1)
 function (self::CompleteRateUpdateAffect)(integrator)
     integrator.p = self.k_precalc(integrator.t)
 end
