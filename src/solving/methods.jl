@@ -325,7 +325,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     @variables t 
     @species (spec(t))[1:sd.n]
     @variables (k(t))[1:rd.nr]
-    @variables (vc(t)[1:n_variable_conditions])
+    @variables (vc(t))[1:n_variable_conditions]
 
     u0 = make_u0(sd, method.pars)
     u0map = Pair.(collect(spec), u0)
@@ -366,7 +366,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     )
     @info "   - Created constraint system for variable conditions."; flush_log()
 
-    rs = make_rs(k, spec, t, rd; variable_rates=true)
+    rs = make_rs(k, spec, t, rd; variable_k=true)
     @named rs_constrained = extend(rate_sys, rs)
     @info "   - Merged ReactionSystem with constraints."
     @info "   - Creating ODESystem."
@@ -387,6 +387,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
         :dtmin => eps(method.pars.tspan[end]),
         :maxiters => method.pars.maxiters,
         :saveat => isnothing(method.pars.save_interval) ? eltype(method.pars.tspan)[] : method.pars.save_interval,
+        :tstops => get_tstops(method.conditions),
         :kwargshandle => KeywordArgError
     )
     if method.pars.ban_negatives
@@ -411,7 +412,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     @variables t 
     @species (spec(t))[1:sd.n]
     @variables (k(t))[1:rd.nr]
-    @variables (vc(t)[1:n_variable_conditions])
+    @variables (vc(t))[1:n_variable_conditions]
     @parameters chunktime n_chunks
 
     u0 = make_u0(sd, method.pars)
@@ -454,7 +455,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     )
     @info "   - Created constraint system for variable conditions."; flush_log()
 
-    rs = make_rs(k, spec, t, rd; variable_rates=true)
+    rs = make_rs(k, spec, t, rd, [chunktime, n_chunks])
     @named rs_constrained = extend(rate_sys, rs)
     @info "   - Merged ReactionSystem with constraints."
     @info "   - Creating ODESystem."
@@ -610,6 +611,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
         :dtmin => eps(method.pars.tspan[end]),
         :maxiters => method.pars.maxiters,
         :saveat => isnothing(method.pars.save_interval) ? eltype(method.pars.tspan)[] : method.pars.save_interval,
+        :tstops => tstops,
         :kwargshandle => KeywordArgError
     )
     if method.pars.ban_negatives

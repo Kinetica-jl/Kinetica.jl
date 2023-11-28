@@ -301,14 +301,23 @@ end
 
 
 """
-    make_rs(k, spec, t, rd[, combinatoric_ratelaws])
+    make_rs(k, spec, t, rd[, p, combinatoric_ratelaws]/[, variable_k, combinatoric_ratelaws])
 
-Makes a Catalyst ReactionSystem from all currently implemented reactions.
+Makes a Catalyst `ReactionSystem`` from all currently implemented reactions.
 
-Should always be preceded by a call to `@parameters` to refresh `k` and
-a call to `@variables` to refresh `species` and `t`.
+`k` should be a vector of rate constants, defined either as MTK
+variables or parameters. If performing a chunkwise simulation with
+`k` as variables, chunk parameters should be passed via `p`. If
+performing a complete timescale simulation, `variable_k` should be
+true.
+
+`spec` should be a vector of species defined as Catalyst species.
+`t` should be the MTK variable for simulation time.
+
+If a SSA-based simulation is required, `combinatoric_ratelaws` can
+be enabled. Otherwise, this should be left disabled.
 """
-function make_rs(k, spec, t, rd::RxData; variable_rates=false, combinatoric_ratelaws=false)
+function make_rs(k, spec, t, rd::RxData; variable_k=false, combinatoric_ratelaws=false)
     rxs = []
     for i in 1:rd.nr
         sr = rd.stoic_reacs[i]
@@ -317,12 +326,26 @@ function make_rs(k, spec, t, rd::RxData; variable_rates=false, combinatoric_rate
         push!(rxs, rx)
     end
 
-    if variable_rates
-        states = vcat(spec, k)
-        @named rs = ReactionSystem(rxs, t, states, []; combinatoric_ratelaws=combinatoric_ratelaws)
+    if variable_k
+        @named rs = ReactionSystem(rxs, t; combinatoric_ratelaws=combinatoric_ratelaws)
     else
         @named rs = ReactionSystem(rxs, t, spec, k; combinatoric_ratelaws=combinatoric_ratelaws)
     end
+    
+    return rs
+end
+
+function make_rs(k, spec, t, rd::RxData, p; combinatoric_ratelaws=false)
+    rxs = []
+    for i in 1:rd.nr
+        sr = rd.stoic_reacs[i]
+        sp = rd.stoic_prods[i]
+        rx = Reaction(k[i], [spec[rd.id_reacs[i][j]] for j in 1:length(sr)], [spec[rd.id_prods[i][j]] for j in 1:length(sp)], sr, sp)
+        push!(rxs, rx)
+    end
+
+    states = vcat(spec, k)
+    @named rs = ReactionSystem(rxs, t, states, p; combinatoric_ratelaws=combinatoric_ratelaws)
     
     return rs
 end
