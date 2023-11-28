@@ -27,13 +27,15 @@ end
 
 
 function build_vc_solution(prob::SciMLBase.AbstractODEProblem,
-    alg, t, u::Vector{Vector{T}}, vcs::Dict{Symbol, Vector{T}};
+    alg, t, u, vcs;
     dense = false,
     k = nothing,
     alg_choice = nothing,
     interp = SciMLBase.LinearInterpolation(t, u),
     retcode = ReturnCode.Default, destats = missing, stats = nothing,
-    kwargs...) where {T}
+    kwargs...)
+
+    T = typeof(u[1][1])
 
     if prob.u0 === nothing
         N = 2
