@@ -152,7 +152,14 @@ end
     if xscale == :identity
         xlims := (0.0, top_quantity[1])
     else
-        low_lim = 10^floor(log(10, minimum(top_quantity[end-1:end])))
+        # Deal with negative numbers due to numerical noise.
+        min_top_quantity = maximum(top_quantity)
+        for q in top_quantity
+            if 0 < q < min_top_quantity
+                min_top_quantity = q
+            end
+        end
+        low_lim = 10^floor(log(10, min_top_quantity))
         xlims := (low_lim, 10^ceil(log(10, top_quantity[1])))
         fillrange := low_lim
     end
