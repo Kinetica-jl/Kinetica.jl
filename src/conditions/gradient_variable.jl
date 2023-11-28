@@ -40,8 +40,15 @@ function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
 
         u0map = [Pair(X, profile.X_start)]
         profile_solve_kwargs = deepcopy(solve_kwargs)
-        profile_solve_kwargs[:tstops] = profile.tstops
-        profile_solve_kwargs[:saveat] = profile.tstops
+        if :tstops in keys(profile_solve_kwargs)
+            profile_solve_kwargs[:tstops] = sort(vcat(profile_solve_kwargs[:tstops], profile.tstops))
+        else
+            profile_solve_kwargs[:tstops] = profile.tstops
+        end
+        if !(:saveat in keys(profile_solve_kwargs))
+            save_interval = isnothing(pars.save_interval) ? pars.tspan[2]/1000 : pars.save_interval
+            profile_solve_kwargs[:saveat] = sort(vcat(create_savepoints(pars.tspan[1], pars.tspan[2], save_interval), profile.tstops))
+        end
 
         prob = ODEProblem(profile_sys, u0map, pars.tspan)
         profile.sol = solve(prob, solver; profile_solve_kwargs...)
