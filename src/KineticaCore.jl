@@ -20,20 +20,27 @@ using OrderedCollections
 using PyCall
 using CDE_jll
 
-const version = VersionNumber(0, 1, 0)
+const version = VersionNumber(0, 2, 0)
 
 # Global Python package interfaces
 const pybel = PyNULL()
 const pysys = PyNULL()
 const obcr = PyNULL()
 const pyextxyz = PyNULL()
+const rdChem = PyNULL()
+const rdLogger = PyNULL()
 function __init__()
     copy!(pybel, pyimport_conda("openbabel.pybel", "openbabel")) # Use pyimport_conda to ensure dependency in place.
     copy!(pysys, pyimport("sys"))
     copy!(obcr, pyimport("obcr"))
     copy!(pyextxyz, pyimport("extxyz"))
+    copy!(rdChem, pyimport_conda("rdkit.Chem", "rdkit"))
+    copy!(rdLogger, pyimport("rdkit.RDLogger"))
+
+    # Disable RdKit logging because it really clogs up the works.
+    rdLogger.DisableLog("rdApp.*")
 end
-export pybel, pysys, obcr
+export pybel, pysys, obcr, rdChem
 
 include("constants.jl")
 using .Constants
@@ -68,6 +75,9 @@ include("openbabel/conversion.jl")
 export ingest_xyz_system, xyz_to_frame, frame_to_xyz, xyz_file_to_str
 include("openbabel/properties.jl")
 export get_species_stats!
+
+include("rdkit/rdkit.jl")
+export frame_to_rdkit, atom_map_smiles
 
 include("exploration/cde_utils.jl")
 export env_multithread

@@ -248,6 +248,7 @@ using the `fix_radicals` parameter.
 """
 function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
     rxdir = joinpath(rdir, "reac_$(lpad(rcount, 5, "0"))")
+    println(rxdir)
     @debug "Reading in mechanism step xyz files."
 
     # Read in all reactions as 2-frame trajectories.
@@ -268,25 +269,31 @@ function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
 
     @debug "Extracting fragment species from reactions."
     reac_smis = Vector{String}[]
-    reac_xyzs = []
+    reac_xyzs = Vector{Dict{String, Any}}[]
+    reac_systems = Dict{String, Any}[]
     for reac in reacs
         smis, xyzs = ingest_xyz_system(frame_to_xyz(reac); fix_radicals)
         push!(reac_smis, smis)
         push!(reac_xyzs, xyzs)
+        push!(reac_systems, reac)
     end
     prod_smis = Vector{String}[]
-    prod_xyzs = []
+    prod_xyzs = Vector{Dict{String, Any}}[]
+    prod_systems = Dict{String, Any}[]
     for prod in prods
         smis, xyzs = ingest_xyz_system(frame_to_xyz(prod); fix_radicals)
         push!(prod_smis, smis)
         push!(prod_xyzs, xyzs)
+        push!(prod_systems, prod)
     end
 
     # Add in all reverse reactions.
     reac_smis = vcat(reac_smis, prod_smis)
     prod_smis = vcat(prod_smis, reac_smis)
     dH = vcat(dH, -dH)
+    reac_systems = vcat(reac_systems, prod_systems)
+    prod_systems = vcat(prod_systems, reac_systems)
     @debug "Read in $(n_reacs*2) reactions."
 
-    return reac_smis, reac_xyzs, prod_smis, prod_xyzs, dH
+    return reac_smis, reac_xyzs, reac_systems, prod_smis, prod_xyzs, prod_systems, dH
 end

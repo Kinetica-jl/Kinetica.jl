@@ -39,7 +39,7 @@ flush_log()
 # Ensure the Conda environment has the necessary dependencies.
 @info "Setting up Python dependencies..."
 flush_log()
-Conda.add(["numpy", "openbabel"]; channel="conda-forge")
+Conda.add(["numpy", "openbabel", "rdkit"]; channel="conda-forge")
 Conda.pip_interop(true)
 Conda.pip("install", ["extxyz"])
 Conda.pip("install", ["--no-deps", "-e", "$(obcrdir)"])

@@ -151,7 +151,7 @@ function insert_inert!(rd::RxData, sd::SpeciesData, inert_species::Vector{String
     end
 
     # Identify all unimolecular reactions.
-    uni_reactions = [i for i in 1:rd.nr if length(rd.reacs[i]) == 1 && rd.stoic_reacs[i][1] == 1]
+    uni_reactions = [i for i in 1:rd.nr if length(rd.id_reacs[i]) == 1 && rd.stoic_reacs[i][1] == 1]
 
     # Modify all unimolecular reactions to be bimolecular with the inert species as a collision partner.
     for (i, (species, sid)) in enumerate(zip(inert_species, inert_species_ids))
@@ -159,20 +159,18 @@ function insert_inert!(rd::RxData, sd::SpeciesData, inert_species::Vector{String
         # Leave the original unimolecular reaction as a template to copy from.
         if i < length(inert_species)
             for rid in uni_reactions
-                new_reacs = vcat(rd.reacs[rid], species)
-                new_prods = vcat(rd.prods[rid], species)
                 new_id_reacs = vcat(rd.id_reacs[rid], sid)
                 new_id_prods = vcat(rd.id_prods[rid], sid)
                 new_stoic_reacs = vcat(rd.stoic_reacs[rid], 1)
                 new_stoic_prods = vcat(rd.stoic_prods[rid], 1)
                 new_dH = rd.dH[rid]
 
-                all_reacs = sort(reduce(vcat, [[spec for _ in 1:new_stoic_reacs[spos]] for (spos, spec) in enumerate(new_reacs)]))
-                all_prods = sort(reduce(vcat, [[spec for _ in 1:new_stoic_prods[spos]] for (spos, spec) in enumerate(new_prods)]))
+                all_reacs = sort(reduce(vcat, [[sd.toStr[sid] for _ in 1:new_stoic_reacs[spos]] for (spos, sid) in enumerate(rd.id_reacs[rid])]))
+                all_prods = sort(reduce(vcat, [[sd.toStr[sid] for _ in 1:new_stoic_prods[spos]] for (spos, sid) in enumerate(rd.id_prods[rid])]))
                 new_rhash = stable_hash(vcat(all_reacs, all_prods))
 
-                push!(rd.reacs, new_reacs)
-                push!(rd.prods, new_prods)
+                # Doesn't make sense to update the atom maps with inert species since they don't really exist...
+                push!(rd.mapped_rxns, rd.mapped_rxns[rid])
                 push!(rd.id_reacs, new_id_reacs)
                 push!(rd.id_prods, new_id_prods)
                 push!(rd.stoic_reacs, new_stoic_reacs)
@@ -184,16 +182,14 @@ function insert_inert!(rd::RxData, sd::SpeciesData, inert_species::Vector{String
         # On the final inert species, modify the unimolecular template reaction.
         else
             for rid in uni_reactions
-                push!(rd.reacs[rid], species)
-                push!(rd.prods[rid], species)
                 push!(rd.id_reacs[rid], sid)
                 push!(rd.id_prods[rid], sid)
                 push!(rd.stoic_reacs[rid], 1)
                 push!(rd.stoic_prods[rid], 1)
 
                 # Update reaction hash for new reactants.
-                all_reacs = sort(reduce(vcat, [[spec for _ in 1:rd.stoic_reacs[rid][spos]] for (spos, spec) in enumerate(rd.reacs[rid])]))
-                all_prods = sort(reduce(vcat, [[spec for _ in 1:rd.stoic_prods[rid][spos]] for (spos, spec) in enumerate(rd.prods[rid])]))
+                all_reacs = sort(reduce(vcat, [[sd.toStr[sid] for _ in 1:rd.stoic_reacs[rid][spos]] for (spos, sid) in enumerate(rd.id_reacs[rid])]))
+                all_prods = sort(reduce(vcat, [[sd.toStr[sid] for _ in 1:rd.stoic_prods[rid][spos]] for (spos, sid) in enumerate(rd.id_prods[rid])]))
                 rhash = stable_hash(vcat(all_reacs, all_prods))
                 rd.rhash[rid] = rhash
             end
