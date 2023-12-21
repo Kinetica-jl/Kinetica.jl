@@ -94,6 +94,7 @@ function save_output(out::ODESolveOutput, saveto::String)
         ),
         :rd => Dict(
             :nr => out.rd.nr,
+            :mapped_rxns => out.rd.mapped_rxns,
             :id_reacs => out.rd.id_reacs,
             :id_prods => out.rd.id_prods,
             :stoic_reacs => out.rd.stoic_reacs,
@@ -169,11 +170,12 @@ function load_output(outfile::String)
     end
 
     rd_iType = typeof(savedict[:rd][:nr])
-    rd_reacs = [[sd.toStr[sid] for sid in reac] for reac in savedict[:rd][:id_reacs]]
-    rd_prods = [[sd.toStr[sid] for sid in prod] for prod in savedict[:rd][:id_prods]]
+    rd_mapped_rxns = get(savedict[:rd], :mapped_rxns, String[])
+    if length(rd_mapped_rxns) == 0
+        @warn "No reaction atom maps found in output."
+    end
     rd = RxData(
-        savedict[:rd][:nr],
-        rd_reacs, rd_prods,
+        savedict[:rd][:nr], String[rxn for rxn in rd_mapped_rxns],
         Vector{rd_iType}[reac for reac in savedict[:rd][:id_reacs]], 
         Vector{rd_iType}[prod for prod in savedict[:rd][:id_prods]],
         Vector{rd_iType}[sreac for sreac in savedict[:rd][:stoic_reacs]], 

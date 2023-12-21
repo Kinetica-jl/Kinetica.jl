@@ -161,8 +161,7 @@ species IDs to SMILES strings.
 
 Contains fields for:
 * Number of reactions encountered (`nr`)
-* Reactant strings for each reaction (`reacs`)
-* Product strings for each reaction (`prods`)
+* Atom-mapped reaction SMILES for unambiguous linking of atom indices in reactants and products (`mapped_rxns`)
 * Unique IDs of reactants for each reaction (`id_reacs`)
 * Unique IDs of products for each reaction (`id_prods`)
 * Stoichiometries of reactants for each reaction (`stoic_reacs`)
@@ -172,8 +171,7 @@ Contains fields for:
 """
 mutable struct RxData{iType, fType}
     nr::iType
-    reacs::Vector{Vector{String}}
-    prods::Vector{Vector{String}}
+    mapped_rxns::Vector{String}
     id_reacs::Vector{Vector{iType}}
     id_prods::Vector{Vector{iType}}
     stoic_reacs::Vector{Vector{iType}}
@@ -183,7 +181,7 @@ mutable struct RxData{iType, fType}
 end
 
 """
-    rd = RxData(sd, reacs, prods, dH[, unique_rxns, max_molecularity])
+    rd = RxData(sd, reacs, prods, rsys, psys, dH[, unique_rxns, max_molecularity])
 
 Outer constructor method for `RxData`.
 
@@ -204,10 +202,11 @@ molecularity of 2 (i.e. bimolecular reactions).
 """
 function RxData(sd::SpeciesData{iType}, 
         reacs::Vector{Vector{String}}, prods::Vector{Vector{String}},
-        dH::Vector{fType}; unique_rxns=true, max_molecularity=2) where {iType, fType <: AbstractFloat}
+        rsys::Vector{Dict{String, Any}}, psys::Vector{Dict{String, Any}},
+        dH::Vector{fType}; 
+        unique_rxns=true, max_molecularity=2) where {iType, fType <: AbstractFloat}
 
-    reacs_final = []
-    prods_final = []
+    rxns_final = []
     id_reacs_final = []
     id_prods_final = []
     stoic_reacs_final = []
@@ -229,35 +228,37 @@ function RxData(sd::SpeciesData{iType},
             continue
         end
 
-        # Obtain unique reactant and product fragments.
-        rdiff = setdiff(reac_counter, prod_counter)
-        pdiff = setdiff(prod_counter, reac_counter)
         # Check there are no reactions exceeding max_molecularity (forward or backward).
-        if length(rdiff) > max_molecularity || length(pdiff) > max_molecularity || 
-            sum(values(rdiff)) > max_molecularity || sum(values(pdiff)) > max_molecularity
+        if length(reac_counter) > max_molecularity || length(prod_counter) > max_molecularity || 
+            sum(values(reac_counter)) > max_molecularity || sum(values(prod_counter)) > max_molecularity
             invcounter += 1
             continue
         end
 
         # Obtain reaction hash.
-        all_rdiff = sort(reduce(vcat, [[key for _ in 1:rdiff[key]] for key in keys(rdiff)]))
-        all_pdiff = sort(reduce(vcat, [[key for _ in 1:pdiff[key]] for key in keys(pdiff)]))
-        rhash = stable_hash(vcat(all_rdiff, all_pdiff))
+        all_reacs = sort(reduce(vcat, [[key for _ in 1:reac_counter[key]] for key in keys(reac_counter)]))
+        all_prods = sort(reduce(vcat, [[key for _ in 1:prod_counter[key]] for key in keys(prod_counter)]))
+        rhash = stable_hash(vcat(all_reacs, all_prods))
 
         # Add reaction to arrays if it is unique.
         if !unique_rxns || !(rhash in hashes_final)
-            push!(hashes_final, rhash)
-            # Add only unique arrays so that stoichiometry corresponds to all of them.
-            unique_reacs = unique(all_rdiff)
-            unique_prods = unique(all_pdiff)
-            push!(reacs_final, unique_reacs)
-            push!(prods_final, unique_prods)
+            # Construct atom-mapped reaction SMILES from original geometries.
+            mapped_reacs = atom_map_smiles(rsys[i], join(all_reacs, "."))
+            mapped_prods = atom_map_smiles(psys[i], join(all_prods, "."))
+            mapped_rxn = join([mapped_reacs, mapped_prods], ">>")
+
+            # Get unique lists so stoichiometry can multiply each species in a reaction.
+            unique_reacs = unique(all_reacs)
+            unique_prods = unique(all_prods)
+
+            nr += 1
+            push!(rxns_final, mapped_rxn)
             push!(id_reacs_final, [sd.toInt[reac] for reac in unique_reacs])
             push!(id_prods_final, [sd.toInt[prod] for prod in unique_prods])
-            push!(stoic_reacs_final, [rdiff[reac] for reac in unique_reacs])
-            push!(stoic_prods_final, [pdiff[prod] for prod in unique_prods])
+            push!(stoic_reacs_final, [reac_counter[reac] for reac in unique_reacs])
+            push!(stoic_prods_final, [prod_counter[prod] for prod in unique_prods])
             push!(dH_final, dH[i])
-            nr += 1
+            push!(hashes_final, rhash)
         else
             dcounter += 1
         end
@@ -265,17 +266,18 @@ function RxData(sd::SpeciesData{iType},
 
     @debug " - $dcounter duplicate and $invcounter invalid reactions found."
 
-    return RxData{iType, fType}(nr, reacs_final, prods_final, id_reacs_final, id_prods_final,
+    return RxData{iType, fType}(nr, rxns_final, id_reacs_final, id_prods_final,
             stoic_reacs_final, stoic_prods_final, dH_final, hashes_final)
 end
 
 """
-    push!(rd, sd, reacs, prods, dH[, unique_rxns, max_molecularity])
+    push!(rd, sd, reacs, prods, rsys, psys, dH[, unique_rxns, max_molecularity])
 """
 function Base.push!(rd::RxData{iType, fType}, sd::SpeciesData,
-        reacs::Vector{Vector{String}}, prods::Vector{Vector{String}}, dH::Vector{fType}; 
-        unique_rxns=true, max_molecularity=2
-        ) where {iType, fType <: AbstractFloat}
+        reacs::Vector{Vector{String}}, prods::Vector{Vector{String}}, 
+        rsys::Vector{Dict{String, Any}}, psys::Vector{Dict{String, Any}},
+        dH::Vector{fType}; 
+        unique_rxns=true, max_molecularity=2) where {iType, fType <: AbstractFloat}
 
     invcounter = 0
     dcounter = 0
@@ -290,35 +292,38 @@ function Base.push!(rd::RxData{iType, fType}, sd::SpeciesData,
             continue
         end
 
-        # Obtain unique reactant and product fragments.
-        rdiff = setdiff(reac_counter, prod_counter)
-        pdiff = setdiff(prod_counter, reac_counter)
         # Check there are no reactions exceeding max_molecularity (forward or backward).
-        if length(rdiff) > max_molecularity || length(pdiff) > max_molecularity || 
-            sum(values(rdiff)) > max_molecularity || sum(values(pdiff)) > max_molecularity
+        if length(reac_counter) > max_molecularity || length(prod_counter) > max_molecularity || 
+            sum(values(reac_counter)) > max_molecularity || sum(values(prod_counter)) > max_molecularity
             invcounter += 1
             continue
         end
 
         # Obtain reaction hash.
-        all_rdiff = sort(reduce(vcat, [[key for _ in 1:rdiff[key]] for key in keys(rdiff)]))
-        all_pdiff = sort(reduce(vcat, [[key for _ in 1:pdiff[key]] for key in keys(pdiff)]))
-        rhash = stable_hash(vcat(all_rdiff, all_pdiff))
+        all_reacs = sort(reduce(vcat, [[key for _ in 1:reac_counter[key]] for key in keys(reac_counter)]))
+        all_prods = sort(reduce(vcat, [[key for _ in 1:prod_counter[key]] for key in keys(prod_counter)]))
+        rhash = stable_hash(vcat(all_reacs, all_prods))
 
         # Add reaction to arrays if it is unique.
         if !unique_rxns || !(rhash in rd.rhash)
-            push!(rd.rhash, rhash)
-            # Add only unique arrays so that stoichiometry corresponds to all of them.
-            unique_reacs = unique(all_rdiff)
-            unique_prods = unique(all_pdiff)
-            push!(rd.reacs, unique_reacs)
-            push!(rd.prods, unique_prods)
+            # Construct atom-mapped reaction SMILES from original geometries.
+            mapped_reacs = atom_map_smiles(rsys[i], join(all_reacs, "."))
+            mapped_prods = atom_map_smiles(psys[i], join(all_prods, "."))
+            mapped_rxn = join([mapped_reacs, mapped_prods], ">>")
+
+            # Get unique lists so stoichiometry can multiply each species in a reaction.
+            unique_reacs = unique(all_reacs)
+            unique_prods = unique(all_prods)
+
+            rd.nr += 1
+            push!(rd.mapped_rxns, mapped_rxn)
             push!(rd.id_reacs, [sd.toInt[reac] for reac in unique_reacs])
             push!(rd.id_prods, [sd.toInt[prod] for prod in unique_prods])
-            push!(rd.stoic_reacs, [rdiff[reac] for reac in unique_reacs])
-            push!(rd.stoic_prods, [pdiff[prod] for prod in unique_prods])
+            push!(rd.stoic_reacs, [reac_counter[reac] for reac in unique_reacs])
+            push!(rd.stoic_prods, [prod_counter[prod] for prod in unique_prods])
             push!(rd.dH, dH[i])
-            rd.nr += 1
+            push!(rd.rhash, rhash)
+            
         else
             dcounter += 1
         end
@@ -342,8 +347,7 @@ function init_network(; iType=Int64, fType=Float64)
         Dict{iType, Dict{String, Any}}(), Dict()
     )
     rd = RxData{iType, fType}(
-        0, 
-        Vector{String}[], Vector{String}[],
+        0, String[],
         Vector{iType}[], Vector{iType}[], 
         Vector{iType}[], Vector{iType}[], 
         fType[], Vector{UInt8}[]
@@ -359,9 +363,10 @@ end
 Removes reactions at indeces `rids` from `rd`.
 """
 function Base.splice!(rd::RxData, rids::Vector{Int})
-    for rid in rids
-        @debug "Removing reaction $rid from network:"
-        @debug "$(rd.reacs[rid]) ($(rd.stoic_reacs[rid])) -> $(rd.prods[rid]) ($(rd.stoic_prods[rid]))"
+    if current_logger().min_level <= Debug
+        for rid in rids
+            @debug "Removing reaction $rid from network:"
+        end
     end
 
     if length(rids) > 0
@@ -372,4 +377,19 @@ function Base.splice!(rd::RxData, rids::Vector{Int})
         end
         rd.nr -= length(rids)
     end
+end
+
+
+"""
+    rxn_str = format_rxn(sd, rd, rid)
+
+Nicely formats a string describing the reaction at `rid`.
+"""
+function format_rxn(sd::SpeciesData, rd::RxData, rid::Int)
+    reacs = [sd.toStr[sid] for sid in rd.id_reacs[rid]]
+    prods = [sd.toStr[sid] for sid in rd.id_prods[rid]]
+    reac_strs = [n > 1 ? "$n $spec" : spec for (n, spec) in zip(rd.stoic_reacs[rid], reacs)]
+    prod_strs = [n > 1 ? "$n $spec" : spec for (n, spec) in zip(rd.stoic_prods[rid], prods)]
+    rxn_str = join([join(reac_strs, " + "), join(prod_strs, " + ")], " --> ")
+    return rxn_str
 end
