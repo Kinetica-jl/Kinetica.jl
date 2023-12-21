@@ -20,7 +20,7 @@ using OrderedCollections
 using PyCall
 using CDE_jll
 
-const version = VersionNumber(0, 2, 0)
+const version = VersionNumber(0, 2, 1)
 
 # Global Python package interfaces
 const pybel = PyNULL()
@@ -28,6 +28,7 @@ const pysys = PyNULL()
 const obcr = PyNULL()
 const pyextxyz = PyNULL()
 const rdChem = PyNULL()
+const rdGeometry = PyNULL()
 const rdLogger = PyNULL()
 function __init__()
     copy!(pybel, pyimport_conda("openbabel.pybel", "openbabel")) # Use pyimport_conda to ensure dependency in place.
@@ -35,10 +36,28 @@ function __init__()
     copy!(obcr, pyimport("obcr"))
     copy!(pyextxyz, pyimport("extxyz"))
     copy!(rdChem, pyimport_conda("rdkit.Chem", "rdkit"))
+    copy!(rdGeometry, pyimport("rdkit.Geometry"))
     copy!(rdLogger, pyimport("rdkit.RDLogger"))
 
     # Disable RdKit logging because it really clogs up the works.
     rdLogger.DisableLog("rdApp.*")
+
+    # Define a pure-Python function for helping conversion between
+    # OBMol and Rdkit Mol.
+    # This really shouldn't be necessary, but something in OpenBabel
+    # segfaults when called repeatedly.
+    py"""
+    import openbabel.pybel as pb
+    from rdkit.Chem import rdchem as rdc
+
+    def frame_to_rdkit_remap_atoms(obmol, rdmol):
+        for obbond in pb.ob.OBMolBondIter(obmol):
+            a1 = obbond.GetBeginAtom()
+            a2 = obbond.GetEndAtom()
+            idx1 = a1.GetIdx()
+            idx2 = a2.GetIdx()
+            rdmol.AddBond(idx1-1, idx2-1, rdc.BondType.SINGLE)
+    """
 end
 export pybel, pysys, obcr, rdChem
 
@@ -77,7 +96,7 @@ include("openbabel/properties.jl")
 export get_species_stats!
 
 include("rdkit/rdkit.jl")
-export frame_to_rdkit, atom_map_smiles
+export frame_to_rdkit, atom_map_smiles, atom_map_frame
 
 include("exploration/cde_utils.jl")
 export env_multithread

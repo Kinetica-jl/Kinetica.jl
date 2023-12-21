@@ -235,7 +235,7 @@ end
 
 
 """
-    reac_smis, reac_xyzs, prod_smis, prod_xyzs, dH = ingest_cde_run(rdir, rcount[, fix_radicals])
+    reac_smis, reac_xyzs, reac_systems, prod_smis, prod_xyzs, prod_systems, dH = ingest_cde_run(rdir, rcount[, fix_radicals])
 
 Reads in the results from a CDE run.
 
@@ -248,7 +248,6 @@ using the `fix_radicals` parameter.
 """
 function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
     rxdir = joinpath(rdir, "reac_$(lpad(rcount, 5, "0"))")
-    println(rxdir)
     @debug "Reading in mechanism step xyz files."
 
     # Read in all reactions as 2-frame trajectories.
