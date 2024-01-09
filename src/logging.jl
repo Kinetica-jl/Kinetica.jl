@@ -34,6 +34,10 @@ function end_log(logger::AbstractLogger)
     close(logger.stream)
 end
 
+function end_log(logger::MinLevelLogger)
+    close(logger.logger.stream)
+end
+
 
 """
     flush(logger)
