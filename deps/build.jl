@@ -45,4 +45,4 @@ Conda.pip("install", ["extxyz"])
 Conda.pip("install", ["--no-deps", "-e", "$(obcrdir)"])
 @info "Python setup complete."
 
-@info string("KineticaCore setup complete.")
+@info string("Kinetica.jl setup complete.")

@@ -1,4 +1,4 @@
-module KineticaCore
+module Kinetica
 
 using Logging
 using LoggingExtras
@@ -20,7 +20,7 @@ using OrderedCollections
 using PyCall
 using CDE_jll
 
-const version = VersionNumber(0, 2, 1)
+const version = VersionNumber(0, 3, 0)
 
 # Global Python package interfaces
 const pybel = PyNULL()
