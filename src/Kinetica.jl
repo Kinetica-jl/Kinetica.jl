@@ -11,7 +11,6 @@ using Statistics
 using DelimitedFiles
 using DataStructures
 using ExtXYZ
-using Measurements
 using ProgressLogging: Progress
 using UUIDs: uuid4
 using StableHashTraits
