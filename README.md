@@ -1,25 +1,19 @@
-# KineticaCore
+# Kinetica.jl
 
-## Installation
+Kinetica.jl is the core package of the Kinetica organization, used for automated exploration and time integration of large chemical reaction networks (CRNs).
 
-### Building
+By building on packages within the Julia language's SciML organization (namely [DifferentialEquations.jl](https://github.com/SciML/DifferentialEquations.jl), [ModelingToolkit.jl](https://github.com/SciML/ModelingToolkit.jl) and [Catalyst.jl](https://github.com/SciML/Catalyst.jl)), Kinetica enables fast, adaptable CRN exploration, construction and solution under arbitrary variable simulation conditions.
 
-When installing *KineticaCore* from Julia's Package Registry, a local binary of CDE will need to be compiled. CDE is included as a submodule in *KineticaCore*'s GitHub reposity, and can be automatically compiled in the correct location when building the package. As such, any environment variables that are required for CDE compilation should be set before instantiating the Julia REPL where *KineticaCore* is installed/built.
+Kinetica provides automated routines for guided CRN exploration, where chemical reactions are only explored if they are predicted to be relevant to the kinetics imposed by the simulation conditions. This requires repeated kinetic modelling of CRNs as they are built, which is facilitated by a discrete approximation to variable rate constant kinetics.
 
-For example, if CDE is to be compiled with `ifort`, this should be set within the environment:
+## Documentation
 
-```bash
-$ FC=ifort julia
-julia> using Pkg
-julia> Pkg.build("KineticaCore")
+For information on installation, usage and development of Kinetica.jl, see the documentation (in progress).
+
+## Citation
+
+If you use Kinetica.jl in your research, please cite the following paper:
+
 ```
-
-This will pass the Fortran compiler through to *KineticaCore*'s build file `deps/build.jl`, which will compile CDE.
-
-In case of any errors, full details are located in the build log at `deps/build.log`. While it should cover most setups, CDE's `Makefile` may need to be modified for compilation to succeed. After a failed build (which instantiated the git submodule for CDE), the `Makefile` can be accessed from `submodules/cde/Makefile`. After any edits have been made, *KineticaCore* can be rebuilt from the REPL to recompile CDE:
-
-```bash
-$ FC=ifort julia
-julia> using Pkg
-julia> Pkg.build("KineticaCore")
+Citation on the way soon!
 ```
