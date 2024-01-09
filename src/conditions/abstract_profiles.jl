@@ -114,7 +114,7 @@ function Base.minimum(profile::AbstractVariableProfile)
     if isnothing(profile.sol)
         throw(ErrorException("Condition profile is missing a solution."))
     end
-    return minimum(profile.sol)
+    return minimum(profile.sol.u)[1]
 end
 
 
@@ -135,5 +135,5 @@ function Base.maximum(profile::AbstractVariableProfile)
     if isnothing(profile.sol)
         throw(ErrorException("Condition profile is missing a solution."))
     end
-    return maximum(profile.sol)
+    return maximum(profile.sol.u)[1]
 end
