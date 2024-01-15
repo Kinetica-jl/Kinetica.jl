@@ -63,7 +63,7 @@ function (self::CDE)(rcount::Int)
     cp(self.init_xyz, joinpath(rxdir, "Start.xyz"))
 
     # Prepare sampling input.
-    self.sampling_seed == 0 ? seed = rand(1:100000) : seed = self.sampling_seed
+    self.sampling_seed == 0 ? seed = rand(1:100000) : seed = self.sampling_seed + rcount
     open(joinpath(rxdir, "input"), "a") do f
         write(f, "nmcrxn $(self.nrxn)\n")
         write(f, "nrxn $(self.radius)\n")
@@ -147,7 +147,7 @@ function (self::CDE)(rcountrange::AbstractUnitRange)
         cp(self.init_xyz, joinpath(rxdir, "Start.xyz"))
 
         # Prepare sampling input.
-        self.sampling_seed == 0 ? seed = rand(1:100000) : seed = self.sampling_seed
+        self.sampling_seed == 0 ? seed = rand(1:100000) : seed = self.sampling_seed + rc
         open(joinpath(rxdir, "input"), "a") do f
             write(f, "nmcrxn $(self.nrxn)\n")
             write(f, "nrxn $(self.radius)\n")
