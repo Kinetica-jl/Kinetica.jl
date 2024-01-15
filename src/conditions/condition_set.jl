@@ -28,47 +28,33 @@ Outer constructor for `ConditionSet`..
 
 Separates condition profiles from their symbols and parses
 numeric profiles into `StaticConditionProfile`s. Registers
-`AbstractDirectProfile`s with Symbolics to allow for proper
+`AbstractVariableProfile`s with Symbolics to allow for proper
 computation down the chain.
 
 If `ts_update` is provided, creates `tstops` arrays within
 each variable profile for use in discrete rate update 
 simulations.
 """
-function ConditionSet end
-
-function ConditionSet(d::Dict{Symbol, <:Any})
+function ConditionSet(d::Dict{Symbol, <:Any}, 
+                      ts_update::Union{tType, Nothing}=nothing) where {tType <: AbstractFloat}
     symbols = collect(keys(d))
     profiles = AbstractConditionProfile[]
     for sym in symbols
         if d[sym] isa Number
             push!(profiles, StaticConditionProfile(d[sym]))
         elseif d[sym] isa AbstractConditionProfile
+            if !isnothing(ts_update) create_discrete_tstops(d[sym], ts_update) end
             push!(profiles, d[sym])
         else
             throw(ArgumentError("Condition $(symbols[i]) does not have a valid profile."))
         end
     end
+
+    if isnothing(ts_update)
     cs = ConditionSet(symbols, profiles, false, nothing)
-    register_direct_conditions(cs)
-    register_gradient_conditions(cs)
-    return cs
-end
-
-function ConditionSet(d::Dict{Symbol, <:Any}, ts_update::AbstractFloat)
-    symbols = collect(keys(d))
-    profiles = AbstractConditionProfile[]
-    for sym in symbols
-        if d[sym] isa Number
-            push!(profiles, StaticConditionProfile(d[sym]))
-        elseif d[sym] isa AbstractConditionProfile
-            create_discrete_tstops(d[sym], ts_update)
-            push!(profiles, d[sym])
-        else
-            throw(ArgumentError("Condition $(symbols[i]) does not have a valid profile."))
-        end
+    else
+        cs = ConditionSet(symbols, profiles, true, ts_update)
     end
-    cs = ConditionSet(symbols, profiles, true, ts_update)
     register_direct_conditions(cs)
     register_gradient_conditions(cs)
     return cs
