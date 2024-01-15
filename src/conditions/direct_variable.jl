@@ -25,7 +25,7 @@ For compatibility, all direct profile structs must implement the following field
 Generates a solution for the specified directly-variable condition profile.
 
 For profiles with direct functions, this requires calculating values
-for the specified `pars.tspan` and wrapping them within an `ODESolution`
+for the specified `pars.tspan` and wrapping them within a `DiffEqArray`
 for compatibility with other interfaces (plotting, interpolation, etc.).
 
 Arguments `solver` and `solve_kwargs` are provided for compatibility

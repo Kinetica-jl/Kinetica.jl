@@ -233,7 +233,7 @@ end
 Solves all variable condition profiles over the timespan in `pars.tspan`.
 
 Places all condition profile solutions in their `sol` field. In the
-case of `AbstractDirectProfile`s, this creates an `ODESolution` to mimic
+case of `AbstractDirectProfile`s, this creates a `DiffEqArray` to mimic
 the regular DiffEq solver interface.
 """
 function solve_variable_conditions!(cs::ConditionSet, pars::ODESimulationParams; 
