@@ -6,6 +6,7 @@ using Dates
 using RecipesBase
 using Catalyst
 using DifferentialEquations
+using RecursiveArrayTools
 using LinearAlgebra
 using Statistics
 using DelimitedFiles

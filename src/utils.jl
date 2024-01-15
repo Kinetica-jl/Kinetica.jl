@@ -124,31 +124,14 @@ trunc(::Type{T}, x::T) where T<:Real = trunc(x)
 
 
 """
-    DummyODEFunction{true}([syms])
+    a = DiffEqArray(u, t)
+    u_interp = a(t_interp)
 
-Fake `ODEFunction` for use in `DummyODEProblem`.
+`DiffEqArray` functor for interpolation at new time values.
 """
-struct DummyODEFunction{iip} <: SciMLBase.AbstractSciMLFunction{iip} 
-    syms
-end
-
-"""
-    DummyODEProblem([uType, tType, u0, tspan, syms])
-
-Fake `ODEProblem` implementing bare minimum fields for working with other SciMLBase code.
-
-Needed within 'fake' `ODESolution`s for interpolation and plotting.
-
-Symbolic names can be passed to the variables in the surrounding
-`ODESolution` through the `syms` argument.
-"""
-struct DummyODEProblem{uType, tType, isinplace} <: SciMLBase.AbstractODEProblem{uType, tType, isinplace}
-    u0
-    tspan
-    p
-    f
-end
-function DummyODEProblem(; uType=Float64, tType=Float64, u0=[0.0], tspan=[0.0, 1.0], syms=nothing)
-    return DummyODEProblem{uType, tType, true}(u0, tspan, nothing, DummyODEFunction{true}(syms))
+function (self::RecursiveArrayTools.DiffEqArray)(t_interp; 
+        idxs = nothing, deriv = Val{0}, continuity = :left)
+    interp = SciMLBase.LinearInterpolation(self.t, self.u)
+    return interp(t_interp, idxs, deriv, nothing, continuity)
 end
 

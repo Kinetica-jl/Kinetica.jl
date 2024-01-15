@@ -108,7 +108,7 @@ function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData; copy
     split_method = method.pars.solve_chunks ? :chunkwise : :complete
     sol = solve_network(method, sd_active, rd_active, Val(split_method))
 
-    res = ODESolveOutput(sd_active, rd_active, sol, method.pars, method.conditions)
+    res = ODESolveOutput(method, sol, sd_active, rd_active)
     return res
 end
 
@@ -309,7 +309,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData; co
     update_method = method.conditions.discrete_updates ? :discrete : :continuous
     sol = solve_network(method, sd_active, rd_active, Val(split_method), Val(update_method))
 
-    res = ODESolveOutput(sd_active, rd_active, sol, method.pars, method.conditions)
+    res = ODESolveOutput(method, sol, sd_active, rd_active)
     return res
 end
 

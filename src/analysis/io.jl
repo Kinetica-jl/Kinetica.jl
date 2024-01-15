@@ -12,19 +12,25 @@ into a package-independent dictionary tree for saving as
 binary JSON (BSON) with `save_output`. Can be reconstructed
 from such a BSON file with `load_output`.
 """
-struct ODESolveOutput{sType} <: AbstractOutputData
+struct ODESolveOutput{sType, kType, vcType} <: AbstractOutputData
     sd::SpeciesData
     rd::RxData
     sol::sType
+    sol_k::kType
+    sol_vcs::vcType
     pars::ODESimulationParams
     conditions::ConditionSet
 end
 
 function ODESolveOutput(solvemethod::AbstractODESolveMethod, sol::SciMLBase.AbstractODESolution, sd::SpeciesData, rd::RxData)
+    sol_vcs = typeof(sol) <: ODESolutionVC ? Dict(sym => DiffEqArray(val, sol.t) for (sym, val) in sol.vcs) : nothing
+    sol_k = typeof(sol.k) <: DiffEqArray ? sol.k : nothing
     return ODESolveOutput(
         sd,
         rd,
         sol,
+        sol_k,
+        sol_vcs,
         solvemethod.pars,
         solvemethod.conditions
     )
@@ -51,11 +57,12 @@ or converted to a Symbol for reference - mostly data concerning
 the internals of `ODESolution`s. 
 """
 function save_output(out::ODESolveOutput, saveto::String)
-    sol_vcs = typeof(out.sol) <: ODESolutionVC ? out.sol.vcs : nothing
-    sol_k = typeof(out.sol.k) <: ODESolution ? Dict(
-                                                    :u => out.sol.k.u,
-                                                    :t => out.sol.k.t,
-                                                    :syms => out.sol.k.prob.f.syms
+    sol_vcs = !isnothing(out.sol_vcs) ? 
+        Dict(sym => val.u for (sym, val) in out.sol_vcs) :
+        nothing
+    sol_k = typeof(out.sol_k) <: DiffEqArray ? Dict(
+                                                    :u => out.sol_k.u,
+                                                    :t => out.sol_k.t,
                                                ) : nothing
     condition_profiles = []
     for profile in out.conditions.profiles
@@ -67,7 +74,8 @@ function save_output(out::ODESolveOutput, saveto::String)
             )
         elseif pType <: AbstractVariableProfile
             pdict = OrderedDict(fieldnames(pType) .=> getfield.(Ref(profile), fieldnames(pType)))
-            if typeof(profile.sol) <: SciMLBase.AbstractODESolution
+            if typeof(profile.sol) <: SciMLBase.AbstractODESolution ||
+                    typeof(profile.sol) <: RecursiveArrayTools.AbstractDiffEqArray
                 pdict[:sol] = Dict(
                     :u => profile.sol.u,
                     :t => profile.sol.t
@@ -195,56 +203,16 @@ function load_output(outfile::String)
     pars = ODESimulationParams(; pars_dict...)
 
     sol_k = isnothing(savedict[:sol][:k]) ? nothing : 
-        ODESolution{typeof(savedict[:sol][:k][:u]), 2}(
-            savedict[:sol][:k][:u],
-            nothing,
-            nothing,
-            savedict[:sol][:k][:t],
-            nothing,
-            DummyODEProblem(; u0=savedict[:sol][:k][:u][1], 
-                tspan=[savedict[:sol][:k][:t][begin], savedict[:sol][:k][:t][end]], 
-                syms=savedict[:sol][:k][:syms]),
-            nothing,
-            SciMLBase.LinearInterpolation(savedict[:sol][:k][:t], savedict[:sol][:k][:u]),
-            false,
-            0,
-            nothing,
-            nothing,
-            ReturnCode.Default
-        )
-    if !isnothing(savedict[:sol][:vcs])
-        sol = build_vc_solution(
-            DummyODEProblem(; 
-                u0=savedict[:sol][:u][1], 
-                tspan=[savedict[:sol][:t][begin], savedict[:sol][:t][end]]
-            ), 
-            nothing, 
-            savedict[:sol][:t], savedict[:sol][:u], savedict[:sol][:vcs];
-            k=sol_k)
-    else
-        sol = SciMLBase.build_solution(
-            DummyODEProblem(; 
-                u0=savedict[:sol][:u][1],
-                tspan=[savedict[:sol][:t][begin], savedict[:sol][:t][end]]
-            ),
-            nothing,
-            savedict[:sol][:t], savedict[:sol][:u];
-            k=sol_k)
-    end
+        DiffEqArray(savedict[:sol][:k][:u], savedict[:sol][:k][:t])
+    sol_vcs = isnothing(savedict[:sol][:vcs]) ? nothing :
+        Dict(sym => DiffEqArray(val, savedict[:sol][:t]) for (sym, val) in savedict[:sol][:vcs])
+    sol = DiffEqArray(savedict[:sol][:u], savedict[:sol][:t])
 
     profiles = AbstractConditionProfile[]
     for profile_dict in savedict[:conditions][:profiles]
         pType = pop!(profile_dict, :pType)
         if :sol in keys(profile_dict)
-            profile_dict[:sol] = SciMLBase.build_solution(
-                DummyODEProblem(; 
-                    u0=[profile_dict[:X_start]], 
-                    tspan=[profile_dict[:sol][:t][begin], profile_dict[:sol][:t][end]]
-                ),
-                nothing,
-                profile_dict[:sol][:t],
-                profile_dict[:sol][:u]
-            )
+            profile_dict[:sol] = DiffEqArray(profile_dict[:sol][:u], profile_dict[:sol][:t])
         end
         if :f in keys(profile_dict)
             profile_dict[:f] = loaded_profile_null_func
@@ -262,7 +230,7 @@ function load_output(outfile::String)
         savedict[:conditions][:ts_update]
     )
 
-    out = ODESolveOutput(sd, rd, sol, pars, conditions)
+    out = ODESolveOutput(sd, rd, sol, sol_k, sol_vcs, pars, conditions)
     return out
 end
 

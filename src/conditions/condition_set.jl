@@ -51,7 +51,7 @@ function ConditionSet(d::Dict{Symbol, <:Any},
     end
 
     if isnothing(ts_update)
-    cs = ConditionSet(symbols, profiles, false, nothing)
+        cs = ConditionSet(symbols, profiles, false, nothing)
     else
         cs = ConditionSet(symbols, profiles, true, ts_update)
     end
@@ -239,9 +239,9 @@ the regular DiffEq solver interface.
 function solve_variable_conditions!(cs::ConditionSet, pars::ODESimulationParams; 
     reset=false, solver=OwrenZen5(), solve_kwargs=Dict{Symbol, Any}(:abstol => 1e6, :reltol => 1e-4))
 
-    for profile in cs.profiles
+    for (sym, profile) in zip(cs.symbols, cs.profiles)
         if isvariable(profile)
-            solve_variable_condition!(profile, pars; reset, solver, solve_kwargs)
+            solve_variable_condition!(profile, pars; sym, reset, solver, solve_kwargs)
         end
     end
 end

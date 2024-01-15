@@ -32,13 +32,18 @@ can be controlled with the `solver` and `solve_kwargs` arguments
 respectively.
 """
 function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
-    reset=false, solver, solve_kwargs) where {pType <: AbstractGradientProfile}
+    sym=nothing, reset=false, solver, solve_kwargs) where {pType <: AbstractGradientProfile}
     if isnothing(profile.sol) || reset
-        @variables t X(t)
+        @variables t 
+        if isnothing(sym) 
+            X_sym = only(@variables(X(t)))
+        else
+            X_sym = only(@variables($sym(t)))
+        end
         D = Differential(t)
-        @named profile_sys = ODESystem([D(X) ~ profile.grad(t)], t)
+        @named profile_sys = ODESystem([D(X_sym) ~ profile.grad(t)], t)
 
-        u0map = [Pair(X, profile.X_start)]
+        u0map = [Pair(X_sym, profile.X_start)]
         profile_solve_kwargs = deepcopy(solve_kwargs)
         if :tstops in keys(profile_solve_kwargs)
             profile_solve_kwargs[:tstops] = sort(vcat(profile_solve_kwargs[:tstops], profile.tstops))

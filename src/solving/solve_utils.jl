@@ -97,21 +97,7 @@ function calculate_discrete_rates(conditions::ConditionSet, calculator::Abstract
         k_precalc[i] = calculator(; bound_conditions...)
     end
 
-    return ODESolution{uType, 2}(
-        k_precalc,
-        nothing,
-        nothing,
-        tstops,
-        nothing,
-        DummyODEProblem(; u0=k_precalc[1], tspan=[tstops[begin], tstops[end]], syms=[Symbol("k$i") for i in 1:nr]),
-        nothing,
-        SciMLBase.LinearInterpolation(tstops, k_precalc),
-        false,
-        0,
-        nothing,
-        nothing,
-        ReturnCode.Default
-    )
+    return DiffEqArray(k_precalc, tstops)
 end
 
 

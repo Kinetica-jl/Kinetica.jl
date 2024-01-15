@@ -32,26 +32,12 @@ Arguments `solver` and `solve_kwargs` are provided for compatibility
 with callers, do nothing and should be ignored.
 """
 function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
-    reset=false, solver=nothing, solve_kwargs=nothing) where {pType <: AbstractDirectProfile}
+    sym=nothing, reset=false, solver=nothing, solve_kwargs=nothing) where {pType <: AbstractDirectProfile}
     if isnothing(profile.sol) || reset            
         save_interval = isnothing(pars.save_interval) ? pars.tspan[2]/1000 : pars.save_interval
         t = create_savepoints(pars.tspan[1], pars.tspan[2], save_interval)
         u = [[profile.f(tp)] for tp in t]
-        profile.sol = ODESolution{typeof(profile.X_start), 1}(
-            u,
-            nothing,
-            nothing,
-            t,
-            nothing,
-            DummyODEProblem(; u0=[profile.X_start], tspan=[t[begin], t[end]]),
-            nothing,
-            SciMLBase.LinearInterpolation(t, u),
-            false,
-            0,
-            nothing,
-            nothing,
-            ReturnCode.Default
-        )
+        profile.sol = DiffEqArray(u, t)
     end
     return
 end
