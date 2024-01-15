@@ -395,10 +395,10 @@ end
 Affect! function for discrete rate update callback in complete timescale simulations.
 
 Calculates new rate constants from direct interpolation on
-`k_precalc::AbstractODESolution`.
+`k_precalc::AbstractDiffEqArray`.
 """
 mutable struct CompleteRateUpdateAffect
-    k_precalc::SciMLBase.AbstractODESolution
+    k_precalc::SciMLBase.AbstractDiffEqArray
 end
 function (self::CompleteRateUpdateAffect)(integrator)
     integrator.p = self.k_precalc(integrator.t)
