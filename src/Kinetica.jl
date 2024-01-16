@@ -39,6 +39,10 @@ function __init__()
     copy!(rdGeometry, pyimport("rdkit.Geometry"))
     copy!(rdLogger, pyimport("rdkit.RDLogger"))
 
+    # Force import of RDKit modules to enable access through rdChem
+    pyimport("rdkit.Chem.rdForceFieldHelpers")
+    pyimport("rdkit.Chem.rdDistGeom")
+
     # Disable RdKit logging because it really clogs up the works.
     rdLogger.DisableLog("rdApp.*")
 

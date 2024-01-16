@@ -86,21 +86,29 @@ end
 
 
 """
-    xyz_from_smiles(smi[, saveto, overwrite])
+    xyz_from_smiles(smi[, generator, saveto, overwrite, seed])
 
 Generates approximate coordinates for a molecule from SMILES.
 
 If provided, saves to an XYZ file at `saveto`. Otherwise returns
 the string-form XYZ without saving to file.
 """
-function xyz_from_smiles(smi::String)
+xyz_from_smiles(smi::String; generator::Symbol=:openbabel, seed=-1) = xyz_from_smiles(Val(generator), smi, seed) 
+function xyz_from_smiles(::Val{:openbabel}, smi::String, seed)
+    if seed != -1
+        throw(ArgumentError("OpenBabel generator does not support seeded generation of molecular geometries."))
+    end
     pbmol = pybel.readstring("smi", smi)
     ff = smi == "[H][H]" ? "uff" : "mmff94"
     pbmol.make3D(forcefield=ff)
     return pbmol.write("xyz")
 end
 
-function xyz_from_smiles(smi::String, saveto::String; overwrite::Bool=true)
+xyz_from_smiles(smi::String, saveto::String; generator::Symbol=:openbabel, overwrite::Bool=true, seed=-1) = xyz_from_smiles(Val(generator), smi, saveto, overwrite, seed)
+function xyz_from_smiles(::Val{:openbabel}, smi::String, saveto::String, overwrite::Bool, seed)
+    if seed != -1
+        throw(ArgumentError("OpenBabel generator does not support seeded generation of molecular geometries."))
+    end
     pbmol = pybel.readstring("smi", smi)
     ff = smi == "[H][H]" ? "uff" : "mmff94"
     pbmol.make3D(forcefield=ff)

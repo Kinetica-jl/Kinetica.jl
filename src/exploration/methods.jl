@@ -84,7 +84,8 @@ function explore_network(exploremethod::DirectExplore,
     if loc.level == 0
         sd, rd = init_network()
         for rsmi in unique(seeds)
-            rxyz = frame_from_smiles(rsmi)
+            # Ensure initial reactants are consistently across CRN generations when RNG is seeded.
+            rxyz = xyz_to_frame(xyz_from_smiles(rsmi, generator=:rdkit, seed=rand(1:999999999)))
             push_unique!(sd, rsmi, rxyz)
         end
         inc_level!(loc)
@@ -148,7 +149,7 @@ function explore_network(exploremethod::IterativeExplore,
         sd, rd = init_network()
         make_inert_file(exploremethod.rdir_head, exploremethod.inert_species)
         for rsmi in vcat(exploremethod.reac_smiles, exploremethod.inert_species)
-            rxyz = frame_from_smiles(rsmi)
+            rxyz = xyz_to_frame(xyz_from_smiles(rsmi, generator=:rdkit, seed=rand(1:999999999)))
             push_unique!(sd, rsmi, rxyz)
         end
         explored_seeds = String[]

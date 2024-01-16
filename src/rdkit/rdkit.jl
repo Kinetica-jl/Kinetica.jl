@@ -1,3 +1,32 @@
+function xyz_from_smiles(::Val{:rdkit}, smi::String, seed)
+    mol = rdChem.MolFromSmiles(smi)
+    mol = rdChem.AddHs(mol)
+    rdChem.rdDistGeom.EmbedMolecule(mol, randomSeed=seed)
+    if smi == "[H][H]"
+        rdChem.rdForceFieldHelpers.MMFFOptimizeMolecule(mol)
+    else
+        rdChem.rdForceFieldHelpers.UFFOptimizeMolecule(mol)
+    end
+
+    return rdChem.MolToXYZBlock(mol)
+end
+
+function xyz_from_smiles(::Val{:rdkit}, smi::String, saveto::String, overwrite::Bool, seed)
+    mol = rdChem.MolFromSmiles(smi)
+    mol = rdChem.AddHs(mol)
+    rdChem.rdDistGeom.EmbedMolecule(mol, randomSeed=seed)
+    if smi == "[H][H]"
+        rdChem.rdForceFieldHelpers.MMFFOptimizeMolecule(mol)
+    else
+        rdChem.rdForceFieldHelpers.UFFOptimizeMolecule(mol)
+    end
+
+    if !overwrite throw(ArgumentError(
+        "RDKit generator always overwrites previous files, please save XYZ to a different location."
+    )) end
+    rdChem.MolToXYZFile(mol, saveto)
+end
+
 """
     rdmol = frame_to_rdkit(frame[, with_coords])
 
