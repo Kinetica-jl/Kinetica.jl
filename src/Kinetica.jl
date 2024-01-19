@@ -20,7 +20,7 @@ using OrderedCollections
 using PyCall
 using CDE_jll
 
-const version = VersionNumber(0, 3, 2)
+const version = VersionNumber(0, 3, 3)
 
 # Global Python package interfaces
 const pybel = PyNULL()

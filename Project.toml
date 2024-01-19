@@ -1,7 +1,7 @@
 name = "Kinetica"
 uuid = "3847ce11-53ec-444b-aa85-3b6606472139"
 authors = ["joegilkes <j.gilkes@warwick.ac.uk>"]
-version = "0.3.2"
+version = "0.3.3"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
@@ -29,7 +29,7 @@ UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
 BSON = "0.3.7"
-CDE_jll = "1.0.1"
+CDE_jll = "1.0.2"
 Catalyst = "~13.5.1"
 Conda = "1.10.0"
 DataStructures = "0.18.16"
