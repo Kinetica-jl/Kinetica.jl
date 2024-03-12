@@ -35,7 +35,7 @@ If `ts_update` is provided, creates `tstops` arrays within
 each variable profile for use in discrete rate update 
 simulations.
 """
-function ConditionSet(d::Dict{Symbol, <:Any}, 
+function ConditionSet(d::Dict{Symbol, <:Any}; 
                       ts_update::Union{tType, Nothing}=nothing) where {tType <: AbstractFloat}
     symbols = collect(keys(d))
     profiles = AbstractConditionProfile[]
