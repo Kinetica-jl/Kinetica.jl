@@ -1,0 +1,49 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    tags: '*'
+  pull_request:
+
+jobs:
+  Documenter:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: julia-actions/setup-julia@latest
+      - uses: actions/cache@v3
+        env:
+          cache-name: cache-artifacts
+        with:
+          path: ~/.julia/artifacts
+          key: ${{ runner.os }}-docs-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-docs-${{ env.cache-name }}-
+            ${{ runner.os }}-docs-
+
+      - name: Add registries
+        run: |
+          using Pkg
+          Pkg.Registry.add(RegistrySpec(url="https://github.com/Kinetica-jl/KineticaRegistry"))
+          Pkg.Registry.add(RegistrySpec(name="General"))
+        shell: julia --color=yes {0}
+
+      - name: Dev dependencies
+        env:
+          PYTHON: ""
+        run: |
+          using Pkg
+          Pkg.develop([(;path=pwd()), (;name="KineticaKPM")])
+          Pkg.instantiate()
+          Pkg.build("KineticaKPM")
+        shell: julia --color=yes --project=docs/ {0}
+
+      - name: Build and deploy
+        env:
+          CI: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+          GKSwstype: "100" # https://discourse.julialang.org/t/generation-of-documentation-fails-qt-qpa-xcb-could-not-connect-to-display/60988
+        run: julia --color=yes --project=docs/ docs/make.jl
