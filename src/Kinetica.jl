@@ -1,3 +1,8 @@
+"""
+Kinetica.jl
+
+UK Ministry of Defence © Crown Owned Copyright 2024/AWE​
+"""
 module Kinetica
 
 using Logging
