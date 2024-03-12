@@ -46,7 +46,7 @@ function ConditionSet(d::Dict{Symbol, <:Any};
             if !isnothing(ts_update) create_discrete_tstops(d[sym], ts_update) end
             push!(profiles, d[sym])
         else
-            throw(ArgumentError("Condition $(symbols[i]) does not have a valid profile."))
+            throw(ArgumentError("Condition $(sym) does not have a valid profile."))
         end
     end
 
