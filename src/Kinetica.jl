@@ -5,7 +5,8 @@ using LoggingExtras
 using Dates
 using RecipesBase
 using Catalyst
-using DifferentialEquations
+using OrdinaryDiffEq
+using DiffEqCallbacks
 using RecursiveArrayTools
 using LinearAlgebra
 using Statistics
@@ -20,7 +21,7 @@ using OrderedCollections
 using PyCall
 using CDE_jll
 
-const version = VersionNumber(0, 3, 3)
+const version = VersionNumber(0, 4, 0)
 
 # Global Python package interfaces
 const pybel = PyNULL()
