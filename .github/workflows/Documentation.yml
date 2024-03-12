@@ -30,14 +30,13 @@ jobs:
           Pkg.Registry.add(RegistrySpec(name="General"))
         shell: julia --color=yes {0}
 
-      - name: Dev dependencies
+      - name: Create Julia environment
         env:
           PYTHON: ""
         run: |
           using Pkg
-          Pkg.develop([(;path=pwd()), (;name="KineticaKPM")])
+          Pkg.develop(path=pwd())
           Pkg.instantiate()
-          Pkg.build("KineticaKPM")
         shell: julia --color=yes --project=docs/ {0}
 
       - name: Build and deploy
