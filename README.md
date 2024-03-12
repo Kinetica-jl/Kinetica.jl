@@ -1,5 +1,7 @@
 # Kinetica.jl
 
+[![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
+
 Kinetica.jl is the core package of the Kinetica organization, used for automated exploration and time integration of large chemical reaction networks (CRNs).
 
 By building on packages within the Julia language's SciML organization (namely [DifferentialEquations.jl](https://github.com/SciML/DifferentialEquations.jl), [ModelingToolkit.jl](https://github.com/SciML/ModelingToolkit.jl) and [Catalyst.jl](https://github.com/SciML/Catalyst.jl)), Kinetica enables fast, adaptable CRN exploration, construction and solution under arbitrary variable simulation conditions.
@@ -17,3 +19,10 @@ If you use Kinetica.jl in your research, please cite the following paper:
 ```
 Citation on the way soon!
 ```
+
+## License
+
+This work is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa]
+
+[cc-by-nc-sa]: http://creativecommons.org/licenses/by-nc-sa/4.0/
+[cc-by-nc-sa-shield]: https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg
