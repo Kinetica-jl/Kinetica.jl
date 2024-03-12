@@ -37,7 +37,7 @@ end
 flush_log()
 
 # Ensure the Conda environment has the necessary dependencies.
-ignore_python_deps = lowercase(get(ENV, "KINETICA_BUILD_IGNORE_CONDA", "TRUE"))
+ignore_python_deps = lowercase(get(ENV, "KINETICA_BUILD_IGNORE_CONDA", nothing))
 if ignore_python_deps == "true"
     @info "KINETICA_BUILD_IGNORE_CONDA is TRUE, ignoring Python dependencies."
 else
