@@ -83,6 +83,7 @@ export init_network
 
 include("openbabel/conversion.jl")
 export ingest_xyz_system, xyz_to_frame, frame_to_xyz, xyz_file_to_str
+export frame_from_smiles, xyz_from_smiles
 include("openbabel/properties.jl")
 export get_species_stats!
 
