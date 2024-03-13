@@ -1,4 +1,5 @@
 deps/build.log
 Manifest.toml
 .vscode
+.CondaPkg
 docs/build

@@ -31,11 +31,11 @@ function get_species_stats!(sd::SpeciesData{iType}; refresh::Bool=false) where {
             write_frame(path, sd.xyz[i])
             pbmol = collect(pybel.readfile("xyz", path))[1]
 
-            sd.cache[:weights][i] = pbmol.molwt
+            sd.cache[:weights][i] = pyconvert(Float64, pbmol.molwt)
 
             na = sd.xyz[i]["N_atoms"]
             if na == 1
-                sd.cache[:radii][i] = pybel.ob.GetVdwRad(pbmol.atoms[1].atomicnum)
+                sd.cache[:radii][i] = pyconvert(Float64, pybel.ob.GetVdwRad(pbmol.atoms[0].atomicnum))
             else
                 sd.cache[:radii][i] = calc_average_radius(pbmol)
             end
@@ -45,7 +45,7 @@ end
 
 
 """
-    radius = calc_average_radius(pbmol)
+    calc_average_radius(pbmol)
 
 Calculates average COM-atom radius of a given Pybel Molecule.
 
@@ -56,20 +56,20 @@ average van der Walls radius of the atoms to emulate the outer
 edge of the molecule.
 """
 function calc_average_radius(pbmol)
-    na = pbmol.OBMol.NumAtoms()
+    na = pyconvert(Int, pbmol.OBMol.NumAtoms())
     masses = zeros(Float64, na)
     coords = zeros(Float64, na, 3)
     atomnums = zeros(Int, na)
     for (j, atom) in enumerate(pbmol.atoms)
-        masses[j] = atom.atomicmass
-        coords[j, :] = collect(atom.coords)
-        atomnums[j] = atom.atomicnum
+        masses[j] = pyconvert(Float64, atom.atomicmass)
+        coords[j, :] = pyconvert(Vector, atom.coords)
+        atomnums[j] = pyconvert(Int, atom.atomicnum)
     end
     molwt = sum(masses)
 
     com = sum([masses[i] * coords[i, :] for i in 1:na]) / molwt
     r_avg = mean([norm(coords[i, :] - com[:]) for i in 1:na])
-    avg_vdw = mean([pybel.ob.GetVdwRad(an) for an in atomnums])
+    avg_vdw = mean([pyconvert(Float64, pybel.ob.GetVdwRad(an)) for an in atomnums])
     radius = r_avg + avg_vdw
 
     return radius

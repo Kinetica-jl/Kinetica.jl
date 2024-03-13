@@ -1,5 +1,5 @@
 """
-    smi_list, xyz_list = ingest_xyz_system(xyz_str[, fix_radicals])
+    ingest_xyz_system(xyz_str[, fix_radicals])
 
 Converts a molecule system from a single XYZ string into a list of SMILES strings and their respective ExtXYZ representataions.
 
@@ -13,28 +13,28 @@ function ingest_xyz_system(xyz_str::String; fix_radicals::Bool=true)
     pbmol = pybel.readstring("xyz", xyz_str)
     fragments = [pybel.Molecule(obmol) for obmol in pbmol.OBMol.Separate()]
     n = length(fragments)
-    smi_list = String[String(strip(frag.write("can"), ['\n', '\t'])) for frag in fragments]
+    smi_list = String[String(strip(pyconvert(String, frag.write("can")), ['\n', '\t'])) for frag in fragments]
 
     # Fix radical structures if requested.
     if fix_radicals
         for i in 1:n
-            if obcr.is_radical(smi_list[i])
+            if pyconvert(Bool, obcr.is_radical(smi_list[i]))
                 fragments[i] = obcr.fix_radicals(fragments[i])
                 fragments[i].addh()
-                smi_list[i] = String(strip(fragments[i].write("can"), ['\n', '\t']))
+                smi_list[i] = String(strip(pyconvert(String, fragments[i].write("can")), ['\n', '\t']))
             end
         end
     end
 
     # Convert to ExtXYZ frames.
-    xyz_list = [xyz_to_frame(frag.write("xyz")) for frag in fragments]
+    xyz_list = [xyz_to_frame(pyconvert(String, frag.write("xyz"))) for frag in fragments]
 
     return smi_list, xyz_list
 end
 
 
 """
-    frame = xyz_to_frame(xyz)
+    xyz_to_frame(xyz)
 
 Convenient handler for converting string-form xyz to ExtXYZ frame.
 
@@ -54,11 +54,12 @@ function xyz_to_frame(xyz::String)
     na, info, arrays, _ = pyextxyz.extxyz.read_frame_dicts(split(String(take!(iob)), '\n'), use_regex=false)
     close(iob)
 
-    info = Dict{String, Any}(key => val for (key, val) in info)
+    info = pyconvert(Dict{String, Any}, info)
+    na = pyconvert(Int, na)
     if na == 1
-        arrays = Dict{String, Any}("species" => [arrays.item()[1]], "pos" => reduce(hcat, [arrays.item()[2]]))
+        arrays = Dict{String, Any}("species" => [pyconvert(String, arrays.item()[0])], "pos" => reduce(hcat, [pyconvert(Vector, arrays.item()[1])]))
     else
-        arrays = Dict{String, Any}("species" => [a[1] for a in arrays], "pos" => reduce(hcat, [a[2] for a in arrays]))
+        arrays = Dict{String, Any}("species" => [pyconvert(String, a[0]) for a in arrays], "pos" => reduce(hcat, [pyconvert(Vector, a[1]) for a in arrays]))
     end
     frame = Dict{String, Any}("N_atoms" => na, "info" => info, "arrays" => arrays)
     return frame
@@ -66,7 +67,7 @@ end
 
 
 """
-    xyz_str = frame_to_xyz(frame)
+    frame_to_xyz(frame)
 
 Converts an ExtXYZ frame into string-form XYZ.
 
@@ -99,9 +100,9 @@ function xyz_from_smiles(::Val{:openbabel}, smi::String, seed)
         throw(ArgumentError("OpenBabel generator does not support seeded generation of molecular geometries."))
     end
     pbmol = pybel.readstring("smi", smi)
-    ff = smi == "[H][H]" ? "uff" : "mmff94"
+    ff = smi in ["[H][H]", "[H]"] ? "uff" : "mmff94"
     pbmol.make3D(forcefield=ff)
-    return pbmol.write("xyz")
+    return pyconvert(String, pbmol.write("xyz"))
 end
 
 xyz_from_smiles(smi::String, saveto::String; generator::Symbol=:openbabel, overwrite::Bool=true, seed=-1) = xyz_from_smiles(Val(generator), smi, saveto, overwrite, seed)
@@ -110,9 +111,10 @@ function xyz_from_smiles(::Val{:openbabel}, smi::String, saveto::String, overwri
         throw(ArgumentError("OpenBabel generator does not support seeded generation of molecular geometries."))
     end
     pbmol = pybel.readstring("smi", smi)
-    ff = smi == "[H][H]" ? "uff" : "mmff94"
+    ff = smi in ["[H][H]", "[H]"] ? "uff" : "mmff94"
     pbmol.make3D(forcefield=ff)
     pbmol.write("xyz", saveto; overwrite=overwrite)
+    return
 end
 
 
@@ -130,11 +132,14 @@ end
 
 
 """
-    xyz_str = xyz_file_to_str(xyz_file)
+    xyz_file_to_str(xyz_file)
 
 Converts contents of an XYZ file into string-form XYZ.
 """
 function xyz_file_to_str(xyz_file::String)
     pbmol = collect(pybel.readfile("xyz", xyz_file))[1]
-    return pbmol.write("xyz")
+    if pyconvert(String, pbmol._gettitle()) == xyz_file
+        pbmol._settitle("")
+    end
+    return pyconvert(String, pbmol.write("xyz"))
 end
