@@ -34,28 +34,6 @@ Pkg.add("Kinetica")
 
 This will fetch the latest version of Kinetica.jl, as well as all of its dependencies.
 
-While Kinetica is a Julia package, it has numerous Python-based dependencies that are called through [PyCall.jl](https://github.com/JuliaPy/PyCall.jl), such as Open Babel and RDKit. These have complex multi-language dependencies of their own, so they are most easily installed through a package manager such as [Conda.jl](https://github.com/JuliaPy/Conda.jl). To ensure PyCall correctly uses Conda as its Python environment, the `PYTHON` environment variable should be blank (see below).
-
-By default, all Kinetica packages will install their Python dependencies within their build phase. This occurs automatically when a package is first installed, but can be triggered manually with the following:
-
-```julia
-ENV["PYTHON"] = ""
-Pkg.build("Kinetica")
-```
-
-Manually triggering Kinetica's build phase also does so for PyCall.jl and Conda.jl, so running this will correctly link Conda's Python environment to PyCall, and also install all of Kinetica's Python dependencies.
-
-If Conda-based dependency installation is NOT required (e.g. a rebuild is being performed and the correct Conda environment is already present), this behaviour can be disabled by setting the `KINETICA_BUILD_IGNORE_CONDA` environment variable to `TRUE`, i.e.
-
-```bash
-KINETICA_BUILD_IGNORE_CONDA=TRUE julia
-julia> using Pkg
-julia> Pkg.build("Kinetica")
-```
-
-!!! warning "This may take a while..."
-    Installing Kinetica's Python dependencies has been known to take some time, so if it looks like the build phase is hanging here, just let it go for a bit longer. If in doubt, you can check the build log to see what Conda is doing (the build phase should output its location).
-
 ### Other Kinetica Packages
 
 This process is the same for other Kinetica extension packages, such as KineticaKPM.jl, which can be installed in the same way, e.g.
@@ -65,14 +43,24 @@ using Pkg
 Pkg.add("KineticaKPM")
 ```
 
-If the package being installed has Python dependencies, these should also be installed to the Conda environment in its build phase. Similarly, if this behaviour is not desired, it is also disabled by the `KINETICA_BUILD_IGNORE_CONDA` environment variable, as above.
+### Python Dependencies
+
+Kinetica makes use of Python packages such as [RDKit](https://github.com/rdkit/rdkit) and [Open Babel](https://github.com/openbabel/openbabel) internally for extracting information from molecular geometries. Installation of these packages is handled automatically thanks to [CondaPkg.jl](https://github.com/JuliaPy/CondaPkg.jl), which creates a `conda` environment that is isolated to the current project and the packages within it.
+
+This `conda` environment is composable at runtime, so if you were to have both Kinetica.jl and KineticaKPM.jl in the same Julia project, the Python dependencies of both packages would be automatically assembled into a dedicated `conda` environment that is then used internally by both packages through [PythonCall.jl](https://github.com/JuliaPy/PythonCall.jl). 
 
 ### xTB
 
-While not a direct dependency, some parts of Kinetica's CRN exploration routines (which act through the [CDE](https://github.com/HabershonLab/cde) code) require an electronic structure code to perform geometry optimisations and energy calculations. Since only approximate geometries and energies are required within CDE, we recommend using the GFN2-xTB method within the [Extended Tight-Binding (xTB) package](https://github.com/grimme-lab/xtb) by Bannwarth et. al. Instructions for installation are available within their [documentation](https://xtb-docs.readthedocs.io/en/latest/setup.html).
+While not a direct dependency, some parts of Kinetica's CRN exploration routines (which act through the [CDE](https://github.com/HabershonLab/cde) code) require an electronic structure code to perform geometry optimisations and energy calculations. Since only approximate geometries and energies are required within CDE, we recommend using the GFN2-xTB method within the [Extended Tight-Binding (xTB) package](https://github.com/grimme-lab/xtb) by Bannwarth et. al. 
+
+An xTB package is included with Kinetica.jl's Python dependencies and will be installed automatically. A shorthand alias to this package can be created (assuming you are in your Julia project's directory) with:
+
+```bash
+alias xtb="$(julia --project -e 'using CondaPkg; print(CondaPkg.which("xtb"))')"
+```
 
 !!! note "Note for tutorial users"
-    If you plan to follow the tutorials in this documentation, the example CDE inputs assume that you have xTB installed and available system-wide (in your `PATH`). While this can be easily modified to use other electronic structure methods, this is out of the scope of the tutorials and will not be covered. Proceed without xTB installed at your own peril!
+    If you plan to follow the tutorials in this documentation, the example CDE inputs assume that you have xTB installed and available by calling `xtb` (either aliased or in your `PATH`). The above alias is therefore required for the tutorials to function.
 
 ## Citing Kinetica
 
@@ -80,8 +68,8 @@ If you use any of the Kinetica packages in your work, please cite the following:
 
 ### Kinetica.jl
 
-```bibtex
-Paper coming soon!
+```
+Gilkes, J.; Storr, M.; Maurer, R. J.; Habershon, S. Predicting long timescale kinetics under variable experimental conditions with Kinetica.jl. 2024, arXiv:2403.08657. arXiv.org e-Print archive. https://arxiv.org/abs/2403.08657
 ```
 
 ### KineticaKPM.jl
