@@ -41,6 +41,7 @@ makedocs(
 
 if get(ENV, "CI", nothing) == "true"
     deploydocs(
-        repo="github.com/Kinetica-jl/Kinetica.jl.git"
+        repo = "github.com/Kinetica-jl/Kinetica.jl.git",
+        push_preview = true
     )
 end
