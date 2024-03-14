@@ -1,7 +1,7 @@
 """
 Kinetica.jl
 
-UK Ministry of Defence © Crown Owned Copyright 2024/AWE​
+UK Ministry of Defence © Crown Owned Copyright 2024/AWE
 """
 module Kinetica
 
@@ -23,27 +23,25 @@ using UUIDs: uuid4
 using StableHashTraits
 using BSON
 using OrderedCollections
-using PyCall
+using PythonCall
 using CDE_jll
 
-const version = VersionNumber(0, 4, 0)
+const version = VersionNumber(0, 5, 0)
 
 # Global Python package interfaces
-const pybel = PyNULL()
-const pysys = PyNULL()
-const obcr = PyNULL()
-const pyextxyz = PyNULL()
-const rdChem = PyNULL()
-const rdGeometry = PyNULL()
-const rdLogger = PyNULL()
+const pybel = PythonCall.pynew()
+const obcr = PythonCall.pynew()
+const pyextxyz = PythonCall.pynew()
+const rdChem = PythonCall.pynew()
+const rdGeometry = PythonCall.pynew()
+const rdLogger = PythonCall.pynew()
 function __init__()
-    copy!(pybel, pyimport_conda("openbabel.pybel", "openbabel")) # Use pyimport_conda to ensure dependency in place.
-    copy!(pysys, pyimport("sys"))
-    copy!(obcr, pyimport("obcr"))
-    copy!(pyextxyz, pyimport("extxyz"))
-    copy!(rdChem, pyimport_conda("rdkit.Chem", "rdkit"))
-    copy!(rdGeometry, pyimport("rdkit.Geometry"))
-    copy!(rdLogger, pyimport("rdkit.RDLogger"))
+    PythonCall.pycopy!(pybel, pyimport("openbabel.pybel"))
+    PythonCall.pycopy!(obcr, pyimport("obcr"))
+    PythonCall.pycopy!(pyextxyz, pyimport("extxyz"))
+    PythonCall.pycopy!(rdChem, pyimport("rdkit.Chem"))
+    PythonCall.pycopy!(rdGeometry, pyimport("rdkit.Geometry"))
+    PythonCall.pycopy!(rdLogger, pyimport("rdkit.RDLogger"))
 
     # Force import of RDKit modules to enable access through rdChem
     pyimport("rdkit.Chem.rdForceFieldHelpers")
@@ -51,25 +49,8 @@ function __init__()
 
     # Disable RdKit logging because it really clogs up the works.
     rdLogger.DisableLog("rdApp.*")
-
-    # Define a pure-Python function for helping conversion between
-    # OBMol and Rdkit Mol.
-    # This really shouldn't be necessary, but something in OpenBabel
-    # segfaults when called repeatedly.
-    py"""
-    import openbabel.pybel as pb
-    from rdkit.Chem import rdchem as rdc
-
-    def frame_to_rdkit_remap_atoms(obmol, rdmol):
-        for obbond in pb.ob.OBMolBondIter(obmol):
-            a1 = obbond.GetBeginAtom()
-            a2 = obbond.GetEndAtom()
-            idx1 = a1.GetIdx()
-            idx2 = a2.GetIdx()
-            rdmol.AddBond(idx1-1, idx2-1, rdc.BondType.SINGLE)
-    """
 end
-export pybel, pysys, obcr, rdChem
+export pybel, obcr, rdChem
 
 include("constants.jl")
 using .Constants
@@ -102,6 +83,7 @@ export init_network
 
 include("openbabel/conversion.jl")
 export ingest_xyz_system, xyz_to_frame, frame_to_xyz, xyz_file_to_str
+export frame_from_smiles, xyz_from_smiles
 include("openbabel/properties.jl")
 export get_species_stats!
 

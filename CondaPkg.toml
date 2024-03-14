@@ -1,0 +1,11 @@
+[deps]
+obcanonicalradicals = "0.1.1"
+rdkit = ""
+xtb = ""
+matplotlib = ""
+ase = ">=3.22.1"
+python = ">=3.7,<3.11"
+scipy = ""
+
+[pip.deps]
+extxyz = "~=0.1.3"

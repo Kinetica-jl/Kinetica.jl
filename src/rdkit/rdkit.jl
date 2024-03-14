@@ -2,20 +2,20 @@ function xyz_from_smiles(::Val{:rdkit}, smi::String, seed)
     mol = rdChem.MolFromSmiles(smi)
     mol = rdChem.AddHs(mol)
     rdChem.rdDistGeom.EmbedMolecule(mol, randomSeed=seed)
-    if smi == "[H][H]"
+    if smi in ["[H][H]", "[H]"]
         rdChem.rdForceFieldHelpers.MMFFOptimizeMolecule(mol)
     else
         rdChem.rdForceFieldHelpers.UFFOptimizeMolecule(mol)
     end
 
-    return rdChem.MolToXYZBlock(mol)
+    return pyconvert(String, rdChem.MolToXYZBlock(mol))
 end
 
 function xyz_from_smiles(::Val{:rdkit}, smi::String, saveto::String, overwrite::Bool, seed)
     mol = rdChem.MolFromSmiles(smi)
     mol = rdChem.AddHs(mol)
     rdChem.rdDistGeom.EmbedMolecule(mol, randomSeed=seed)
-    if smi == "[H][H]"
+    if smi in ["[H][H]", "[H]"]
         rdChem.rdForceFieldHelpers.MMFFOptimizeMolecule(mol)
     else
         rdChem.rdForceFieldHelpers.UFFOptimizeMolecule(mol)
@@ -25,10 +25,11 @@ function xyz_from_smiles(::Val{:rdkit}, smi::String, saveto::String, overwrite::
         "RDKit generator always overwrites previous files, please save XYZ to a different location."
     )) end
     rdChem.MolToXYZFile(mol, saveto)
+    return
 end
 
 """
-    rdmol = frame_to_rdkit(frame[, with_coords])
+    frame_to_rdkit(frame[, with_coords])
 
 Converts an ExtXYZ frame to an Rdkit `Mol` object.
 
@@ -56,7 +57,13 @@ function frame_to_rdkit(frame::Dict{String, Any}; with_coords=false)
         rdmol.AddAtom(rdatom)
     end
 
-    py"frame_to_rdkit_remap_atoms"(pbmol.OBMol, rdmol)
+    for obbond in pybel.ob.OBMolBondIter(pbmol.OBMol)
+        a1 = obbond.GetBeginAtom()
+        a2 = obbond.GetEndAtom()
+        idx1 = a1.GetIdx()
+        idx2 = a2.GetIdx()
+        rdmol.AddBond(idx1-1, idx2-1, rdChem.rdchem.BondType.SINGLE)
+    end
     rdmol = rdmol.GetMol()
 
     if with_coords
@@ -73,7 +80,7 @@ end
 
 
 """
-    am_smi = atom_map_smiles(frame, smi)
+    atom_map_smiles(frame, smi)
 
 Maps the atom indices from `frame` to the atoms in `smi`.
 
@@ -101,7 +108,7 @@ function atom_map_smiles(frame::Dict{String, Any}, smi::String)
     mol_sanitised = rdChem.AddHs(mol_sanitised)
     atoms_in_mol_sani = Dict{String, Int}()
     for atom in mol_sanitised.GetAtoms()
-        elem = atom.GetSymbol()
+        elem = pyconvert(String, atom.GetSymbol())
         atoms_in_mol_sani[elem] = get(atoms_in_mol_sani, elem, 0) + 1
     end
     if atoms_in_mol_true != atoms_in_mol_sani
@@ -118,23 +125,23 @@ function atom_map_smiles(frame::Dict{String, Any}, smi::String)
         bond.SetBondType(rdChem.rdchem.BondType."SINGLE")
     end
 
-    match = mol_sani_sb.GetSubstructMatch(mol_with_map)
-    if mol_with_map.GetNumAtoms() != length(match)
+    match = pyconvert(Vector, mol_sani_sb.GetSubstructMatch(mol_with_map))
+    if pyconvert(Int, mol_with_map.GetNumAtoms()) != length(match)
         println(mol_with_map.GetNumAtoms())
         throw(ErrorException("Incorrect number of atoms when matching substruct during atom mapping."))
     end
     for atom in mol_with_map.GetAtoms()
-        idx = match[atom.GetIdx() + 1]
+        idx = match[pyconvert(Int, atom.GetIdx()) + 1]
         map_num = atom.GetAtomMapNum()
         mol_sanitised.GetAtomWithIdx(idx).SetAtomMapNum(map_num)
     end
 
-    return rdChem.MolToSmiles(mol_sanitised)
+    return pyconvert(String, rdChem.MolToSmiles(mol_sanitised))
 end
 
 
 """
-    am_frame = atom_map_frame(am_smi, frame)
+    atom_map_frame(am_smi, frame)
 
 Maps the atom indices from `am_smi` to the geometry in `frame`.
 
@@ -156,7 +163,7 @@ function atom_map_frame(am_smi::String, frame::Dict{String, Any})
     mol_template = rdChem.MolFromSmiles(am_smi, smiles_params)
     atoms_in_mol_template = Dict{String, Int}()
     for atom in mol_template.GetAtoms()
-        elem = atom.GetSymbol()
+        elem = pyconvert(String, atom.GetSymbol())
         atoms_in_mol_template[elem] = get(atoms_in_mol_template, elem, 0) + 1
     end
 
@@ -172,19 +179,19 @@ function atom_map_frame(am_smi::String, frame::Dict{String, Any})
         atom.SetAtomMapNum(0)
     end
     
-    match = mol_target_sb.GetSubstructMatch(mol_template)
-    if mol_template.GetNumAtoms() != length(match)
+    match = pyconvert(Vector, mol_target_sb.GetSubstructMatch(mol_template))
+    if pyconvert(Int, mol_template.GetNumAtoms()) != length(match)
         println(mol_template.GetNumAtoms())
         throw(ErrorException("Incorrect number of atoms when matching substruct during atom mapping."))
     end
     for atom in mol_template.GetAtoms()
-        idx = match[atom.GetIdx() + 1]
+        idx = match[pyconvert(Int, atom.GetIdx()) + 1]
         map_num = atom.GetAtomMapNum()
         mol_target.GetAtomWithIdx(idx).SetAtomMapNum(map_num)
     end
     transfer = zeros(Int, frame["N_atoms"])
     for atom in mol_target.GetAtoms()
-        transfer[atom.GetIdx()+1] = atom.GetAtomMapNum()
+        transfer[pyconvert(Int, atom.GetIdx())+1] = pyconvert(Int, atom.GetAtomMapNum())
     end
 
     new_frame = deepcopy(frame)
