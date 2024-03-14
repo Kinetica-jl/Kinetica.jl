@@ -39,6 +39,9 @@ jobs:
           Pkg.instantiate()
         shell: julia --color=yes --project=docs/ {0}
 
+      - name: Add xTB to PATH
+        run: alias xtb="$(julia --project=docs -e 'using CondaPkg; print(CondaPkg.which("xtb"))')"
+
       - name: Build and deploy
         env:
           CI: "true"
