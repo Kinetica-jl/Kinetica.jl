@@ -30,4 +30,3 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ssh: ${{ secrets.DOCUMENTER_KEY }}
           registry: Kinetica-jl/KineticaRegistry
-          lookback: 1
