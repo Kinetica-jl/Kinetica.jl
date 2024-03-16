@@ -1,7 +1,7 @@
 using Documenter, Kinetica, KineticaKPM
 
 makedocs(
-    sitename = "Kinetica Documentation",
+    sitename = "Kinetica.jl",
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true",
         size_threshold = 307200,
