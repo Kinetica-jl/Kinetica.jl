@@ -7,7 +7,6 @@ Calculates values for the following useful statistics, which
 are placed in the species data cache at `sd.cache` with a key
 for each property:
 
-* Number of atoms in species (`:na`)
 * Average COM-atom radius of species (`:radii`)
 * Molecular weight of species (`:weights`)
 

@@ -179,12 +179,12 @@ CRN exploration and kinetic simulation are wrapped under a single function call:
 ```@example getting_started
 solvemethod = VariableODESolve(pars, conditions, calc)
 mkdir("./my_CRN_out") # hide
-res = explore_network(exploremethod, solvemethod, "./my_CRN_out")
+res = explore_network(exploremethod, solvemethod; savedir="./my_CRN_out")
 nothing # hide
 ```
 
 !!! note "Checkpoints and Restarts"
-    In the event that a Kinetica CRN exploration fails before completion, all is not lost! As long as you still have the original head directory that the CRN was being explored in (`crn_dir` in this tutorial), both of Kinetica's exploration algorithms will detect where you left off and restart from there seamlessly. In the iterative exploration algorithm, Kinetica also creates checkpoint files with current CRN state and kinetic simulation results. We'll cover this in detail in the tutorial on [Saving & Loading](@ref).
+    In the event that a Kinetica CRN exploration fails before completion, all is not lost! As long as you still have the original head directory that the CRN was being explored in (`crn_dir` in this tutorial), both of Kinetica's exploration algorithms will detect where you left off and restart from there seamlessly. In the iterative exploration algorithm, Kinetica also creates checkpoint files with current CRN state and kinetic simulation results, which are saved under the `savedir` keyword argument specified above along with the final simulation output.
 
 The resulting [`ODESolveOutput`](@ref) object contains the explored CRN, the kinetic simulation results, and all of the parameters and conditions that went into it. These can be easily and efficiently saved and loaded as needed (see [Saving & Loading](@ref)).
 
@@ -199,7 +199,7 @@ savefig("assets/getting-started/kinetics_plot.svg"); nothing # hide
 
 ![](assets/getting-started/kinetics_plot.svg)
 
-This CRN presents some interesting results! Accoding to the kinetics enforced by the calculator we have used, methane will not start breaking down into any of the free radical species discovered within this CRN until ``t \approx 5 \text{ s}``. We could check the temperature that this occurs at by referencing the temperature profile we plotted abovem but this is also accessible from `res` by running
+This CRN presents some interesting results! Accoding to the kinetics enforced by the calculator we have used, methane will not start breaking down into any of the free radical species discovered within this CRN until ``t \approx 5 \text{ s}``. We could check the temperature that this occurs at by referencing the temperature profile we plotted above but this is also accessible from `res` by running
 
 ```@example getting_started
 conditionsplot(res, :T)

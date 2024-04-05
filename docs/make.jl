@@ -5,7 +5,9 @@ makedocs(
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true",
         size_threshold = 307200,
-        assets=["assets/favicon.ico"]
+        size_threshold_warn = 204800,
+        assets = ["assets/favicon.ico"],
+        description = "Documentation for the Kinetica.jl package and its modular kinetic calculators."
     ),
     pages = [
         "Home" => "index.md",
@@ -23,7 +25,8 @@ makedocs(
         "Developing with Kinetica" => [
             "CRN Representation" => "development/crn-representation.md",
             "Condition Profiles" => "development/condition-profiles.md",
-            "Calculator Interface" => "development/calculator-interface.md"
+            "Calculator Interface" => "development/calculator-interface.md",
+            "Implementation Details" => "development/implementation-details.md"
         ],
         "API" => [
             "Kinetica.jl" => [
@@ -37,6 +40,10 @@ makedocs(
             ],
             "KineticaKPM.jl" => "api/kineticakpm.md"
         ]
+    ],
+    expandfirst = [
+        "index.md",
+        "getting-started.md"
     ]
 )
 

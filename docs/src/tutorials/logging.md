@@ -1,4 +1,4 @@
-# Logging
+# [Logging](@id logging_page)
 
 Kinetica makes use of multiple logging functions from the [JuliaLogging](https://julialogging.github.io) organisation to handle writing logs of varying detail levels to the console and to file, as well as to handle various optional progress bars for tracking ODE solution progress.
 
@@ -7,6 +7,7 @@ By default, running Kinetica functions such as [`explore_network`](@ref) will ou
 To log to a file and/or enable `Debug`-level logging, Kinetica provides a shorthand function for setting up the correct logger, [`start_log`](@ref):
 
 ```julia
+using Kinetica
 using Logging: with_logger, Debug, Info
 logger = start_log("./"; min_level=Info, label="MyLog")
 ```
