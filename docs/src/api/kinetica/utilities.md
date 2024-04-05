@@ -4,7 +4,8 @@
 
 ```@docs
 tconvert
-Kinetica.format_rxn
+format_rxn
+print_rxn
 ```
 
 ## Logging

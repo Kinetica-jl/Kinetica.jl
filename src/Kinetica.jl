@@ -26,7 +26,7 @@ using OrderedCollections
 using PythonCall
 using CDE_jll
 
-const version = VersionNumber(0, 5, 2)
+const version = VersionNumber(0, 5, 3)
 
 # Global Python package interfaces
 const pybel = PythonCall.pynew()
@@ -80,6 +80,7 @@ include("exploration/network.jl")
 export SpeciesData, push!, push_unique!
 export RxData
 export init_network
+export format_rxn, print_rxn
 
 include("openbabel/conversion.jl")
 export ingest_xyz_system, xyz_to_frame, frame_to_xyz, xyz_file_to_str

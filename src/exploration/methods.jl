@@ -65,8 +65,8 @@ conditions in `solvemethod.conditions`.
 function explore_network end
 
 function explore_network(exploremethod::DirectExplore,
-                         solvemethod::AbstractSolveMethod,
-                         savedir::Union{String, Nothing})
+                         solvemethod::AbstractSolveMethod;
+                         savedir::Union{String, Nothing}=nothing)
 
     @info "#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#"
     @info "Kinetica Direct CRN Exploration"
@@ -132,8 +132,8 @@ function explore_network(exploremethod::DirectExplore,
 end
 
 function explore_network(exploremethod::IterativeExplore,
-                         solvemethod::AbstractSolveMethod,
-                         savedir::Union{String, Nothing})
+                         solvemethod::AbstractSolveMethod;
+                         savedir::Union{String, Nothing}=nothing)
 
     @info "#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-"
     @info "Kinetica Iterative CRN Exploration"

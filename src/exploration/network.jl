@@ -381,7 +381,7 @@ end
 
 
 """
-    rxn_str = format_rxn(sd, rd, rid)
+    format_rxn(sd, rd, rid)
 
 Nicely formats a string describing the reaction at `rid`.
 """
@@ -392,4 +392,13 @@ function format_rxn(sd::SpeciesData, rd::RxData, rid::Int)
     prod_strs = [n > 1 ? "$n $spec" : spec for (n, spec) in zip(rd.stoic_prods[rid], prods)]
     rxn_str = join([join(reac_strs, " + "), join(prod_strs, " + ")], " --> ")
     return rxn_str
+end
+
+"""
+    print_rxn(sd, rd, rid)
+
+Prints the reaction at ID `rid` with SMILES names for species.
+"""
+function print_rxn(sd::SpeciesData, rd::RxData, rid::Int)
+    println(format_rxn(sd, rd, rid))
 end

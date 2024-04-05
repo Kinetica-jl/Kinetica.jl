@@ -10,7 +10,7 @@ Other more useful calculators are provided as modular addon packages that extend
 
 The examples below all show how calculators can be manually called to calculate rate constants. This is useful when these values are required, e.g. for analysis, but is not required during kinetic simulations. Passing a calculator into [`explore_network`](@ref) or [`solve_network`](@ref) via a [`VariableODESolve`](@ref) struct (see the ['Running the Simulation' section of Getting Started](@ref "Running the Simulation")) is enough to set up the calculator and evaluate rate constants as many times as is required by the simulation.
 
-In the event that a calculator is required to be called manually, the process is very simple. Once the calculator has been instantiated, it should be passed to its `setup_network!` function. All kinetic calculators implement such a function, which checks the values provided to the calculator are compatible with a given [`SpeciesData`](@ref) and [`RxData`](@ref) and does any necessary pre-calculation such that the calculator can perform the minimum computation when rate constants are requested. Once setup, the calculator object can be called as a functor with its implemented experimental conditions as keyword arguments to evaluate the rate constants of all reactions in the given CRN at the provided values of the conditions. Examples of this process can be found below.
+In the event that a calculator is required to be called manually, the process is very simple. Once the calculator has been instantiated, it should be passed to its `setup_network!` method. All kinetic calculators implement such a function, which checks the values provided to the calculator are compatible with a given [`SpeciesData`](@ref) and [`RxData`](@ref) and does any necessary pre-calculation such that the calculator can perform the minimum computation when rate constants are requested. Once setup, the calculator object can be called as a functor with its implemented experimental conditions as keyword arguments to evaluate the rate constants of all reactions in the given CRN at the provided values of the conditions. Examples of this process can be found below.
 
 ## Calculator Showcase
 
@@ -85,7 +85,7 @@ This calculator is dependent on temperature as an experimental condition. It est
 The calculator computes two properties for each reaction: the reduced mass ``\mu`` and the collision cross section ``\sigma``. For collision partners ``A`` and ``B``, these are defined as
 
 ```math
-\mu = \dfrac{m_A m_B}{m_A + m_B}
+\mu = \dfrac{m_A m_B}{m_A + m_B} \\
 \sigma = \pi \left( r_A + r_B \right)^2
 ```
 
