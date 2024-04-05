@@ -90,8 +90,11 @@ end
     sorted_ids, sorted_concs = sort_species_final(res)
     if quantity == :percent
         sorted_quantity = sorted_concs / sum(sorted_concs) * 100
+        xlabel := "Mole fraction / %"
+        ylims := (0.4, n_top+1.6)
     else
         sorted_quantity = sorted_concs
+        xlabel := "Concentration / mol dm⁻³"
     end
     sorted_names = [res.sd.toStr[i] for i in sorted_ids]
 
@@ -146,7 +149,6 @@ end
     x := yvals
     yticks := (yvals, top_names)
     yflip := true
-    xlabel := "Concentration / mol dm⁻³"
     legend := false
     color := colours
 
