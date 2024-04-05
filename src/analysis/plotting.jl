@@ -148,6 +148,7 @@ end
     yflip := true
     xlabel := "Concentration / mol dm⁻³"
     legend := false
+    color := colours
 
     if xscale == :identity
         xlims := (0.0, top_quantity[1])
