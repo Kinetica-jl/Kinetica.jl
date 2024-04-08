@@ -1,5 +1,5 @@
 """
-    logger = start_log(logdir[, label])
+    start_log(logdir::String[, label::String="Kinetica", min_level=logging.Info])
 
 Creates a `SimpleLogger` for logging to a file in `logdir`.
 
@@ -26,7 +26,8 @@ function start_log(logdir::String; label::String="Kinetica", min_level=Logging.I
 end
 
 """
-    end_log(logger)
+    end_log(logger<:AbstractLogger)
+    end_log(logger::MinLevelLogger)
 
 Closes the `IOStream` attached to `logger`.
 """
@@ -40,7 +41,9 @@ end
 
 
 """
-    flush(logger)
+    flush(logger<:AbstractLogger)
+    flush(logger::MinLevelLogger)
+    flush(logger::FileLogger)
 
 Flushes the `IOStream` attached to the `logger`.
 """
@@ -66,9 +69,9 @@ function flush_log()
 end
 
 """
-    with_global_logger(function)
+    with_global_logger(f::Function)
 
-Execute `function`, directing all log messages to the global logger.
+Execute `f`, directing all log messages to the global logger.
 
 Useful for temporarily bypassing task-local loggers when the
 global logger is required, e.g. within progress bars.

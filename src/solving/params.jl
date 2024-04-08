@@ -1,7 +1,7 @@
 abstract type AbstractSimulationParams end
 
 """
-Container for ODE-driven simulation parameters.
+Keyword-defined container for ODE-driven simulation parameters.
 
 Contains fields for:
 * Simulation timespan (must match time unit used in an attached calculator) (`tspan`)

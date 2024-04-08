@@ -77,7 +77,7 @@ mutable struct DummyKineticCalculator{kmType, uType, tType} <: AbstractKineticCa
 end
 
 """
-    DummyKineticCalculator(rates[, k_max, t_unit])
+    DummyKineticCalculator(rates[, k_max=nothing, t_unit="s"])
 
 Placeholder kinetic calculator.
 
@@ -170,7 +170,7 @@ mutable struct PrecalculatedArrheniusCalculator{kmType, uType, tType} <: Abstrac
 end
 
 """
-    PrecalculatedArrheniusCalculator(Ea, A[, k_max, t_unit])
+    PrecalculatedArrheniusCalculator(Ea, A[, k_max=nothing, t_unit="s"])
 
 Arrhenius theory kinetic calculator for precalculated reactions.
 
@@ -251,7 +251,7 @@ mutable struct PrecalculatedLindemannCalculator{kmType, uType, tType} <: Abstrac
 end
 
 """
-    PrecalculatedLindemannCalculator(Ea, A[, k_max, t_unit])
+    PrecalculatedLindemannCalculator(Ea, A[, k_max=nothing, t_unit="s"])
 
 Pressure-dependent Arrhenius theory kinetic calculator for precalculated reactions.
 

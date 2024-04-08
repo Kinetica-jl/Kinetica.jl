@@ -1,4 +1,11 @@
+mutable struct RxFilter
+    filters::Vector
+    keep_filtered::Bool
+end
+
 """
+    RxFilter(filters[, keep_filtered=false])
+
 Data container for CRN filters.
 
 Defines a set of functions which can be used on a network to construct
@@ -14,22 +21,17 @@ Can be constructed blank (`rf = RxFilter()`) to obtain a mask of all
 reactions, which are then kept. Can also be constructed as 
 `rf = RxFilter(filters)` to default to removing the filtered reactions.
 """
-mutable struct RxFilter
-    filters::Vector
-    keep_filtered::Bool
+function RxFilter(filters::Vector; keep_filtered=false)
+    return RxFilter(filters, keep_filtered)
 end
 
 function RxFilter()
     return RxFilter([(sd, rd) -> [false for _ in 1:rd.nr]], false)
 end
 
-function RxFilter(filters::Vector; keep_filtered=false)
-    return RxFilter(filters, keep_filtered)
-end
-
 
 """
-    mask = get_filter_mask(rf, sd, rd)
+    get_filter_mask(rf::RxFilter, sd::SpeciesData, rd::RxData)
 
 Calculates a combined reaction mask from all filters in `rf`.
 
