@@ -1,7 +1,7 @@
 """
-    f = spring_force(x1, x2, dx1, dx2, ks, kr, r)
+    spring_force(x1, x2, dx1, dx2, ks, kr, r)
 
-Calculate spring force between two particles.
+Calculates spring force between two particles.
 """
 function spring_force(x1, x2, dx1, dx2, ks, kd, r)
     n = norm(x1 .- x2)
@@ -11,9 +11,11 @@ end
 
 
 """
-    ddu = spring3d(du, u, k, t)
+    spring3d(du, u, k, t)
 
 2nd order ODE around which the spring-particle solver is based.
+
+Returns 2nd derivative of `u`, `ddu`.
 """
 function spring3d(du, u, k, t)
     np = size(u, 1)
@@ -37,17 +39,17 @@ end
 
 
 """
-    com = get_COM(mol)
+    get_COM(frame::Dict{String, Any})
 
-Calculates center of mass (COM) of a given ExtXYZ `mol`.
+Calculates center of mass (COM) of a given ExtXYZ `frame`.
 """
-function get_COM(mol::Dict{String}{Any})
+function get_COM(frame::Dict{String, Any})
     com = zeros(Float64, 3)
     mass = 0.0
-    for i in 1:mol["N_atoms"]
-        m = atom_mass_dict[mol["arrays"]["species"][i]]
+    for i in 1:frame["N_atoms"]
+        m = atom_mass_dict[frame["arrays"]["species"][i]]
         mass += m
-        com .+= (mol["arrays"]["pos"][:, i] * m)
+        com .+= (frame["arrays"]["pos"][:, i] * m)
     end
     com /= mass
     return com
@@ -55,23 +57,25 @@ end
 
 
 """
-    mass = get_mass(mol)
+    get_mass(frame::Dict{Dtring, Any})
 
-Calculates mass of a given ExtXYZ `mol`.
+Calculates mass of a given ExtXYZ `frame`.
 """
-function get_mass(mol::Dict{String}{Any})
+function get_mass(frame::Dict{String, Any})
     mass = 0.0
-    for i in 1:mol["N_atoms"]
-        mass += atom_mass_dict[mol["arrays"]["species"][i]]
+    for i in 1:frame["N_atoms"]
+        mass += atom_mass_dict[frame["arrays"]["species"][i]]
     end
     return mass
 end
 
 
 """
-    center_mols!(mols)
+    center_mols!(mols::Vector{Dict{String, Any}})
 
 Centers the geometric centres of an array of molecules on the origin.
+
+`mols` should be a `Vector` of ExtXYZ frames.
 """
 function center_mols!(mols::Vector{Dict{String, Any}})
     for mol in mols
@@ -84,11 +88,11 @@ end
 
 
 """
-    transform_mol!(mol, vec)
+    transform_mol!(mol::Dict{String, Any}, vec::Vector{Float64})
 
-Transforms coordinates of `mol` by applying cartesian vector `vec`.
+Transforms coordinates of ExtXYZ frame `mol` by applying cartesian vector `vec`.
 """
-function transform_mol!(mol::Dict{String}{Any}, vec::Vector{Float64})
+function transform_mol!(mol::Dict{String, Any}, vec::Vector{Float64})
     for i in 1:mol["N_atoms"]
         mol["arrays"]["pos"][:, i] += vec
     end
@@ -96,15 +100,17 @@ end
 
 
 """
-    out_of_bounds = position_check(tmols)
+    position_check(tmols::Vector{Dict{String, Any}})
 
 Checks all proposed atom positions to ensure they can be read in by xTB.
 
 xTB reads in XYZ files with a format string on positions that only allows
 3 digits (including a hyphen for negative floats) before the decimal point.
 This means that positions can only go from -99.999... to 100.000...
+
+Returns a boolean indicating whether these positions are valid.
 """
-function position_check(tmols::Vector{Dict{String}{Any}})
+function position_check(tmols::Vector{Dict{String, Any}})
     n_mols = length(tmols)
     out_of_bounds = false
     for i in 1:n_mols
@@ -119,12 +125,13 @@ end
 
 
 """
-    too_close = proximity_check(tmols, dmin)
+    proximity_check(tmols::Vector{Dict{String, Any}}, dmin::Float64)
 
-Checks all atoms in each molecule in `tmols` are at least 
-`dmin` Angstroms apart from atoms in other molecules.
+Checks all atoms in each molecule in `tmols` are at least `dmin` Angstroms apart from atoms in other molecules.
+
+Returns a boolean indicating whether this is successful.
 """
-function proximity_check(tmols::Vector{Dict{String}{Any}}, dmin::Float64)
+function proximity_check(tmols::Vector{Dict{String, Any}}, dmin::Float64)
     n_mols = length(tmols)
     too_close = false
     for i in 1:n_mols, j in i+1:n_mols
@@ -144,15 +151,17 @@ end
 
 
 """
-    tmols = molsys_opt(mols, dmin, maxiters)
+    molsys_opt(mols::Vector{Dict{String, Any}}, dmin::Float64, maxiters::Int)
 
 Optimises positions of molecules in `mols` to ensure they are all at least `dmin` Angstroms apart.
 
 Creates and solves an N-body spring-driven particle system and
 transforms molecular coordinates to these particles to check
 for proximity.
+
+Returns a new translated `Vector` of molecules when finished.
 """
-function molsys_opt(mols::Vector{Dict{String}{Any}}, dmin::Float64, maxiters::Int)
+function molsys_opt(mols::Vector{Dict{String, Any}}, dmin::Float64, maxiters::Int)
     @debug "Starting new molsys optimisation"
     np = length(mols)
 
@@ -217,15 +226,15 @@ end
 
 
 """
-    mol = combine_mols(tmols)
+    combine_mols(tmols::Vector{Dict{String, Any}})
 
-Combines a vector of ExtXYZ Atoms dicts into a single Atoms Dict.
+Combines a vector of ExtXYZ framess into a single new frame.
 
 Copies each constituent XYS into the new unified XYZ blindly, so
 resoponsibility is on the user to check there is no overlap in any
 of the coordinates.
 """
-function combine_mols(tmols::Vector{Dict{String}{Any}})
+function combine_mols(tmols::Vector{Dict{String, Any}})
     nmols = length(tmols)
     newmol = copy(tmols[1])
     for i in 2:nmols
@@ -238,13 +247,15 @@ end
 
 
 """
-    system_from_smiles(smiles[, saveto, dmin])
+    system_from_smiles(smiles::String[, dmin::Float64=5.0, maxiters::Int=200])
+    system_from_smiles(smiles::String[, saveto::String, dmin::Float64=5.0, maxiters::Int=200])
 
 Forms a single XYZ system out of the molecules in `smiles`.
 
 Useful for making unified molecular systems with no overlap
-for feeding into CDE. `dmin` represents the minimum 
-molecule-molecule distance that should be allowed.
+for feeding into CDE. `smiles` should be a single `String`
+with individual species separated by '.'. `dmin` represents
+the minimum molecule-molecule distance that should be allowed.
 
 If the argument `saveto` is provided, outputs the optimised
 system to a file at this path. If not, returns the optimised
@@ -270,6 +281,19 @@ end
 
 
 """
+    system_from_mols(mols::Vector{Dict{String, Any}[, dmin::Float64=5.0, maxiters::Int=200])
+    system_from_mols(mols::Vector{Dict{String, Any}[, saveto::String, dmin::Float64=5.0, maxiters::Int=200])
+
+Forms a single XYZ system out of the molecules in `mols`.
+
+Useful for making unified molecular systems with no overlap
+for feeding into CDE. `mols` should be a `Vector` of ExtXYZ
+frames. `dmin` represents the minimum molecule-molecule 
+distance that should be allowed.
+
+If the argument `saveto` is provided, outputs the optimised
+system to a file at this path. If not, returns the optimised
+system as a single ExtXYZ dict.
 """
 function system_from_mols(mols::Vector{Dict{String}{Any}}, saveto::String; 
         dmin::Float64=5.0, maxiters::Int=200)

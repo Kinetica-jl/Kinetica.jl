@@ -1,13 +1,3 @@
-"""
-Bidirectional String-Int dictionary for chemical species.
-
-Contains fields for:
-* SMILES string -> integer ID dictionary (`toInt`)
-* Integer ID -> SMILES string dictionary (`toStr`)
-* Number of species (`n`)
-* ExtXYZ structures of species (`xyz`)
-* Dictionary of per-species cached values (`cache`)
-"""
 mutable struct SpeciesData{iType}
     toInt::Dict{String, iType}
     toStr::Dict{iType, String}
@@ -17,10 +7,25 @@ mutable struct SpeciesData{iType}
 end
 
 """
-    sd = SpeciesData(smi_list, xyz_list)
+    SpeciesData(smi_list, xyz_list[, unique_species=true])
+    SpeciesData(xyz_file[, unique_species=true, fix_radicals=true])
 
-Outer constructor method for `SpeciesData`, allowing for construction
-from a list of SMILES strings and ExtXYZ structures.
+Bidirectional String-Int dictionary for chemical species.
+
+Can either be constructed from an array of SMILES strings
+and their corresponding ExtXYZ frames, or from a single
+XYZ file with one or multiple species present. If
+`unique_species=true`, will not include any duplicate
+species if present. If `fix_radicals=true` in the XYZ
+file loading case, will attempt to tidy up radical
+SMILES with OBCR.
+
+Contains fields for:
+* SMILES string -> integer ID dictionary (`toInt`)
+* Integer ID -> SMILES string dictionary (`toStr`)
+* Number of species (`n`)
+* ExtXYZ structures of species (`xyz`)
+* Dictionary of per-species cached values (`cache`)
 """
 function SpeciesData(smi_list, xyz_list; unique_species=true)
     n = length(smi_list)
@@ -55,19 +60,13 @@ function SpeciesData(smi_list, xyz_list; unique_species=true)
     end
 end
 
-"""
-    sd = SpeciesData(xyz_file[, fix_radicals])
-
-Outer constructor method for `SpeciesData`, allowing for construction
-from an XYZ file.
-"""
-function SpeciesData(xyz_file::String; fix_radicals=true)
+function SpeciesData(xyz_file::String; unique_species=true, fix_radicals=true)
     smi_list, xyz_list = ingest_xyz_system(xyz_file; fix_radicals)
-    SpeciesData(smi_list, xyz_list)
+    SpeciesData(smi_list, xyz_list; unique_species=unique_species)
 end
 
 """
-    push!(sd, smi, xyz)
+    push!(sd::SpeciesData, smi::String, xyz::Dict{String, Any})
 
 Add a species to `SpeciesData`.
 
@@ -83,7 +82,7 @@ function Base.push!(sd::SpeciesData, smi::String, xyz::Dict{String, Any})
 end
 
 """
-    push!(sd, xyz_file[, fix_radicals])
+    push!(sd::SpeciesData, xyz_file::String[, fix_radicals=true])
 
 Add all species in `xyz_file` to `sd`.
 
@@ -99,7 +98,7 @@ function Base.push!(sd::SpeciesData, xyz_file::String; fix_radicals=true)
 end
 
 """
-    push!(sd, smis, xyzs)
+    push!(sd::SpeciesData, smis::Vector{String}, xyzs::Vector{Any})
 
 Add an array of species to `SpeciesData`.
 
@@ -114,7 +113,7 @@ function Base.push!(sd::SpeciesData, smis::Vector{String}, xyzs::Vector{Any})
 end
 
 """
-    push_unique!(sd, smi, xyz)
+    push_unique!(sd::SpeciesData, smi::String, xyz::Dict{String, Any})
 
 Add a species SMILES to a `SpeciesData`, as long as it does not already exist there.
 """
@@ -126,7 +125,7 @@ function push_unique!(sd::SpeciesData, smi::String, xyz::Dict{String, Any})
 end
 
 """
-    push_unique!(sd, xyz_file[, fix_radicals])
+    push_unique!(sd::SpeciesData, xyz_file::String[, fix_radicals=true])
 
 Add species in `xyz_file` to `sd`, as long as they do not already exist there.
 """
@@ -141,7 +140,7 @@ function push_unique!(sd::SpeciesData, xyz_file::String; fix_radicals=true)
 end
 
 """
-    push_unique!(sd, smis, xyzs)
+    push_unique!(sd::SpeciesData, smis::String, xyzs::Vector{Dict{String, Any}})
 
 Add an array of species to `SpeciesData`, as long as each does not already exist there.
 """
@@ -153,22 +152,7 @@ function push_unique!(sd::SpeciesData, smis::Vector{String}, xyzs::Vector{Dict{S
 end
 
 
-"""
-Data container for reactions.
 
-Should be constructed alongside a `SpeciesData` for mapping
-species IDs to SMILES strings.
-
-Contains fields for:
-* Number of reactions encountered (`nr`)
-* Atom-mapped reaction SMILES for unambiguous linking of atom indices in reactants and products (`mapped_rxns`)
-* Unique IDs of reactants for each reaction (`id_reacs`)
-* Unique IDs of products for each reaction (`id_prods`)
-* Stoichiometries of reactants for each reaction (`stoic_reacs`)
-* Stoichiometries of products for each reaction (`stoic_prods`)
-* Reaction enthalpies (`dH`)
-* Reaction hashes, used for unique identification (`rhash`)
-"""
 mutable struct RxData{iType, fType}
     nr::iType
     mapped_rxns::Vector{String}
@@ -181,12 +165,14 @@ mutable struct RxData{iType, fType}
 end
 
 """
-    rd = RxData(sd, reacs, prods, rsys, psys, dH[, unique_rxns, max_molecularity])
+    rd = RxData(sd::SpeciesData, reacs::Vector{Vector{String}}, prods::Vector{Vector{String}}, 
+                rsys::Vector{Dict{String, Any}}, psys::Vector{Dict{String, Any}}, 
+                dH::Vector{<:AbstractFloat}[, unique_rxns=true, max_molecularity=2])
 
-Outer constructor method for `RxData`.
+Data container for reactions.
 
-Creates a new `RxData` reaction data store from lists of
-reactant and product SMILES by cross-referencing species
+Constructor creates a new `RxData` reaction data store from 
+lists of reactant and product SMILES by cross-referencing species
 IDs with `sd`. `sd` should therefore already have all
 species input here loaded in.
 
@@ -199,6 +185,16 @@ set of reactants/products.
 By default, adds a maximum of 1 of each reaction type when
 `unique_rxns = true`, and only admits reactions with a maximum
 molecularity of 2 (i.e. bimolecular reactions).
+
+Contains fields for:
+* Number of reactions encountered (`nr`)
+* Atom-mapped reaction SMILES for unambiguous linking of atom indices in reactants and products (`mapped_rxns`)
+* Unique IDs of reactants for each reaction (`id_reacs`)
+* Unique IDs of products for each reaction (`id_prods`)
+* Stoichiometries of reactants for each reaction (`stoic_reacs`)
+* Stoichiometries of products for each reaction (`stoic_prods`)
+* Reaction enthalpies (`dH`)
+* Reaction hashes, used for unique identification (`rhash`)
 """
 function RxData(sd::SpeciesData{iType}, 
         reacs::Vector{Vector{String}}, prods::Vector{Vector{String}},
@@ -271,7 +267,26 @@ function RxData(sd::SpeciesData{iType},
 end
 
 """
-    push!(rd, sd, reacs, prods, rsys, psys, dH[, unique_rxns, max_molecularity])
+    push!(rd::RxData, sd::SpeciesData, reacs::Vector{Vector{String}}, prods::Vector{Vector{String}}, 
+          rsys::Vector{Dict{String, Any}}, psys::Vector{Dict{String, Any}}, 
+          dH::Vector{<:AbstractFloat}[, unique_rxns=true, max_molecularity=2])
+
+Adds an array of reactions to `rd`.
+
+Extends an `RxData` reaction data store from lists of reactant
+and product SMILES by cross-referencing species IDs with `sd`.
+`sd` should therefore already have all species input here loaded
+in.
+
+`reacs` and `prods` should be the raw SMILES
+arrays from `ingest_cde_run()`, i.e. without any duplicate
+species removed due to stoichiometry. This function will
+determine stoichiometry and output the unique form of each
+set of reactants/products.
+
+By default, adds a maximum of 1 of each reaction type when
+`unique_rxns = true`, and only admits reactions with a maximum
+molecularity of 2 (i.e. bimolecular reactions).
 """
 function Base.push!(rd::RxData{iType, fType}, sd::SpeciesData,
         reacs::Vector{Vector{String}}, prods::Vector{Vector{String}}, 
@@ -336,9 +351,11 @@ end
 
 
 """
-    sd, rd = init_network([iType, fType])
+    init_network([iType=Int64, fType=Float64])
 
 Initialises an empty reaction network.
+
+Returns an empty `SpeciesData{iType}` and RxData{iType, fType}.
 """
 function init_network(; iType=Int64, fType=Float64)
     sd = SpeciesData{iType}(
@@ -358,7 +375,7 @@ end
 
 
 """
-    splice!(rd, rids)
+    splice!(rd::RxData, rids::Vector{Int})
 
 Removes reactions at indeces `rids` from `rd`.
 """
@@ -381,7 +398,7 @@ end
 
 
 """
-    format_rxn(sd, rd, rid)
+    format_rxn(sd::SpeciesData, rd::RxData, rid::Int)
 
 Nicely formats a string describing the reaction at `rid`.
 """
@@ -395,7 +412,7 @@ function format_rxn(sd::SpeciesData, rd::RxData, rid::Int)
 end
 
 """
-    print_rxn(sd, rd, rid)
+    print_rxn(sd::SpeciesData, rd::RxData, rid::Int)
 
 Prints the reaction at ID `rid` with SMILES names for species.
 """

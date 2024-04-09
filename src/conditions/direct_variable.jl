@@ -20,7 +20,7 @@ For compatibility, all direct profile structs must implement the following field
 
 
 """
-    solve_variable_condition!(profile<:AbstractDirectProfile, pars[, reset, solver, solve_kwargs])
+    solve_variable_condition!(profile<:AbstractDirectProfile, pars::ODESimulationParams[, reset=false])
 
 Generates a solution for the specified directly-variable condition profile.
 
@@ -28,8 +28,8 @@ For profiles with direct functions, this requires calculating values
 for the specified `pars.tspan` and wrapping them within a `DiffEqArray`
 for compatibility with other interfaces (plotting, interpolation, etc.).
 
-Arguments `solver` and `solve_kwargs` are provided for compatibility
-with callers, do nothing and should be ignored.
+Arguments `sym`, `solver` and `solve_kwargs` are provided for compatibility
+with unified callers, do nothing and should be ignored.
 """
 function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
     sym=nothing, reset=false, solver=nothing, solve_kwargs=nothing) where {pType <: AbstractDirectProfile}
@@ -43,23 +43,9 @@ function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
 end
 
 
-"""
-Container for null direct profile data and condition function.
-
-This condition profile should only be used for debugging,
-as it has a condition function which always returns the
-initial condition. If only this constant condition is 
-required, the regular `ODESolve` should always be used 
-instead of an `ODEConditionSolve` with this condition 
-profile.
-
-Contains fields for:
-* Condition function (`f`)
-* Initial value of condition (`X_start`)
-* Time to stop calculation (`t_end`)
-* Times for the ODE solver to ensure calculation at (`tstops`)
-* Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
-"""
+# -----------------------------------------------
+# NullDirectProfile definition
+# -----------------------------------------------
 mutable struct NullDirectProfile{uType, tType} <: AbstractDirectProfile
     f::Function
     X_start::uType
@@ -69,12 +55,23 @@ mutable struct NullDirectProfile{uType, tType} <: AbstractDirectProfile
 end
 
 """
-    condition_profile = NullDirectProfile(; X, t_end)
+    NullDirectProfile(; X, t_end)
+    
+Container for null direct profile data and condition function.
 
-Outer constructor for null condition direct profile.
+This condition profile should only be used for debugging,
+as it has a condition function which always returns the
+initial condition. If only this constant condition is 
+required, `StaticODESolve` should always be used with a
+`StaticConditionProfile` instead of a `VariableODESolve`
+with this condition profile.
 
-Should only be used for testing purposes (see struct
-documentation).
+Contains fields for:
+* Condition function (`f`)
+* Initial value of condition (`X_start`)
+* Time to stop calculation (`t_end`)
+* Times for the ODE solver to ensure calculation at (`tstops`)
+* Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
 """
 function NullDirectProfile(;
     X::uType,
@@ -95,21 +92,9 @@ function create_discrete_tstops(profile::NullDirectProfile, ts_update::AbstractF
 end
 
 
-"""
-Container for linear condition ramp profile data and condition function.
-
-This condition profile represents a linear condition
-increase/decrease from `X_start` to `X_end`.
-
-Contains fields for:
-* Condition function (`f`)
-* Rate of change of condition (`rate`)
-* Initial value of condition (`X_start`)
-* Final value of condition (`X_end`)
-* Time to stop calculation (`t_end`)
-* Times for the ODE solver to ensure calculation at (`tstops`)
-* Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
-"""
+# -----------------------------------------------
+# LinearDirectProfile definition
+# -----------------------------------------------
 mutable struct LinearDirectProfile{uType, tType} <: AbstractDirectProfile
     f::Function
     rate::uType
@@ -121,13 +106,24 @@ mutable struct LinearDirectProfile{uType, tType} <: AbstractDirectProfile
 end
 
 """
-    condition_profile = LinearDirectProfile(; rate, X_start, X_end)
+    LinearDirectProfile(; rate, X_start, X_end)
 
-Outer constructor for linear condition ramp direct profile.
+Container for linear condition ramp profile data and condition function.
 
-Determines the simulation end time from the provided conditions
-and rate, then constructs the condition function (which is a linear
-y = mx + c function).
+This condition profile represents a linear condition
+increase/decrease from `X_start` to `X_end`. Determines
+the simulation end time from the provided conditions
+and rate, then constructs the condition function (which
+is a linear y = mx + c function).
+
+Contains fields for:
+* Condition function (`f`)
+* Rate of change of condition (`rate`)
+* Initial value of condition (`X_start`)
+* Final value of condition (`X_end`)
+* Time to stop calculation (`t_end`)
+* Times for the ODE solver to ensure calculation at (`tstops`)
+* Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
 """
 function LinearDirectProfile(;
     rate::uType,

@@ -29,9 +29,9 @@ function xyz_from_smiles(::Val{:rdkit}, smi::String, saveto::String, overwrite::
 end
 
 """
-    frame_to_rdkit(frame[, with_coords])
+    frame_to_rdkit(frame::Dict{String, Any}[, with_coords=false])
 
-Converts an ExtXYZ frame to an Rdkit `Mol` object.
+Converts an ExtXYZ frame to an RDKit `Mol` object.
 
 Since Rdkit often fails to percieve bonding from geometry alone,
 this creates an explicitly single-bonded system with no perception
@@ -41,12 +41,6 @@ a raw connectivity map.
 If bond order determination is required, atoms can be given their
 3D coordinates using `with_coords`, such that bond orders can be
 inferred by bond lengths.
-
-NOTE: This function falls back on OpenBabel for initially
-identifying the connectivity graph. For some reason, the OpenBabel
-code used causes segfaults when run repeatedly within Julia, so
-we handle it entirely within a Python function that is defined at
-the module level to avoid excessive redefinition.
 """
 function frame_to_rdkit(frame::Dict{String, Any}; with_coords=false)
     pbmol = pybel.readstring("xyz", frame_to_xyz(frame))
@@ -80,7 +74,7 @@ end
 
 
 """
-    atom_map_smiles(frame, smi)
+    atom_map_smiles(frame::Dict{String, Any}, smi::String)
 
 Maps the atom indices from `frame` to the atoms in `smi`.
 
@@ -141,7 +135,7 @@ end
 
 
 """
-    atom_map_frame(am_smi, frame)
+    atom_map_frame(am_smi::String, frame::Dict{String, Any})
 
 Maps the atom indices from `am_smi` to the geometry in `frame`.
 

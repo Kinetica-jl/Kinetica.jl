@@ -19,7 +19,7 @@ For compatibility, all gradient profile structs must implement the following fie
 
 
 """
-    solve_variable_condition!(profile<:AbstractGradientProfile, pars[, reset, solver, solve_kwargs])
+    solve_variable_condition!(profile<:AbstractGradientProfile, pars::ODESimulationParams[, sym=nothing, reset=false, solver, solve_kwargs])
 
 Generates a solution for the specified gradient-variable condition profile.
 
@@ -29,7 +29,8 @@ and solving over the timespan in `pars`.
 
 The ODE solver and the arguments passed to the `solve()` call
 can be controlled with the `solver` and `solve_kwargs` arguments
-respectively.
+respectively. If `sym` is passed a `Symbol`, this will bind the
+solution result to that symbol in the underlying `ODESolution`.
 """
 function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
     sym=nothing, reset=false, solver, solve_kwargs) where {pType <: AbstractGradientProfile}
@@ -62,23 +63,9 @@ function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
 end
 
 
-"""
-Container for null gradient profile data and gradient function.
-
-This condition profile should only be used for debugging,
-as it has a condition gradient function which always
-returns zero (i.e. there is no condition change from
-`X_start`). If only this constant condition is required, the
-regular `ODESolve` should always be used instead of an
-`ODEConditionSolve` with this condition profile.
-
-Contains fields for:
-* Condition gradient function (`grad`)
-* Initial value of condition (`X_start`)
-* Time to stop calculation (`t_end`)
-* Times for the ODE solver to ensure calculation at (`tstops`)
-* Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
-"""
+# -----------------------------------------------
+# NullGradientProfile definition
+# -----------------------------------------------
 mutable struct NullGradientProfile{uType, tType} <: AbstractGradientProfile
     grad::Function
     X_start::uType
@@ -88,12 +75,24 @@ mutable struct NullGradientProfile{uType, tType} <: AbstractGradientProfile
 end
 
 """
-    condition_profile = NullGradientProfile(; X, t_end)
+    NullGradientProfile(; X, t_end)
 
-Outer constructor for null condition gradient profile.
+Container for null gradient profile data and gradient function.
 
-Should only be used for testing purposes (see struct
-documentation).
+This condition profile should only be used for debugging,
+as it has a condition gradient function which always
+returns zero (i.e. there is no condition change from
+`X_start`). If only this constant condition is required, 
+`StaticODESolve` should always be used with a
+`StaticConditionProfile` instead of a `VariableODESolve`
+with this condition profile.
+
+Contains fields for:
+* Condition gradient function (`grad`)
+* Initial value of condition (`X_start`)
+* Time to stop calculation (`t_end`)
+* Times for the ODE solver to ensure calculation at (`tstops`)
+* Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
 """
 function NullGradientProfile(;
     X::uType,
@@ -114,22 +113,9 @@ function create_discrete_tstops(profile::NullGradientProfile, ts_update::Abstrac
 end
 
 
-
-"""
-Container for linear condition ramp profile data and condition gradient function.
-
-This condition profile represents a linear condition
-increase/decrease from `X_start` to `X_end`.
-
-Contains fields for:
-* Condition gradient function (`grad`)
-* Rate of change of condition (`rate`)
-* Initial value of condition (`X_start`)
-* Final value of condition (`X_end`)
-* Time to stop calculation (`t_end`)
-* Times for the ODE solver to ensure calculation at (`tstops`)
-* Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
-"""
+# -----------------------------------------------
+# LinearGradientProfile definition
+# -----------------------------------------------
 mutable struct LinearGradientProfile{uType, tType} <: AbstractGradientProfile
     grad::Function
     rate::uType
@@ -141,13 +127,24 @@ mutable struct LinearGradientProfile{uType, tType} <: AbstractGradientProfile
 end
 
 """
-    condition_profile = LinearGradientProfile(; rate, X_start, X_end)
+    LinearGradientProfile(; rate, X_start, X_end)
 
-Outer constructor for linear condition ramp gradient profile.
+Container for linear condition ramp profile data and condition gradient function.
 
-Determines the simulation end time from the provided conditions
-and gradient, then constructs the condition gradient function 
-(which returns `rate` for every timestep).
+This condition profile represents a linear condition
+increase/decrease from `X_start` to `X_end`. Determines 
+the simulation end time from the provided conditions
+and gradient, then constructs the condition gradient 
+function (which returns `rate` for every timestep).
+
+Contains fields for:
+* Condition gradient function (`grad`)
+* Rate of change of condition (`rate`)
+* Initial value of condition (`X_start`)
+* Final value of condition (`X_end`)
+* Time to stop calculation (`t_end`)
+* Times for the ODE solver to ensure calculation at (`tstops`)
+* Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
 """
 function LinearGradientProfile(;
     rate::uType,
@@ -177,7 +174,28 @@ function create_discrete_tstops(profile::LinearGradientProfile, ts_update::Abstr
 end
 
 
+# -----------------------------------------------
+# DoubleRampGradientProfile definition
+# -----------------------------------------------
+mutable struct DoubleRampGradientProfile{uType, tType} <: AbstractGradientProfile
+    grad::Function
+    rate1::uType
+    rate2::uType
+    X_start::uType
+    X_mid::uType
+    X_end::uType
+    t_start_plateau::tType
+    t_mid_plateau::tType
+    t_end_plateau::tType
+    t_blend::tType
+    t_end::tType
+    tstops::Vector{tType}
+    sol
+end
+
 """
+    DoubleRampGradientProfile(; X_start, t_start_plateau, rate1, X_mid, t_mid_plateau, rate2, X_end, t_end_plateau[, t_blend])
+
 Container for double condition ramp profile data and condition gradient function.
 
 This condition profile represents two condition ramps with
@@ -202,34 +220,6 @@ can be passed to linearly interploate between plateaus and
 ramps, forming a smooth function of time. Larger values of
 `t_blend` yield smoother functions but decrease accuracy of
 the ramps, so should be used carefully.
-"""
-mutable struct DoubleRampGradientProfile{uType, tType} <: AbstractGradientProfile
-    grad::Function
-    rate1::uType
-    rate2::uType
-    X_start::uType
-    X_mid::uType
-    X_end::uType
-    t_start_plateau::tType
-    t_mid_plateau::tType
-    t_end_plateau::tType
-    t_blend::tType
-    t_end::tType
-    tstops::Vector{tType}
-    sol
-end
-
-"""
-    condition_profile = DoubleRampGradientProfile(; X_start, t_start_plateau, rate1, X_mid, t_mid_plateau, rate2, X_end, t_end_plateau[, t_blend])
-
-Outer constructor for double condition ramp gradient profile.
-
-Determines the simulation end time from the provided conditions
-and gradients, then constructs the condition gradient function 
-(which returns `rate` for every timestep).
-
-If `t_blend` is passed, constructs a smooth approximation of
-the otherwise discontinuous gradient function.
 """
 function DoubleRampGradientProfile(;
     X_start::uType,

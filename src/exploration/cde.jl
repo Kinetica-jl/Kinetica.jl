@@ -1,7 +1,7 @@
 """
-    cde = CDE(rdir, template_dir, init_xyz, env[, sampling_seed, radius])
+    CDE(template_dir::String [, env_threads, cde_exec, sampling_seed, radius, nrxn, parallel_runs, parallel_exes, write_stdout, write_stderr, allow_errors])
 
-CDE runner. Initialised through struct, run through functor.
+CDE runner. Initialised through keyword-based struct, run through functor.
 
 Struct contains fields for:
 
@@ -45,9 +45,9 @@ end
 
 
 """
-    cde(rcount)
+    (self::CDE)(rcount::Int)
 
-Runs CDE for reaction `rcount` in directory `cde.rdir`.
+Runs CDE for reaction `rcount` in directory `self.rdir`.
 
 Serial runner, only spawns 1 CDE process.
 """
@@ -123,7 +123,7 @@ end
 
 
 """
-    cde(rcountrange)
+    (self::CDE)(rcountrange<:AbstractUnitRange)
 
 Runs CDE for reactions in `rcountrange` in directory `cde.rdir`.
 
@@ -235,7 +235,7 @@ end
 
 
 """
-    reac_smis, reac_xyzs, reac_systems, prod_smis, prod_xyzs, prod_systems, dH = ingest_cde_run(rdir, rcount[, fix_radicals])
+    ingest_cde_run(rdir::String, rcount[, fix_radicals=true])
 
 Reads in the results from a CDE run.
 
@@ -245,6 +245,17 @@ and ExtXYZ geometries.
 
 OBCanonicalRadicals can be enabled to tidy up radical SMILES
 using the `fix_radicals` parameter.
+
+Returns `reac_smis, reac_xyzs, reac_systems, prod_smis, prod_xyzs, prod_systems, dH`,
+where:
+
+* `reac_smis` and `prod_smis` are arrays of the SMILES of
+each reaction's reactants and products;
+* `reac_xyzs` and `prod_xyzs` are their corresponding 
+geometries as ExtXYZ frames; 
+* `reac_systems` and `prod_systems` are the ExtXYZ frames
+of the systems of molecules that came out of CDE;
+* `dH` is an array of reaction energies.
 """
 function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
     rxdir = joinpath(rdir, "reac_$(lpad(rcount, 5, "0"))")

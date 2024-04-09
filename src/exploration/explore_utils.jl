@@ -1,11 +1,11 @@
 """
-    rcount = make_rcount(path)
+    make_rcount(path::String)
 
 Determines the number of reaction mechanisms generated.
 
 Reads the number of generated reactions from the file at
 `path`. If this file does not exist, creates it and sets
-`rcount` to zero.
+this number to zero. Returns this number.
 """
 function make_rcount(path::String)
     rcount = 0
@@ -24,7 +24,7 @@ end
 
 
 """
-    make_inert_file(path, inert_species)
+    make_inert_file(path::String, inert_species::Vector{String})
 
 Makes an inert species file at the given directory `dir`.
 
@@ -47,9 +47,16 @@ end
 
 
 """
-    sd, rd = import_mechanism(rdir, rcount[, max_molecularity])
+    import_mechanism(rdir::String, rcount[, max_molecularity=2])
 
 Create a CRN's initial `SpeciesData` and `RxData` from a CDE generated mechanism(s).
+
+Reads in the results of a CDE run at the `rcount` reaction
+directory under `rdir`. Returns a new `SpeciesData` and `RxData`
+containing the unique species and reactions within these results,
+provided these reactions do not exceed the maximum molecularity
+set by `max_molecularity`, which defaults to only accepting
+unimolecular and bimolecular reactions.
 """
 function import_mechanism(rdir::String, rcount; max_molecularity=2)
     rsmis, rxyzs, rsys, psmis, pxyzs, psys, dHs = ingest_cde_run(rdir, rcount)
@@ -61,9 +68,16 @@ function import_mechanism(rdir::String, rcount; max_molecularity=2)
 end
 
 """
-    import_mechanism!(sd, rd, rdir, rcount[, max_molecularity])
+    import_mechanism!(sd::SpeciesData, rd::RxData, rdir::String, rcount[, max_molecularity=2])
 
 Extend a CRN's `SpeciesData` and `RxData` from a CDE generated mechanism(s).
+
+Reads in the results of a CDE run at the `rcount` reaction
+directory under `rdir`. Extends `sd` and `rd` with the unique 
+species and reactions within these results, provided these 
+reactions do not exceed the maximum molecularity set by 
+`max_molecularity`, which defaults to only accepting unimolecular
+and bimolecular reactions.
 """
 function import_mechanism!(sd::SpeciesData, rd::RxData, rdir::String, rcount;
         max_molecularity=2)
@@ -77,13 +91,13 @@ end
 
 
 """
-    sd, rd = import_network(rdir_head)
+    import_network(rdir_head::String)
 
 Imports a network from a level tree within `rdir_head`.
 
 Recurses through level directories in `rdir_head`, then recurses
-through subspace surectories in each level. Within each subspace,
-imports all mechanisms within each generated reaction.
+through subspace directories in each level. Within each subspace,
+imports all mechanisms within each CDE run.
 
 Returns the resulting network (an instance of `SpeciesData` and 
 `RxData`).
@@ -136,7 +150,7 @@ end
 
 
 """
-    cleanup_network(rdir_head)
+    cleanup_network(rdir_head::String)
 
 Removes incomplete CDE runs from a network.
 
@@ -173,18 +187,20 @@ function cleanup_network(rdir_head::String)
     end
 
     @debug "$n_reacs_removed incomplete CDE runs removed."
+    return
 end
 
 
 """
-    setup_level(loc, sd, seeds)
+    setup_level(loc::ExploreLoc, sd::SpeciesData, seeds::Vector{String})
 
 Sets up a new level of iterative network exploration.
 
 Uses the seed species in `seeds` to create a seed mapping
-file `seeds.in` for the current level. Generates a `seeds.xyz`
-for each subspace to be explores within the level, including
-same-species and cross-species subspaces.
+file `seeds.in` for the current level, denoted by `loc`. 
+Generates a `seeds.xyz` for each subspace to be explores
+within the level, including same-species and cross-species
+subspaces.
 """
 function setup_level(loc::ExploreLoc, sd::SpeciesData, seeds::Vector{String})
     lvdir = pathof(loc; to_level=true)
@@ -224,13 +240,16 @@ function setup_level(loc::ExploreLoc, sd::SpeciesData, seeds::Vector{String})
         mols = [deepcopy(sd.xyz[sd.toInt[smi]]) for smi in seeds]
         system_from_mols(mols, joinpath(ssdir, "seeds.xyz"))
     end
+    return
 end
 
 
 """
-    past_seeds = load_past_seeds(loc)
+    load_past_seeds(loc::ExploreLoc)
 
 Loads in SMILES of all seeds from previous levels.
+
+Returns an array of these SMILES.
 """
 function load_past_seeds(loc::ExploreLoc)
     past_seeds = String[]
@@ -244,9 +263,11 @@ end
 
 
 """
-    current_seeds = load_current_seeds(loc)
+    load_current_seeds(loc::ExploreLoc)
 
 Loads in SMILES of all seeds from current level.
+
+Returns an array of these SMILES.
 """
 function load_current_seeds(loc::ExploreLoc)
     in_path = joinpath(pathof(loc; to_level=true), "seeds.in")
@@ -272,15 +293,24 @@ end
 
 
 """
-    next_seeds = identify_next_seeds(sol, sd, seed_conc[, elim_small_na, ignore, saveto])
+    identify_next_seeds(sol, sd::SpeciesData, seed_conc<:AbstractFloat[, elim_small_na::Int=0, 
+                        ignore::Vector{String}=[], saveto::Union{String, Nothing}=nothing])
 
 Selects seed species for the next level of network exploration.
 
 Identifies species in `sol` with a maximum concentration above
-`seed_conc` and returns the SMILES of these species.
+`seed_conc` and returns an array of the SMILES of these species.
 
 Species meeting selection criteria can be manually ignored
-by including them in the `ignore` argument.
+by including their SMILES in the `ignore` argument. Similarly,
+if species below a certain number of atoms are not desired as
+seeds (e.g. if they are too small to break down), this number
+of atoms can be set with `elim_small_na`.
+
+If `saveto` is set to a file path, the selected seeds and their
+maximum concentrations are output to this file (usually
+generated automatically as a 'seeds.out' file in the current 
+level of exploration).
 """
 function identify_next_seeds(sol, sd::SpeciesData, seed_conc::AbstractFloat;
                              elim_small_na::Int = 0,
