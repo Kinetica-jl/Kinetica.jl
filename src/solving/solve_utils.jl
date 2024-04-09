@@ -79,7 +79,7 @@ end
 Calculates rate constants over a set of variable conditions.
 
 `conditions` must have a valid `tstops` array to iterate over,
-usually created by `create_discrete_tstops`. For every time in
+usually created by `create_discrete_tstops!`. For every time in
 this array, calculates all rate constants based on interpolations
 of variable condition profiles.
 

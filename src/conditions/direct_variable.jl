@@ -86,7 +86,7 @@ function NullDirectProfile(;
     return NullDirectProfile(f, X, t_end, tstops, nothing)
 end
 
-function create_discrete_tstops(profile::NullDirectProfile, ts_update::AbstractFloat)
+function create_discrete_tstops!(profile::NullDirectProfile, ts_update::AbstractFloat)
     if ts_update > profile.t_end throw(ArgumentError("Error defining tstops, `ts_update` is too large.")) end
     profile.tstops = collect(0.0:ts_update:profile.t_end)
 end
@@ -150,7 +150,7 @@ function LinearDirectProfile(;
     return LinearDirectProfile(f, rate, X_start, X_end, t_end, tstops, nothing)
 end
 
-function create_discrete_tstops(profile::LinearDirectProfile, ts_update::AbstractFloat)
+function create_discrete_tstops!(profile::LinearDirectProfile, ts_update::AbstractFloat)
     if ts_update > profile.t_end throw(ArgumentError("Error defining tstops, `ts_update` is too large.")) end
     profile.tstops = create_savepoints(0.0, profile.t_end, ts_update)
 end

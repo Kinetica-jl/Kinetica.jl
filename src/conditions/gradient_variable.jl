@@ -107,7 +107,7 @@ function NullGradientProfile(;
     return NullGradientProfile(grad, X, t_end, tstops, nothing)
 end
 
-function create_discrete_tstops(profile::NullGradientProfile, ts_update::AbstractFloat)
+function create_discrete_tstops!(profile::NullGradientProfile, ts_update::AbstractFloat)
     if ts_update > profile.t_end throw(ArgumentError("Error defining tstops, `ts_update` is too large.")) end
     profile.tstops = collect(0.0:ts_update:profile.t_end)
 end
@@ -168,7 +168,7 @@ function LinearGradientProfile(;
     return LinearGradientProfile(grad, rate, X_start, X_end, t_end, tstops, nothing)
 end
 
-function create_discrete_tstops(profile::LinearGradientProfile, ts_update::AbstractFloat)
+function create_discrete_tstops!(profile::LinearGradientProfile, ts_update::AbstractFloat)
     if ts_update > profile.t_end throw(ArgumentError("Error defining tstops, `ts_update` is too large.")) end
     profile.tstops = create_savepoints(0.0, profile.t_end, ts_update)
 end
@@ -289,7 +289,7 @@ function DoubleRampGradientProfile(;
     end
 end
 
-function create_discrete_tstops(profile::DoubleRampGradientProfile, ts_update::AbstractFloat)
+function create_discrete_tstops!(profile::DoubleRampGradientProfile, ts_update::AbstractFloat)
     if ts_update > profile.t_end throw(ArgumentError("Error defining tstops, `ts_update` is too large.")) end
 
     tType = eltype(profile.tstops)

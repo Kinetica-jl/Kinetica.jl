@@ -1,6 +1,3 @@
-"""
-
-"""
 struct ConditionSet{tType}
     symbols::Vector{Symbol}
     profiles::Vector{<:AbstractConditionProfile}
@@ -43,7 +40,7 @@ function ConditionSet(d::Dict{Symbol, <:Any};
         if d[sym] isa Number
             push!(profiles, StaticConditionProfile(d[sym]))
         elseif d[sym] isa AbstractConditionProfile
-            if !isnothing(ts_update) create_discrete_tstops(d[sym], ts_update) end
+            if !isnothing(ts_update) create_discrete_tstops!(d[sym], ts_update) end
             push!(profiles, d[sym])
         else
             throw(ArgumentError("Condition $(sym) does not have a valid profile."))

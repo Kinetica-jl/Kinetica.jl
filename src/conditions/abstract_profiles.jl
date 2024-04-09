@@ -86,7 +86,7 @@ end
 
 
 """
-    create_discrete_tstops(profile<:AbstractVariableProfile, ts_update<:AbstractFloat)
+    create_discrete_tstops!(profile<:AbstractVariableProfile, ts_update<:AbstractFloat)
 
 Creates a custom array of time stops within `profile.tstops`.
 
@@ -94,7 +94,7 @@ This array contains a time stop every `ts_update`, but attempts
 to intellegently avoid unnecessary time stops in areas where they
 are not needed, i.e. when the given profile is stationary.
 """
-function create_discrete_tstops end
+function create_discrete_tstops! end
 
 
 """
