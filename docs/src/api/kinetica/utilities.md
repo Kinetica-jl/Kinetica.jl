@@ -4,6 +4,7 @@
 
 ```@docs
 tconvert
+create_savepoints
 format_rxn
 print_rxn
 ```

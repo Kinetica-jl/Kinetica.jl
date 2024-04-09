@@ -6,7 +6,6 @@
 
 ```@docs
 ConditionSet
-ConditionSet(::Dict{Symbol, <:Any})
 get_profile(::ConditionSet, ::Symbol)
 Kinetica.get_initial_conditions(::ConditionSet)
 isstatic
@@ -22,6 +21,12 @@ solve_variable_conditions!
 Kinetica.StaticConditionProfile
 ```
 
+### Variable Condition Profiles
+
+```@docs
+Kinetica.create_discrete_tstops!
+```
+
 ### Directly Variable Condition Profiles
 
 ```@docs
@@ -35,6 +40,7 @@ LinearDirectProfile()
 ### Gradient-Variable Condition Profiles
 
 ```@docs
+Kinetica.solve_variable_condition!(::Kinetica.AbstractGradientProfile, ::ODESimulationParams)
 LinearGradientProfile
 LinearGradientProfile()
 DoubleRampGradientProfile
