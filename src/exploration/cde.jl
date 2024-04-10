@@ -249,12 +249,9 @@ using the `fix_radicals` parameter.
 Returns `reac_smis, reac_xyzs, reac_systems, prod_smis, prod_xyzs, prod_systems, dH`,
 where:
 
-* `reac_smis` and `prod_smis` are arrays of the SMILES of
-each reaction's reactants and products;
-* `reac_xyzs` and `prod_xyzs` are their corresponding 
-geometries as ExtXYZ frames; 
-* `reac_systems` and `prod_systems` are the ExtXYZ frames
-of the systems of molecules that came out of CDE;
+* `reac_smis` and `prod_smis` are arrays of the SMILES of each reaction's reactants and products;
+* `reac_xyzs` and `prod_xyzs` are their corresponding geometries as ExtXYZ frames; 
+* `reac_systems` and `prod_systems` are the ExtXYZ frames of the systems of molecules that came out of CDE;
 * `dH` is an array of reaction energies.
 """
 function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
