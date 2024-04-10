@@ -10,15 +10,13 @@ Kinetica provides automated routines for guided CRN exploration, where chemical 
 
 ## Documentation
 
-For information on installation, usage and development of Kinetica.jl, see the documentation (in progress).
+For information on installation, usage and development of Kinetica.jl, see the [documentation](https://kinetica-jl.github.io/Kinetica.jl/stable/).
 
 ## Citation
 
 If you use Kinetica.jl in your research, please cite the following paper:
 
-```
-Citation on the way soon!
-```
+> ```Gilkes, J.; Storr, M.; Maurer, R. J.; Habershon, S. Predicting long timescale kinetics under variable experimental conditions with Kinetica.jl. 2024, arXiv:2403.08657. arXiv.org e-Print archive. https://arxiv.org/abs/2403.08657```
 
 ## License
 

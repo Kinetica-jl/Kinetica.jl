@@ -68,12 +68,8 @@ If you use any of the Kinetica packages in your work, please cite the following:
 
 ### Kinetica.jl
 
-```
-Gilkes, J.; Storr, M.; Maurer, R. J.; Habershon, S. Predicting long timescale kinetics under variable experimental conditions with Kinetica.jl. 2024, arXiv:2403.08657. arXiv.org e-Print archive. https://arxiv.org/abs/2403.08657
-```
+> ```Gilkes, J.; Storr, M.; Maurer, R. J.; Habershon, S. Predicting long timescale kinetics under variable experimental conditions with Kinetica.jl. 2024, arXiv:2403.08657. arXiv.org e-Print archive. https://arxiv.org/abs/2403.08657```
 
 ### KineticaKPM.jl
 
-```bibtex
-Paper coming soon!
-```
+> ```Paper coming soon!```
