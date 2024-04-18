@@ -11,8 +11,7 @@ pars = ODESimulationParams(
     u0 = Dict("C" => 1.0),
     solver = CVODE_BDF(; linear_solver=:KLU),
     abstol = 1e-11,
-    reltol = 1e-9,
-    save_interval = 0.02
+    reltol = 1e-9
 )
 
 using BSON
