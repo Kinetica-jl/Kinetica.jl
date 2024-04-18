@@ -8,11 +8,11 @@ Here we will demonstrate how to perform a simple CRN exploration using Kinetica.
 
 We will begin by going through a basic example of each of these elements. Further details can be found in the Tutorials section of this documentation. 
 
-If you are attempting to recreate this tutorial for yourself, it relies on a few input files that are separate to any of the main code repositories. These files can be found in the `examples` directory of this documentation's repository, which can be accessed by cloning this repository:
+If you are attempting to recreate this tutorial for yourself, it relies on a few input files that are included in the main code repository. These files can be found in the `examples` directory, which can be accessed by cloning this repository:
 
 ```bash
-git clone https://github.com/Kinetica-jl/KineticaDocs.jl.git
-cd KineticaDocs.jl/examples
+git clone https://github.com/Kinetica-jl/Kinetica.jl.git
+cd Kinetica.jl/examples
 ```
 
 To start with the tutorial, load the main Kinetica.jl package:
