@@ -41,3 +41,11 @@ If the solver tolerances need to be modified during adaptive tolerance solution 
     The behaviour enabled with `ODESimulationParams.update_tols=true` is usually not desired when running simulations with chunkwise time. Decreased solver tolerances are often only required in localised areas of time within kinetic simulations where reactions are proceeding exceptionally quickly and there are very large changes in species concentrations. As such, decreased tolerances may only be necessary within a few simulation chunks, while the rest of the simulation can get by with a higher tolerance (and therefore a faster solve time within these chunks). By not updating the tolerances within [`ODESimulationParams`](@ref), each simulation chunk starts at the default tolerances and only reduces them if necessary.
 
 ## [Removing Low-Rate Reactions](@id implementation_low_rate)
+
+When assembling a generated CRN into a system of ODEs to be integrated, some reactions can be purposefully left out if they have sufficiently low rates. This can be triggered with the `ODESimulationParams.low_k_cutoff` parameter by giving it a value other than `:none`. This calculates the maximum rate constant for every reaction, and reactions are then removed from the CRN if this maximum rate is below the cutoff. Setting the cutoff to `:auto` predicts a safe value, where maximum rates below this value will never change any species concentrations. This is checked by making sure that if a given reaction were to run at its maximum rate over the entire duration of the requested simulation (`ODESimulationParams.tspan[2]`, ``t_{\text{global}}``), any generated species concentration would still be less than the ODE solver's relative tolerance (`ODESimulationParams.reltol`):
+
+```math
+\text{remove reaction } i \text{ if } t_{\text{global}} \cdot k_i^{\text{max}} < reltol
+```
+
+Maximum rates of reaction are calculated by enumeration over all permutations of maximum and minimum values of the conditions being calculated against. This should account for the vast majority of cases as rates are usually highest at extrema of experimental conditions.
