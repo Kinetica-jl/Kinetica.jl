@@ -11,7 +11,7 @@ These are split into two rather than making a single unified CRN struct because:
 * This allows dedicated methods of base Julia functions such as `push!` and `splice!` to be easily added for adding/removing species and reactions.
 * A unified CRN struct could easily become quite bloated.
 
-## `SpeciesData`
+## Representing Species (`SpeciesData`)
 
 At the core of [`SpeciesData`](@ref) is a bidirectional mapping between species IDs and their respective SMILES representations within its `toStr` and `toInt` fields (which are just `Dict`s mapping ID to SMILES and SMILES to ID respectively). This mapping facilitates going back and forth between a human-understandable format and one that Kinetica can use when automatically assembling systems of ODEs for kinetic simulations.
 
@@ -48,7 +48,7 @@ Since Kinetica is primarily made for investigating CRNs for long-timescale kinet
 
 Representing species as SMILES and assuming reactions only occur between the lowest energy conformer of each species therefore eliminates the need to consider these conformational changes. However, care should be taken when calculating reaction rate constants to always use low-energy conformations of species.
 
-## `RxData`
+## Representing Reactions (`RxData`)
 
 [`RxData`](@ref) maintains its space efficiency by only encoding reactions using species' integer IDs. They are therefore necessarily constructed in conjunction with an existing [`SpeciesData`](@ref), which **must** already contain the species that are in these reactions. They are therefore only constructed:
 
