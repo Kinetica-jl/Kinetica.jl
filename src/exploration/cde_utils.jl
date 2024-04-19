@@ -1,5 +1,5 @@
 """
-    parallel_run(commands[, ntasks])
+    parallel_run(commands[, ntasks::Int=1])
 
 Asynchronously runs `length(commands)` shell commands over `ntasks` processes.
 """
@@ -20,11 +20,13 @@ end
 
 
 """
-    env = env_multithread(nthreads)
+    env_multithread(nthreads::Int)
 
 Set up environment variables for CDE calculations.
 
 Sets OMP/MKL thread counts (for xTB calculations within CDE).
+Returns a copy of the current environment `ENV` with these
+variables set.
 """
 function env_multithread(nthreads::Int)
     env = copy(ENV)
@@ -37,7 +39,7 @@ function env_multithread(nthreads::Int)
 end
 
 """
-    env_multithread!(cmd, nthreads)
+    env_multithread!(cmd::Cmd, nthreads::Int)
 
 Set up environment variables for CDE calculations by modifying an existing Cmd.
 

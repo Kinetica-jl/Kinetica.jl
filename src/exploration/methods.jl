@@ -1,7 +1,9 @@
 abstract type AbstractExploreMethod end
 
 """
-Container for parameters used in direct CRN exploration.
+    DirectExplore(rdir_head::String, reac_smiles::VEctor{String}, cde::CDE[, maxiters::Int=1000, rxn_convergence_threshold::Int=5])
+
+Keyword-based container for parameters used in direct CRN exploration.
 
 Contains fields for:
 * Top level of CRN exploration directory (`rdir_head`)
@@ -20,7 +22,11 @@ end
 
 
 """
-Container for parameters used in iterative kinetics-based CRN exploration.
+    IterativeExplore(rdir_head::String, reac_smiles::VEctor{String}, cde::CDE[, maxiters::Int=1000, 
+                     rxn_convergence_threshold::Int=5, seed_convergence_threshold::Int=3, seed_conc=0.05,
+                     independent_blacklist::Vector{String}=[], inert_species::Vector{String}=[]])
+
+Keyword-based container for parameters used in iterative kinetics-based CRN exploration.
 
 Contains fields for:
 * Top level of CRN exploration directory (`rdir_head`)
@@ -47,7 +53,8 @@ end
 
 
 """
-    res = explore_network(exploremethod::Union{DirectExplore, IterativeExplore}, solvemethod[, savedir])
+    explore_network(exploremethod::DirectExplore, solvemethod[, savedir])
+    explore_network(exploremethod::IterativeExplore, solvemethod[, savedir])
 
 Runs network exploration with one of the available methods.
 
@@ -245,7 +252,7 @@ end
 
 
 """
-    explore_subspace!(sd, rd, loc, exploremethod)
+    explore_subspace!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, exploremethod<:AbstractExploreMethod)
 
 Finds reactions stemming from the seeds in the subspace defined by `loc`.
 

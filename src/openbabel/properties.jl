@@ -1,5 +1,5 @@
 """
-    get_species_stats!(sd[, refresh])
+    get_species_stats!(sd::SpeciesData[, refresh=false])
 
 Gets statistics about the species in `sd`.
 

@@ -16,7 +16,7 @@ By only requiring that conditions use consistent symbolic names at their definit
 
 ## [`ConditionSet`](@ref)
 
-At the core of this system is the [`ConditionSet`](@ref), which acts as an aggregator for individula condition profiles and their symbols. At their definition, [`ConditionSet`](@ref)s take a dictionary of `Symbol => Profile()` mappings. Each Symbol can realistically be anything that Julia allows, but by convention (and for compatibility with most calculator implementations) we stick to the usual abbreviations for common conditions - `:T` for temperature, `:P` for pressure, `:V` for volume, etc. Each condition profile can be one of three options:
+At the core of this system is the [`ConditionSet`](@ref), which acts as an aggregator for individula condition profiles and their symbols. At their definition, [`ConditionSet`](@ref)s take a dictionary of `Symbol => Profile()` mappings. Each `Symbol` can realistically be anything that Julia allows, but by convention (and for compatibility with most calculator implementations) we stick to the usual abbreviations for common conditions - `:T` for temperature, `:P` for pressure, `:V` for volume, etc. Each condition profile can be one of three options:
 
 * A `Number` representing a static value for the given condition to take for the duration of the simulation. Internally this is converted into a [`Kinetica.StaticConditionProfile`](@ref), but this is just a container for the number within.
 * A directly variable condition profile, e.g. [`LinearDirectProfile`](@ref). These are variable condition profiles where the condition is implemented directly as a function of time.

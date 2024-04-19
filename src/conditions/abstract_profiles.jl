@@ -7,7 +7,7 @@ abstract type AbstractGradientProfile <: AbstractVariableProfile end
 abstract type AbstractDirectProfile <: AbstractVariableProfile end
 
 """
-    isstatic(cs[, sym])
+    isstatic(cs::ConditionSet[, sym::Symbol])
 
 Determines if condition profiles in a `ConditionSet` are static.
 
@@ -15,7 +15,7 @@ When a Symbol `sym` is provided, only checks if the profile
 linked to this Symbol is static. If no Symbol is provided,
 checks is all profiles are static.
 
-    isstatic(profile)
+    isstatic(profile<:AbstractConditionProfile)
 
 Determines if a given condition profile is static.
 """
@@ -30,7 +30,7 @@ function isstatic(::pType) where {pType <: AbstractVariableProfile}
 end
 
 """
-    isvariable(cs[, sym])
+    isvariable(cs::ConditionSet[, sym::Symbol])
 
 Determines if condition profiles in a `ConditionSet` are variable.
 
@@ -38,7 +38,7 @@ When a Symbol `sym` is provided, only checks if the profile
 linked to this Symbol is variable. If no Symbol is provided,
 checks is all profiles are variable.
 
-    isvariable(profile)
+    isvariable(profile<:AbstractConditionProfile)
 
 Determines if a given condition profile is variable.
 """
@@ -54,7 +54,7 @@ end
 
 
 """
-    isgradientprofile(profile)
+    isgradientprofile(profile<:AbstractVariableProfile)
 
 Detemines if an `AbstractVariableProfile` is gradient-based.
 """
@@ -70,7 +70,7 @@ end
 
 
 """
-    isdirectprofile(profile)
+    isdirectprofile(profile<:AbstractVariableProfile)
 
 Determines if an `AbstractVariableProfile` has a direct equation.
 """
@@ -86,7 +86,7 @@ end
 
 
 """
-    create_discrete_tstops(profile, ts_update)
+    create_discrete_tstops!(profile<:AbstractVariableProfile, ts_update<:AbstractFloat)
 
 Creates a custom array of time stops within `profile.tstops`.
 
@@ -94,11 +94,11 @@ This array contains a time stop every `ts_update`, but attempts
 to intellegently avoid unnecessary time stops in areas where they
 are not needed, i.e. when the given profile is stationary.
 """
-function create_discrete_tstops end
+function create_discrete_tstops! end
 
 
 """
-    minimum(profile)
+    minimum(profile<:AbstractVariableProfile)
 
 Determines the minimum value of an `AbstractVariableProfile` from its solution.
 
@@ -119,7 +119,7 @@ end
 
 
 """
-    maximum(profile)
+    maximum(profile<:AbstractVariableProfile)
 
 Determines the maximum value of an `AbstractVariableProfile` from its solution.
 

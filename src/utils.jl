@@ -1,5 +1,5 @@
 """
-    tconvert(t, from_unit, to_unit)
+    tconvert(t<:Real, from_unit::String, to_unit::String)
 
 Converts a time from one unit (`from_unit`) to another (`to_unit`).
 
@@ -30,7 +30,7 @@ function tconvert(t::Real, from_unit::String, to_unit::String)
 end
 
 """
-    tconvert(from_unit, to_unit)
+    tconvert(from_unit::String, to_unit::String)
 
 Returns `tconvert(1.0, from_unit, to_unit)`.
 
@@ -43,7 +43,7 @@ end
 
 
 """
-    tconvert(t, from_unit, to_unit)
+    tconvert(t::Vector{<:Real}, from_unit::String, to_unit::String)
 
 Converts a vector of times from one unit (`from_unit`) to another (`to_unit`).
 
@@ -124,10 +124,13 @@ trunc(::Type{T}, x::T) where T<:Real = trunc(x)
 
 
 """
-    a = DiffEqArray(u, t)
-    u_interp = a(t_interp)
+    (self::RecursiveArrayTools.DiffEqArray)(t_interp[, idxs=nothing, deriv=Val{0}, continuity=:left])
 
 `DiffEqArray` functor for interpolation at new time values.
+
+Extends `DiffEqArray`s to act a little more like `ODESolution`s
+by allowing for linear interpolation of results between time 
+points.
 """
 function (self::RecursiveArrayTools.DiffEqArray)(t_interp; 
         idxs = nothing, deriv = Val{0}, continuity = :left)

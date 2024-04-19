@@ -1,15 +1,3 @@
-"""
-Container for all conditions in a kinetic simulation.
-
-Conditions can be static or variable, and variable
-conditions can be gradient-based or directly usable.
-
-Contains fields for:
-* Symbolic representation of conditions (`symbols`)
-* Condition profile for each symbol (`profiles`)
-* Whether discrete rate constant updates are enabled for the conditions in this condition set (`discrete_updates`)
-* Discrete rate constant update timestep, is `nothing` if `discrete_updates = false` (`ts_update`)
-"""
 struct ConditionSet{tType}
     symbols::Vector{Symbol}
     profiles::Vector{<:AbstractConditionProfile}
@@ -21,19 +9,28 @@ end
     conditions = ConditionSet(Dict(
         :C1 => ConditionType1(...),
         :C2 => ConditionType2(...))
-        [, ts_update]
+        [, ts_update=nothing]
     ))
 
-Outer constructor for `ConditionSet`..
+Container for all conditions in a kinetic simulation.
 
-Separates condition profiles from their symbols and parses
-numeric profiles into `StaticConditionProfile`s. Registers
-`AbstractVariableProfile`s with Symbolics to allow for proper
-computation down the chain.
+Conditions can be static or variable, and variable
+conditions can be gradient-based or directly usable.
 
-If `ts_update` is provided, creates `tstops` arrays within
-each variable profile for use in discrete rate update 
-simulations.
+Contains fields for:
+* Symbolic representation of conditions (`symbols`)
+* Condition profile for each symbol (`profiles`)
+* Whether discrete rate constant updates are enabled for the conditions in this condition set (`discrete_updates`)
+* Discrete rate constant update timestep, is `nothing` if `discrete_updates = false` (`ts_update`)
+
+Constructor separates condition profiles from their symbols 
+and parses numeric profiles into `StaticConditionProfile`s. 
+Registers `AbstractVariableProfile`s with Symbolics to allow
+for proper computation down the chain.
+
+If `ts_update` is provided as a keyword argument, creates 
+`tstops` arrays within each variable profile for use in 
+discrete rate update simulations.
 """
 function ConditionSet(d::Dict{Symbol, <:Any}; 
                       ts_update::Union{tType, Nothing}=nothing) where {tType <: AbstractFloat}
@@ -43,7 +40,7 @@ function ConditionSet(d::Dict{Symbol, <:Any};
         if d[sym] isa Number
             push!(profiles, StaticConditionProfile(d[sym]))
         elseif d[sym] isa AbstractConditionProfile
-            if !isnothing(ts_update) create_discrete_tstops(d[sym], ts_update) end
+            if !isnothing(ts_update) create_discrete_tstops!(d[sym], ts_update) end
             push!(profiles, d[sym])
         else
             throw(ArgumentError("Condition $(sym) does not have a valid profile."))
@@ -87,7 +84,7 @@ end
 
 
 """
-    profile = get_profile(cs, sym)
+    get_profile(cs::ConditionSet, sym::Symbol)
 
 Gets the condition profile linked to `sym` from `cs`.
 """
@@ -101,9 +98,9 @@ end
 
 
 """
-    initial_conditions = get_initial_conditions(conditions)
+    get_initial_conditions(conditions::ConditionSet)
 
-Extract initial conditions from ConditionSet.
+Extract initial values of conditions from `conditions`.
 
 Returns an array of `Pair`s linking Symbols to
 initial values. For `AbstractStaticProfile`s,
@@ -125,9 +122,12 @@ end
 
 
 """
-    static_conditions = get_static_conditions(conditions)
+    get_static_conditions(conditions::ConditionSet)
 
-Extract static conditions from ConditionSet.
+Extracts static conditions from `conditions`.
+
+Returns an array of `Pair`s linking Symbols to
+static values. 
 """
 function get_static_conditions(conditions::ConditionSet)
     scs = []
@@ -141,9 +141,12 @@ end
 
 
 """
-    variable_conditions = get_variable_conditions(conditions)
+    get_variable_conditions(conditions::ConditionSet)
 
-Extracts `ODESolution`s of variable conditions from ConditionSet.
+Extracts `ODESolution`s of variable conditions from `conditions`.
+
+Returns an array of `Pair`s linking Symbols to
+`ODESolution`s. 
 """
 function get_variable_conditions(conditions::ConditionSet)
     vcs = []
@@ -157,7 +160,7 @@ end
 
 
 """
-    tstops = get_tstops(cs)
+    get_tstops(cs::ConditionSet)
 
 Retrieves a sorted array of unique time stops from all condition profiles in `cs`.
 
@@ -174,7 +177,7 @@ end
 
 
 """
-    t_final = get_t_final(cs)
+    get_t_final(cs::ConditionSet)
 
 Retrieves the last necessary time point needed to encompass all variable condition profiles in `cs`.
 
@@ -189,7 +192,7 @@ end
 
 
 """
-    register_direct_conditions(cs)
+    register_direct_conditions(cs::ConditionSet)
 
 Calls `@register_symbolic` on all `AbstractDirectProfile` functions.
 
@@ -208,12 +211,12 @@ function register_direct_conditions(cs::ConditionSet)
 end
 
 """
-    register_gradient_conditions(cs)
+    register_gradient_conditions(cs::ConditionSet)
 
 Calls `@register_symbolic` on all `AbstractGradientProfile` functions.
 
 Workaround for otherwise needing to call the macro in the scope
-of the `Main` module, once for each direct profile. Instead,
+of the `Main` module, once for each gradient profile. Instead,
 handles this nicely without the user having to worry about explicitly
 adding runtime-generated functions to the computation graph.
 """
@@ -228,16 +231,32 @@ end
 
 
 """
-    solve_variable_conditions!(cs, pars[, reset, solver, solve_kwargs])
+    solve_variable_conditions!(cs::ConditionSet, pars::ODESimulationParams[, reset=false, solver=OwrenZen5(), solve_kwargs])
 
 Solves all variable condition profiles over the timespan in `pars.tspan`.
 
 Places all condition profile solutions in their `sol` field. In the
 case of `AbstractDirectProfile`s, this creates a `DiffEqArray` to mimic
 the regular DiffEq solver interface.
+
+If condition profiles already exist, they will not be overwritten unless
+`reset=true`. 
+
+The `solver` and `solve_kwargs` arguments are used when solving gradient
+profiles. The OwrenZen5 solver has shown to be a stable, accurate solver
+capable of handling sudden gradient changes, and is a sensible default.
+`solve_kwargs` is a `Dict` of keyword arguments that get passed to the 
+`solve` call, with default state:
+
+    solve_kwargs=Dict{Symbol, Any}(
+        :abstol => 1e-6,
+        :reltol => 1e-4
+    )
+
+These have been shown to be sensible defaults for most gradient profiles.
 """
 function solve_variable_conditions!(cs::ConditionSet, pars::ODESimulationParams; 
-    reset=false, solver=OwrenZen5(), solve_kwargs=Dict{Symbol, Any}(:abstol => 1e6, :reltol => 1e-4))
+    reset=false, solver=OwrenZen5(), solve_kwargs=Dict{Symbol, Any}(:abstol => 1e-6, :reltol => 1e-4))
 
     for (sym, profile) in zip(cs.symbols, cs.profiles)
         if isvariable(profile)

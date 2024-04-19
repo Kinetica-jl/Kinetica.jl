@@ -3,20 +3,7 @@ abstract type AbstractSolveMethod end
 abstract type AbstractODESolveMethod <: AbstractSolveMethod end
 abstract type AbstractSSASolveMethod <: AbstractSolveMethod end
 
-"""
-Static kinetic CRN solver type.
 
-Combines all parameter inputs, conditions, a calculator and
-a set of reaction finters into a single type to be passed to
-the solver.
-
-All conditions in the provided `ConditionSet` must be static 
-(defined as a single number), and also must be compatible with
-the provided calculator.
-
-Allows for optional specification of `RxFilter`. If not defined,
-creates a filter that allows all reactions.
-"""
 struct StaticODESolve <: AbstractODESolveMethod
     pars::ODESimulationParams
     conditions::ConditionSet
@@ -33,26 +20,27 @@ struct StaticODESolve <: AbstractODESolveMethod
     end
 end
 
+"""
+    StaticODESolve(pars::ODESimulationParams, conditions::ConditionSet, calculator<:AbstractKineticCalculator[, filter::RxFilter])
+
+Static kinetic CRN solver type.
+
+Combines all parameter inputs, conditions, a calculator and
+a set of reaction filters into a single type to be passed to
+the solver.
+
+All conditions in the provided `ConditionSet` must be static 
+(defined as a single number), and also must be compatible with
+the provided calculator.
+
+Allows for optional specification of `RxFilter`. If not defined,
+creates a filter that allows all reactions.
+"""
 function StaticODESolve(pars::ODESimulationParams, conditions::ConditionSet, calculator::AbstractKineticCalculator)
     return StaticODESolve(pars, conditions, calculator, RxFilter())
 end
 
 
-"""
-Variable kinetic CRN solver type.
-
-Combines all parameter inputs, conditions, a calculator and
-a set of reaction finters into a single type to be passed to
-the solver.
-
-Conditions in the provided `ConditionSet` must be compatible
-with the calculator and can be a combination of static and 
-variable. However, this will throw an error if all conditions 
-are static, as a `StaticODESolve` should be used instead.
-
-Allows for optional specification of `RxFilter`. If not defined,
-creates a filter that allows all reactions.
-"""
 struct VariableODESolve <: AbstractODESolveMethod
     pars::ODESimulationParams
     conditions::ConditionSet
@@ -69,13 +57,30 @@ struct VariableODESolve <: AbstractODESolveMethod
     end
 end
 
+"""
+    VariableODESolve(pars::ODESimulationParams, conditions::ConditionSet, calculator<:AbstractKineticCalculator[, filter::RxFilter])
+
+Variable kinetic CRN solver type.
+
+Combines all parameter inputs, conditions, a calculator and
+a set of reaction filters into a single type to be passed to
+the solver.
+
+Conditions in the provided `ConditionSet` must be compatible
+with the calculator and can be a combination of static and 
+variable. However, this will throw an error if all conditions 
+are static, as a `StaticODESolve` should be used instead.
+
+Allows for optional specification of `RxFilter`. If not defined,
+creates a filter that allows all reactions.
+"""
 function VariableODESolve(pars::ODESimulationParams, conditions::ConditionSet, calculator::AbstractKineticCalculator)
     return VariableODESolve(pars, conditions, calculator, RxFilter())
 end
 
 
 """
-    solve_network(method::StaticODESolve, sd, rd[, copy_network, return_integrator])
+    solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData[, copy_network=true, return_integrator=false])
 
 Solve a network with static kinetics.
 
@@ -293,13 +298,14 @@ end
 
 
 """
-    sol = solve_network(method::VariableODESolve, sd, rd[, copy_network, return_integrator])
+    solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData[, copy_network=true, return_integrator=false])
 
 Solve a network with variable kinetics.
 
 Automatically dispatches to the correct method based
-on the value of `method.pars.solve_chunks`, as chunkwise
-solution requires a significantly different approach.
+on the value of `method.pars.solve_chunks` and 
+`method.conditions.ts_update`, as chunkwise and discrete
+solutions require significantly different approaches.
 
 Setting `copy_network=true` generates a `deepcopy` of
 the original network in `rd` and `sd` and uses these in

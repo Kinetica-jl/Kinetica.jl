@@ -1,5 +1,5 @@
 """
-    max_rates = get_max_rates(conditions, calculator)
+    get_max_rates(conditions::ConditionSet, calculator<:AbstractKineticCalculator)
 
 Calculates the maximum rate constants for reactions under variable conditions.
 
@@ -55,9 +55,9 @@ end
 
 
 """
-    initial_rates = get_initial_rates(conditions, calculator)
+    get_initial_rates(conditions::ConditionSet, calculator<:AbstractKineticCalculator)
 
-Calculate initial rate constants for a variable condition simulation.
+Calculates initial rate constants for a variable condition simulation.
 """
 function get_initial_rates(conditions::ConditionSet, calculator::AbstractKineticCalculator)
     bound_conditions = []
@@ -74,11 +74,19 @@ end
 
 
 """
-    k = calculate_discrete_rates(conditions, calculator, nr[, uType])
+    calculate_discrete_rates(conditions::ConditionSet, calculator<:AbstractKineticCalculator, nr::Int[, uType=Float64])
 
 Calculates rate constants over a set of variable conditions.
 
-Returns a 
+`conditions` must have a valid `tstops` array to iterate over,
+usually created by `create_discrete_tstops!`. For every time in
+this array, calculates all rate constants based on interpolations
+of variable condition profiles.
+
+Returns a `DiffEqArray` of rate constant vectors, one for each
+time point. The numeric type of this array defaults to `Float64`,
+but can be modified to match species concentrations with the 
+`uType` argument.
 """
 function calculate_discrete_rates(conditions::ConditionSet, calculator::AbstractKineticCalculator, nr::Int; uType=Float64)
     if !conditions.discrete_updates
@@ -102,12 +110,12 @@ end
 
 
 """
-    insert_inert!(rd, sd, inert_species)
+    insert_inert!(rd::RxData, sd::SpeciesData, inert_species::Vector{String})
 
 Inserts inert species into all unimolecular reactions.
 
 Updates `sd` to have fragment data for the new species,
-then converts all unimolecular reactions to 'bimolecular' reactions
+then converts all unimolecular reactions to bimolecular reactions
 where the inert species is a bystander for the sake of being a
 collision partner.
 
@@ -185,15 +193,17 @@ end
 
 
 """
-    n_removed = apply_low_k_cutoff!(rd, calc, pars, conditions)
+    apply_low_k_cutoff!(rd::RxData, calc<:AbstractKineticCalculator, pars::ODESimulationParams, conditions::ConditionSet)
 
 Removes low-rate reactions from `rd` and `calc` according to the cutoff in `pars.low_k_cutoff`.
 
 If the cutoff is a numeric value, it is used directly. If it is
 `:auto`, automatically decides on a safe value where the removed
 reactions would not contribute to the network over the timespan
-of the simulation. If it is `:none`, does not apply a cutoff and
-returns.
+of the simulation. If it is `:none`, does not apply a cutoff.
+
+Returns the number of low-rate reactions that have been removed
+from the CRN.
 """
 function apply_low_k_cutoff!(rd::RxData{iType, fType}, calc::cType, 
         pars::ODESimulationParams, conditions::ConditionSet) where {
@@ -231,12 +241,12 @@ end
 
 
 """
-    u0 = make_u0(species, pars)
+    make_u0(sd::SpeciesData, pars::ODESimulationParams)
 
 Construct the initial concentration vector `u0` from the input in `pars.u0`.
 
 Converts the input initial concentrations into a vector of length
-`species.n`. If `pars.u0` is a vector, this is by default only 
+`sd.n`. If `pars.u0` is a vector, this is by default only 
 allowed if the input vector has an entry for every species. This 
 behaviour can be changed with `pars.allow_short_u0`, which
 fills any remaining species concentrations with zeros.
@@ -244,13 +254,13 @@ fills any remaining species concentrations with zeros.
 If the input initial concentrations are in a Dict, converts species
 names to IDs and correctly populates an array at the right indeces.
 """
-function make_u0(species::SpeciesData, pars::ODESimulationParams)
+function make_u0(sd::SpeciesData, pars::ODESimulationParams)
     if pars.u0 isa Vector
         @info "   - Starting with initial concentrations for all species.."
-        if length(pars.u0) != species.n
+        if length(pars.u0) != sd.n
             if pars.allow_short_u0
                 @info "   - pars.u0 shorter than expected, setting all trailing species to 0"
-                u0 = zeros(eltype(pars.u0), species.n)
+                u0 = zeros(eltype(pars.u0), sd.n)
                 u0[1:length(pars.u0)] = pars.u0
             else
                 throw(ErrorException("Length of supplied initial concentration vector does not match with number of species in system."))
@@ -264,8 +274,8 @@ function make_u0(species::SpeciesData, pars::ODESimulationParams)
         # Check requested species exist in known fragments.
         species_ids = zeros(Int, length(initial_species))
         for (i, spec) in enumerate(initial_species)
-            if spec in keys(species.toInt)
-                species_ids[i] = species.toInt[spec]
+            if spec in keys(sd.toInt)
+                species_ids[i] = sd.toInt[spec]
             else
                 throw(ErrorException("Species $spec not in SpeciesData. Check pars.u0 is correct."))
             end
@@ -273,9 +283,9 @@ function make_u0(species::SpeciesData, pars::ODESimulationParams)
 
         # Create populated u0 vector.
         utype = valtype(pars.u0)
-        u0 = zeros(utype, species.n)
+        u0 = zeros(utype, sd.n)
         for id in species_ids
-            u0[id] = pars.u0[species.toStr[id]]
+            u0[id] = pars.u0[sd.toStr[id]]
         end
     end
     return u0
@@ -283,8 +293,9 @@ end
 
 
 """
-    make_rs(k, spec, t, rd[, p, combinatoric_ratelaws]/[, variable_k, combinatoric_ratelaws])
-
+    make_rs(k, spec, t, rd::RxData[, variable_k=false, combinatoric_ratelaws=false])
+    make_rs(k, spec, t, rd::RxData, p[, combinatoric_ratelaws=false])
+    
 Makes a Catalyst `ReactionSystem`` from all currently implemented reactions.
 
 `k` should be a vector of rate constants, defined either as MTK
@@ -334,11 +345,30 @@ end
 
 
 """
-    adaptive_solve!(integrator, pars, solvecall_kwargs[, print_status])
+    adaptive_solve!(integrator, pars::ODESimulationParams, solvecall_kwargs::Dict{Symbol, Any}[, print_status=false])
 
+Tries to solve `integrator` with increasing tolerances as solution becomes unstable.
 
+Repeatedly attempts to call `solve!(integrator)`, starting with
+the `abstol` and `reltol` defined in `pars`. If this fails,
+reduces both values by an order of magnitude and tries again.
+
+This can continue until either the tolerances cannot be reduced
+without being less than the precision of the numeric type being
+used within the solution, or until 5 attempts have elapsed, at
+which point an exception will be thrown.
+
+This behaviour can be disabled with `pars.adaptive_tols=false`,
+which will cause this function to fail after the first failed
+attempt. 
+
+If the integrator finishes successfully and `pars.update_tols=true`,
+the final solver tolerances used in this successful simulation are
+written back to `pars`. These tolerances are taken from their
+entries in `solvecall_kwargs`, which are always updated during
+successive solution attempts.
 """
-function adaptive_solve!(integrator, pars::ODESimulationParams, solvecall_kwargs::Dict{Symbol, Any}; print_status::Bool=false)
+function adaptive_solve!(integrator, pars::ODESimulationParams, solvecall_kwargs::Dict{Symbol, Any}; print_status=false)
     if print_status 
         @info " - Solving network..." 
         flush_log()
@@ -390,7 +420,7 @@ end
 
 
 """
-    affect! = CompleteRateUpdateAffect(k_precalc)
+    CompleteRateUpdateAffect(k_precalc<:AbstractDiffEqArray)
 
 Affect! function for discrete rate update callback in complete timescale simulations.
 
@@ -400,13 +430,19 @@ Calculates new rate constants from direct interpolation on
 mutable struct CompleteRateUpdateAffect
     k_precalc::SciMLBase.AbstractDiffEqArray
 end
+
+"""
+    (self::CompleteRateUpdateAffect)(integrator)
+
+Sets rate constants at `integrator.p` to those in `self.k_precalc` at time `integrator.t`.
+"""
 function (self::CompleteRateUpdateAffect)(integrator)
     integrator.p = self.k_precalc(integrator.t)
 end
 
 
 """
-    condition = ChunkwiseRateUpdateCondition(tstops_local)
+    ChunkwiseRateUpdateCondition(tstops_local::Vector{Float64})
 
 Condition function for discrete rate update callback in chunkwise simulations.
 
@@ -419,13 +455,19 @@ which case the rate is not updated within this local loop.
 mutable struct ChunkwiseRateUpdateCondition
     tstops_local::Vector{Float64}
 end
+
+"""
+    (self::ChunkwiseRateUpdateCondition)(u, t, integrator)
+
+Checks if current time `t` is within `self.tstops_local`.
+"""
 function (self::ChunkwiseRateUpdateCondition)(u, t, integrator)
     t ∈ self.tstops_local
 end
 
 
 """
-    affect! = ChunkwiseRateUpdateAffect(t_loop, n_loops)
+    ChunkwiseRateUpdateAffect(t_chunk, n_chunks::Int, k_precalc<:AbstractDiffEqArray)
 
 Affect! function for discrete rate update callback in chunkwise simulations.
 
@@ -439,6 +481,15 @@ mutable struct ChunkwiseRateUpdateAffect{tType}
     n_chunks::Int
     k_precalc::AbstractDiffEqArray
 end
+
+"""
+    (self::ChunkwiseRateUpdateAffect)(integrator)
+
+Sets rate constants at `integrator.p` to those in `self.k_precalc` at current local chunk time.
+
+Global simulation time is calculated from addition of local 
+chunk time and number of previous chunks.
+"""
 function (self::ChunkwiseRateUpdateAffect)(integrator)
     t = integrator.t + (self.n_chunks*self.t_chunk)
     integrator.p = self.k_precalc(t)

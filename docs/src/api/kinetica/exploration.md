@@ -30,15 +30,24 @@ init_network
 
 ```@docs
 CDE
-Kinetica.ingest_cde_run
+ingest_cde_run
+import_mechanism
+import_mechanism!
+import_network
 ```
 
 ## Exploration
 
 ```@docs
+Kinetica.ExploreLoc
+pathof(::Kinetica.ExploreLoc)
+Kinetica.find_current_loc
 DirectExplore
 IterativeExplore
 explore_network
+Kinetica.load_past_seeds
+Kinetica.load_current_seeds
+Kinetica.identify_next_seeds
 ```
 
 ## Molecule System

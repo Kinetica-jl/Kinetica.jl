@@ -1,5 +1,5 @@
 """
-    ingest_xyz_system(xyz_str[, fix_radicals])
+    ingest_xyz_system(xyz_str::String[, fix_radicals=true])
 
 Converts a molecule system from a single XYZ string into a list of SMILES strings and their respective ExtXYZ representataions.
 
@@ -9,7 +9,7 @@ is required, this can be achieved with
 
     smi_list, xyz_list = ingest_xyz_system(xyz_file_to_str(xyz_file))
 """
-function ingest_xyz_system(xyz_str::String; fix_radicals::Bool=true)
+function ingest_xyz_system(xyz_str::String; fix_radicals=true)
     pbmol = pybel.readstring("xyz", xyz_str)
     fragments = [pybel.Molecule(obmol) for obmol in pbmol.OBMol.Separate()]
     n = length(fragments)
@@ -34,7 +34,7 @@ end
 
 
 """
-    xyz_to_frame(xyz)
+    xyz_to_frame(xyz::String)
 
 Convenient handler for converting string-form xyz to ExtXYZ frame.
 
@@ -45,7 +45,7 @@ can accept a list of lines from the file to iterate over.
 Constructs this list within an in-memory IOBuffer to avoid
 large IO overhead of writing to disk (repeatedly).
 
-Can also be used to go directly from a pbmol to frame:
+Can also be used to go directly from a Pybel pbmol to frame:
 
     frame = xyz_to_frame(pbmol.write("xyz"))
 """
@@ -67,7 +67,7 @@ end
 
 
 """
-    frame_to_xyz(frame)
+    frame_to_xyz(frame::Dict{String, Any})
 
 Converts an ExtXYZ frame into string-form XYZ.
 
@@ -87,12 +87,19 @@ end
 
 
 """
-    xyz_from_smiles(smi[, generator, saveto, overwrite, seed])
+    xyz_from_smiles(smi::String[, generator::Symbol=openbabel, seed=-1])
+    xyz_from_smiles(smi::String, saveto::String[, generator::Symbol=:openbabel,  overwrite=true, seed=-1])
 
 Generates approximate coordinates for a molecule from SMILES.
 
-If provided, saves to an XYZ file at `saveto`. Otherwise returns
-the string-form XYZ without saving to file.
+If provided, saves to an XYZ file at `saveto`. If already present,
+this file will only be overwritten when `overwrite=true` Otherwise
+returns the string-form XYZ without saving to file.
+
+Can generate geometries using either Openbabel or RDKit, chosen
+using `generator=:openbabel` or `generator=:rdkit`. RDKit-based
+generation can be seeded for consistency using the `seed` argument,
+while trying to supply a seed to Openbabel will throw an error.
 """
 xyz_from_smiles(smi::String; generator::Symbol=:openbabel, seed=-1) = xyz_from_smiles(Val(generator), smi, seed) 
 function xyz_from_smiles(::Val{:openbabel}, smi::String, seed)
@@ -119,11 +126,14 @@ end
 
 
 """
-    frame_from_smiles(smi)
+    frame_from_smiles(smi::String)
 
 Generates approximate coordinates for a molecule from SMILES.
 
-Returns an ExtXYZ frame dictionary.
+Uses `xyz_from_smiles` through the Openbabel generator
+internally. If greater control over generation is
+required, call this separately. Returns an ExtXYZ
+frame dictionary.
 """
 function frame_from_smiles(smi::String)
     frame = xyz_to_frame(xyz_from_smiles(smi))
@@ -132,7 +142,7 @@ end
 
 
 """
-    xyz_file_to_str(xyz_file)
+    xyz_file_to_str(xyz_file::String)
 
 Converts contents of an XYZ file into string-form XYZ.
 """

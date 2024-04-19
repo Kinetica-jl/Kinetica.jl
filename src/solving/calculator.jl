@@ -1,7 +1,7 @@
 abstract type AbstractKineticCalculator end
 
 """
-    allows_continuous(calculator)
+    allows_continuous(calculator<:AbstractKineticCalculator)
 
 Indicates whether a `calculator` is allowed to function in continuous variable rate constant simulations.
 
@@ -15,9 +15,8 @@ will only be functional for discrete rate constant update simulations.
 """
 function allows_continuous end
 
-
 """
-    setup_network!(sd, rd, calculator)
+    setup_network!(sd::SpeciesData, rd::RxData, calculator<:AbstractKineticCalculator)
 
 Sets up a network for calculation with the provided `calculator`.
 
@@ -28,6 +27,17 @@ fields within the calculator.
 """
 function setup_network! end
 
+"""
+    has_conditions(calculator<:AbstractKineticCalculator, symbols::Vector{Symbol})
+
+Checks if the provided `calculator` permits calculations with the conditions in `symbols`.
+
+Implemented as a method for every calculator type. If
+any of the symbolic experimental conditions in `symbols`
+are not listed in the `calculator`'s method, this returns
+`false`.
+"""
+function has_conditions end
 
 """
     splice!(calculator, rids)
@@ -45,7 +55,6 @@ function Base.splice!(calc::cType, rids::Vector{Int}) where {cType <: AbstractKi
     splice!(calc, rids)
 end
 
-
 """
     splice!(rd, calculator, rids)
 
@@ -57,7 +66,19 @@ function Base.splice!(rd::RxData, calculator::cType, rids::Vector{Int}) where {c
 end
 
 
+# -----------------------------------------------
+# DummyKineticCalculator definition
+# -----------------------------------------------
+mutable struct DummyKineticCalculator{kmType, uType, tType} <: AbstractKineticCalculator
+    rates::Vector{uType}
+    k_max::kmType
+    t_unit::String
+    t_mult::tType
+end
+
 """
+    DummyKineticCalculator(rates[, k_max=nothing, t_unit="s"])
+
 Placeholder kinetic calculator.
 
 Kinetic calculator that always returns an array of original
@@ -71,18 +92,6 @@ Implemented conditions:
 Has support for dispatching with/without a maximum rate constant
 `k_max` and scaling by time unit `t_unit` (assuming rates are
 provided in units of /s).
-"""
-mutable struct DummyKineticCalculator{kmType, uType, tType} <: AbstractKineticCalculator
-    rates::Vector{uType}
-    k_max::kmType
-    t_unit::String
-    t_mult::tType
-end
-
-"""
-    calculator = DummyKineticCalculator(rates[, k_max, t_unit])
-
-Outer constructor method for placeholder kinetic calculator.
 """
 function DummyKineticCalculator(rates::Vector{uType}; 
         k_max::Union{Nothing, uType}=nothing, t_unit::String="s") where {uType <: AbstractFloat}
@@ -103,7 +112,7 @@ end
 
 # Dispatched with k_max awareness.
 """
-    rates = calculator(; T, V)
+    (calc::DummyKineticCalculator)(; T, V)
 
 Calculate rates with placeholder kinetic calculator.
 
@@ -149,7 +158,20 @@ end
 allows_continuous(::DummyKineticCalculator) = true
 
 
+# -----------------------------------------------
+# PrecalculatedArrheniusCalculator definition
+# -----------------------------------------------
+mutable struct PrecalculatedArrheniusCalculator{kmType, uType, tType} <: AbstractKineticCalculator
+    Ea::Vector{uType}
+    A::Vector{uType}
+    k_max::kmType
+    t_unit::String
+    t_mult::tType
+end
+
 """
+    PrecalculatedArrheniusCalculator(Ea, A[, k_max=nothing, t_unit="s"])
+
 Arrhenius theory kinetic calculator for precalculated reactions.
 
 Kinetic calculator that uses the Arrhenius equation to
@@ -167,19 +189,6 @@ Requires:
 Has support for dispatching with/without a maximum rate constant
 `k_max` and scaling by time unit `t_unit` (assuming rates are
 provided in units of /s).
-"""
-mutable struct PrecalculatedArrheniusCalculator{kmType, uType, tType} <: AbstractKineticCalculator
-    Ea::Vector{uType}
-    A::Vector{uType}
-    k_max::kmType
-    t_unit::String
-    t_mult::tType
-end
-
-"""
-    calculator = PrecalculatedArrheniusCalculator(Ea, A[, k_max, t_unit])
-
-Outer constructor method for Arrhenius theory kinetic calculator.
 """
 function PrecalculatedArrheniusCalculator(Ea::Vector{uType}, A::Vector{uType}; 
         k_max::Union{Nothing, uType}=nothing, t_unit::String="s") where {uType <: AbstractFloat}
@@ -201,7 +210,7 @@ end
 
 # Dispatched with k_max awareness.
 """
-    rates = calculator(; T)
+    (calc::PrecalculatedArrheniusCalculator)(; T)
 
 Calculate rates with precalculated Arrhenius theory kinetic calculator.
 
@@ -229,7 +238,21 @@ end
 allows_continuous(::PrecalculatedArrheniusCalculator) = true
 
 
+# -----------------------------------------------
+# PrecalculatedLindemannCalculator definition
+# -----------------------------------------------
+mutable struct PrecalculatedLindemannCalculator{kmType, uType, tType} <: AbstractKineticCalculator
+    Ea::Vector{uType}
+    A_0::Vector{uType}
+    A_inf::Vector{uType}
+    k_max::kmType
+    t_unit::String
+    t_mult::tType
+end
+
 """
+    PrecalculatedLindemannCalculator(Ea, A[, k_max=nothing, t_unit="s"])
+
 Pressure-dependent Arrhenius theory kinetic calculator for precalculated reactions.
 
 Kinetic calculator that uses the Arrhenius equation modified
@@ -249,20 +272,6 @@ Requires:
 Has support for dispatching with/without a maximum rate constant
 `k_max` and scaling by time unit `t_unit` (assuming rates are
 provided in units of /s).
-"""
-mutable struct PrecalculatedLindemannCalculator{kmType, uType, tType} <: AbstractKineticCalculator
-    Ea::Vector{uType}
-    A_0::Vector{uType}
-    A_inf::Vector{uType}
-    k_max::kmType
-    t_unit::String
-    t_mult::tType
-end
-
-"""
-    calculator = PrecalculatedLindemannCalculator(Ea, A[, k_max, t_unit])
-
-Outer constructor method for pressure-dependent Arrhenius theory kinetic calculator.
 """
 function PrecalculatedLindemannCalculator(Ea::Vector{uType}, A_0::Vector{uType}, A_inf::Vector{uType}; 
         k_max::Union{Nothing, uType}=nothing, t_unit::String="s") where {uType <: AbstractFloat}
@@ -285,7 +294,7 @@ end
 
 # Dispatched with k_max awareness.
 """
-    rates = calculator(; T, P)
+    (calc::PrecalculatedLindemannCalculator)(; T, P)
 
 Calculate rates with pressure-dependent Arrhenius theory kinetic calculator.
 

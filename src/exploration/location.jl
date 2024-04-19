@@ -1,7 +1,13 @@
 """
-    loc = ExploreLoc(rdir_head, level, subspace)
+    ExploreLoc(rdir_head::String, level::Int, subspace::Int)
 
 Container for iterative exploration location data.
+
+Struct contains fields for:
+
+* Head directory of CRN ('rdir_head`)
+* Current level index within head directory (`level`)
+* Current subspace index within level (`subspace`)
 """
 mutable struct ExploreLoc
     rdir_head::String
@@ -16,7 +22,7 @@ dec_subspace!(loc::ExploreLoc) = loc.subspace -= 1
 reset_subspace!(loc::ExploreLoc) = loc.subspace = 1
 
 """
-    path = pathof(loc[, to_level])
+    pathof(loc::ExploreLoc[, to_level=false])
 
 Returns the path of the current subspace in the current level in the head directory specified by `loc`.
 
@@ -33,6 +39,19 @@ end
 
 
 """
+    find_current_loc(rdir_head::String)
+
+Finds the current exploration location in a partially explored CRN.
+
+Returns an `ExploreLoc` for the current exploration location.
+
+Looks for level directories within `rdir_head`. If none are found,
+points to the initial subspace of the initial level. Otherwise finds
+the latest level with a 'seeds.in' file. If subspaces are not found
+within this level, points to the initial subspace of this level.
+Otherwise finds the latest subspace without an 'isconv' convergence
+file, and points here. If all subspaces in this level are converged,
+emits a warning and points to the last subspace in this level.
 """
 function find_current_loc(rdir_head::String)
     level_dirs = readdir(rdir_head)
