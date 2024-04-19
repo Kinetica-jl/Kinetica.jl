@@ -202,6 +202,11 @@ If the cutoff is a numeric value, it is used directly. If it is
 reactions would not contribute to the network over the timespan
 of the simulation. If it is `:none`, does not apply a cutoff.
 
+Multiplies the calculated maximum rates of reaction by a theoretical
+maximum concentration that any reactants could attain through a 
+kinetic simulation, as set by `pars.low_k_maxconc`. This concentration
+multiplier is squared to emulate a bimolecular reaction.
+
 Returns the number of low-rate reactions that have been removed
 from the CRN.
 """
@@ -222,7 +227,7 @@ function apply_low_k_cutoff!(rd::RxData{iType, fType}, calc::cType,
     end
 
     # Calculate maximum rate constants.
-    max_rates = get_max_rates(conditions, calc)
+    max_rates = get_max_rates(conditions, calc) .* pars.low_k_maxconc^2
     
     # Find low rate reactions.
     low_rate_ids = Vector{iType}()

@@ -42,10 +42,10 @@ If the solver tolerances need to be modified during adaptive tolerance solution 
 
 ## [Removing Low-Rate Reactions](@id implementation_low_rate)
 
-When assembling a generated CRN into a system of ODEs to be integrated, some reactions can be purposefully left out if they have sufficiently low rates. This can be triggered with the `ODESimulationParams.low_k_cutoff` parameter by giving it a value other than `:none`. This calculates the maximum rate constant for every reaction, and reactions are then removed from the CRN if this maximum rate is below the cutoff. Setting the cutoff to `:auto` predicts a safe value, where maximum rates below this value will never change any species concentrations. This is checked by making sure that if a given reaction were to run at its maximum rate over the entire duration of the requested simulation (`ODESimulationParams.tspan[2]`, ``t_{\text{global}}``), any generated species concentration would still be less than the ODE solver's relative tolerance (`ODESimulationParams.reltol`):
+When assembling a generated CRN into a system of ODEs to be integrated, some reactions can be purposefully left out if they have sufficiently low rates. This can be triggered with the `ODESimulationParams.low_k_cutoff` parameter by giving it a value other than `:none`. This calculates the maximum rate constant for every reaction, and reactions are then removed from the CRN if this maximum rate is below the cutoff. Setting the cutoff to `:auto` predicts a safe value, where maximum rates below this value will never change any species concentrations. This is checked by making sure that if a given reaction were to run at its maximum rate over the entire duration of the requested simulation (`ODESimulationParams.tspan[2]`, ``t_{\text{global}}``) with maximum reactant concentrations set by `ODESimulationParams.low_k_maxconc` (``c^2_{\text{max}}``), any generated species concentration would still be less than the ODE solver's relative tolerance (`ODESimulationParams.reltol`):
 
 ```math
-\text{remove reaction } i \text{ if } t_{\text{global}} \cdot k_i^{\text{max}} < reltol
+\text{remove reaction } i \text{ if } t_{\text{global}} \cdot c^2_{\text{max}}k_i^{\text{max}} < reltol
 ```
 
 Maximum rates of reaction are calculated by enumeration over all permutations of maximum and minimum values of the conditions being calculated against. This should account for the vast majority of cases as rates are usually highest at extrema of experimental conditions.
