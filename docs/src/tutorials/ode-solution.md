@@ -235,11 +235,11 @@ This allows for controlling how often the ODE solver saves species concentration
 !!! warning "Saving with chunkwise time"
     When `solve_chunks=true`, this parameter behaves slightly differently. If left empty, species concentrations will be saved at the start and end of every chunk. If given a numeric value, this will be interpreted as a value within the local timescale `0.0:save_interval:solve_chunkstep`, so providing a value larger than `solve_chunkstep` will cause nothing to be saved. See the section on [Implemetation Details - Chunkwise Time](@ref implementation_chunkwise_time) for further details.
 
-#### `low_k_cutoff`
+#### `low_k_cutoff` and `low_k_maxconc`
 
-This parameter allows Kinetica to automatically remove reactions with low rate constants from a CRN, optimising CRN compilation and solution. It defaults to `low_k_cutoff=:auto`, which selects a conservative value for the minimum rate constant which ensures that only reactions which could never contribute to the current kinetic simulation are removed. 
+These parameters allows Kinetica to automatically remove reactions with low rate constants from a CRN, optimising CRN compilation and solution. They default to `low_k_cutoff=:auto` and `low_k_maxconc=2.0`, which selects conservative values that ensure that only reactions which could never contribute to the current kinetic simulation are removed. 
 
-If a numeric value is provided, this is used as the minimum rate constant below which reactions are removed from the CRN. If `low_k_cutoff=:none`, this behaviour is disabled and no reactions are removed from the CRN. See the section on [Implementation Details - Removing Low-Rate Reactions](@ref implementation_low_rate)
+If a numeric value is provided to `low_k_cutoff`, this is used as the minimum rate constant below which reactions are removed from the CRN. If `low_k_cutoff=:none`, this behaviour is disabled and no reactions are removed from the CRN. See the section on [Implementation Details - Removing Low-Rate Reactions](@ref implementation_low_rate)
 
 #### `allow_short_u0`
 
