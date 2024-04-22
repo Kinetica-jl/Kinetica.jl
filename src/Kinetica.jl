@@ -6,6 +6,7 @@ UK Ministry of Defence © Crown Owned Copyright 2024/AWE
 module Kinetica
 
 using Reexport
+using CondaPkg
 using Logging
 using LoggingExtras
 using Dates
@@ -51,6 +52,9 @@ function __init__()
 
     # Disable RdKit logging because it really clogs up the works.
     rdLogger.DisableLog("rdApp.*")
+
+    # Add Conda-installed binaries to PATH
+    ENV["PATH"] *= ":"*join(CondaPkg.bindirs(), ":")
 end
 export pybel, obcr, rdChem
 
