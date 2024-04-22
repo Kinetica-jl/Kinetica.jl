@@ -53,14 +53,20 @@ This `conda` environment is composable at runtime, so if you were to have both K
 
 While not a direct dependency, some parts of Kinetica's CRN exploration routines (which act through the [CDE](https://github.com/HabershonLab/cde) code) require an electronic structure code to perform geometry optimisations and energy calculations. Since only approximate geometries and energies are required within CDE, we recommend using the GFN2-xTB method within the [Extended Tight-Binding (xTB) package](https://github.com/grimme-lab/xtb) by Bannwarth et. al. 
 
-An xTB package is included with Kinetica.jl's Python dependencies and will be installed automatically. A shorthand alias to this package can be created (assuming you are in your Julia project's directory) with:
+An xTB package is included with Kinetica.jl's Python dependencies and will be installed automatically. While not available on your system's PATH by default, it will be accessible to Kinetica. If you wish to also use Kinetica's installed xTB binary outside of Kinetica, an alias can be created (assuming you are in your Julia project's directory) with:
 
 ```bash
 alias xtb="$(julia --project -e 'using CondaPkg; print(CondaPkg.which("xtb"))')"
 ```
 
-!!! note "Note for tutorial users"
-    If you plan to follow the tutorials in this documentation, the example CDE inputs assume that you have xTB installed and available by calling `xtb` (either aliased or in your `PATH`). The above alias is therefore required for the tutorials to function.
+### Graphviz
+
+[Graphviz](https://graphviz.org/) is an open source software suite for graph visualisation. Kinetica provides an interface to Graphviz through Catalyst.jl (see [Results Analysis](@ref)) and bundles it as a Python dependency, the same as xTB above.
+
+The Graphviz executables are similarly not added to your system's PATH but are available to Kinetica, and the same aliasing procedure as above can be applied if access to these executables is desired outside of Kinetica.
+
+!!! note "Why not Graphviz_jll?"
+    Some readers may note that Graphviz is also distributed as a JLL package through the Julia package manager, and installing it this way may be simpler than treating it as a Python dependency. However, [Graphviz_jll.jl](https://github.com/JuliaBinaryWrappers/Graphviz_jll.jl) is currently compiled without some optional dependencies such as GTS, making it much less useful for graphing large CRNs. We therefore fall back to the Conda package for the time being.
 
 ## Citing Kinetica
 

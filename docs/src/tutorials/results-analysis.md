@@ -113,6 +113,11 @@ savegraph(g, "../assets/tutorials/results_analysis/modified_graph.svg", "svg"); 
 
 ![](../assets/tutorials/results_analysis/modified_graph.svg)
 
+!!! note "On Graphviz Installation"
+    Graphviz is one of Kinetica's Python dependencies, and as such is always installed at the same time as Kinetica. This is not the case for Catalyst.jl, which either requires a user-installed version of Graphviz, or it uses the [Graphviz_jll](https://github.com/JuliaBinaryWrappers/Graphviz_jll.jl) package. As discussed in the section on the [Graphviz](@ref) dependency, we avoid the JLL due to it missing some key features which Kinetica's CRNs typically need.
+
+    Kinetica always adds its Python dependencies to the end of the current `PATH`, so if you have your own installation that you'd like to use, just make sure it's in your `PATH` before you start Julia!
+
 ### Species Analysis
 
 Kinetica makes use of many functions within both [RDKit](https://github.com/rdkit/rdkit) and [Open Babel](https://github.com/openbabel/openbabel) to assist with basic property prediction and conversion between geometry and SMILES. A comprehensive list of functions implemented are available in the [Open Babel](@ref) and [RDKit](@ref) API pages.
