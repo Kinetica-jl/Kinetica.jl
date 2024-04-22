@@ -75,6 +75,44 @@ print(frame_to_xyz(mapped_prods))
 
 As a result of the atom mapping, the hydrogen atoms which dissociate from the reactant ethane are now consistently indexed between reactant and product geometries.
 
+### Species-Reaction Graphs
+
+Kinetica hooks in to the same graph plotting code as [Catalyst.jl](https://github.com/SciML/Catalyst.jl), which uses [Graphviz](https://graphviz.org/) to generate figures that show the relationship between species and reactions in a CRN. [`Graph(::SpeciesData, ::RxData)`](@ref) has been extended to allow for easy graph plotting directly from a Kinetica CRN:
+
+```@example results_analysis
+g = Graph(sd, rd)
+savegraph(g, "../assets/tutorials/results_analysis/default_graph.svg", "svg"); nothing # hide
+```
+
+![](../assets/tutorials/results_analysis/default_graph.svg)
+
+Graphs generated this way are compatible with Catalyst's graph methods and can be saved to file using `Catalyst.savegraph`. 
+
+!!! note "Catalyst.jl Reexports"
+    While Kinetica doesn't usually reexport any structs or methods from other packages, we make an exception for `Catalyst.Graph` and `Catalyst.savegraph` as we implement methods that can coexist and be interchanged with those in Catalyst. This allows [`Graph(::SpeciesData, ::RxData)`](@ref) to be called as above, but also allows `savegraph(::Graph, fname, fmt)` to be called without ever calling `using Catalyst` or needing it explicitly in your Julia project.
+
+In addition, Kinetica allows for passing [Graphviz attributes](https://graphviz.org/doc/info/attrs.html) directly through to the plotter for extra customisability. These take the form of the `graph_attrs`, `species_attrs`, `rxn_attrs` and `edge_attrs` keyword arguments to [`Graph(::SpeciesData, ::RxData)`](@ref), which can be supplied with `Dict{Symbol, String}`s to modify parameters of the overall graph, the species nodes and the reaction nodes, and the edges respectively:
+
+```@example results_analysis
+g = Graph(sd, rd;
+    graph_attrs=Dict(
+        :layout => "sfdp",
+        :overlap => "prism",
+        :overlap_scaling => "-8"
+    ), species_attrs=Dict(
+        :shape => "hexagon",
+        :color => "aquamarine1"
+    ), rxn_attrs=Dict(
+        :shape => "box",
+        :color => "coral"
+    ), edge_attrs=Dict(
+        :color => "grey59"
+    ))
+savegraph(g, "../assets/tutorials/results_analysis/modified_graph.svg", "svg"); nothing # hide
+```
+
+![](../assets/tutorials/results_analysis/modified_graph.svg)
+
 ### Species Analysis
 
 Kinetica makes use of many functions within both [RDKit](https://github.com/rdkit/rdkit) and [Open Babel](https://github.com/openbabel/openbabel) to assist with basic property prediction and conversion between geometry and SMILES. A comprehensive list of functions implemented are available in the [Open Babel](@ref) and [RDKit](@ref) API pages.
