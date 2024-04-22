@@ -1,5 +1,5 @@
 """
-    Graph(sd::SpeciesData, rd::RxData[, graph_attrs, use_smiles=false])
+    Graph(sd::SpeciesData, rd::RxData[, graph_attrs, species_attrs, rxn_attrs, edge_attrs, use_smiles=false])
 
 Creates a Graphviz graph from the supplied CRN.
 
