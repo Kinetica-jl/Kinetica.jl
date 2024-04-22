@@ -5,11 +5,13 @@ UK Ministry of Defence © Crown Owned Copyright 2024/AWE
 """
 module Kinetica
 
+using Reexport
 using Logging
 using LoggingExtras
 using Dates
 using RecipesBase
 using Catalyst
+@reexport using Catalyst: Graph, savegraph
 using OrdinaryDiffEq
 using DiffEqCallbacks
 using RecursiveArrayTools
@@ -119,5 +121,6 @@ export explore_network
 include("analysis/io.jl")
 export ODESolveOutput, save_output, load_output
 include("analysis/plotting.jl")
+include("analysis/graph.jl")
 
 end
