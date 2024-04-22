@@ -17,6 +17,12 @@ the default Catalyst graph (drawn using the `dot` layout)
 is returned. When given a `Dict{Symbol, String}` of 
 graph keywords, these are applied to the generated graph.
 
+Similarly, node attributes for species and reaction nodes
+can be passed through `species_attrs` and `rxn_attrs`
+respectively. Global edge attributes can be passed through
+`edge_attrs`, but individual edges may still set their own
+properties.
+
 Additionally allows for plotting with SMILES node labels.
 This is disabled by default, as many of the special
 characters in SMILES cannot currently be rendered properly.
@@ -25,12 +31,16 @@ The resulting `Catalyst.Graph` can be rendered in a notebook,
 or saved to file using `Catalyst.savegraph`, both of which
 are reexported by Kinetica.
 """
-function Catalyst.Graph(sd::SpeciesData, rd::RxData; graph_attrs::Union{Nothing, Dict{Symbol, String}}=nothing, use_smiles=false)
-    if isnothing(graph_attrs)
-        gattrs = Catalyst.graph_attrs
-    else
-        gattrs = Catalyst.Attributes(graph_attrs...)
-    end
+function Catalyst.Graph(sd::SpeciesData, rd::RxData; 
+                        graph_attrs::Union{Nothing, Dict{Symbol, String}}=nothing, 
+                        species_attrs::Union{Nothing, Dict{Symbol, String}}=nothing,
+                        rxn_attrs::Union{Nothing, Dict{Symbol, String}}=nothing,
+                        edge_attrs::Union{Nothing, Dict{Symbol, String}}=nothing,
+                        use_smiles=false)
+    gattrs = isnothing(graph_attrs) ? Catalyst.graph_attrs : Catalyst.Attributes(graph_attrs...)
+    sattrs = isnothing(species_attrs) ? Catalyst.Attributes(:shape => "circle", :color => "#6C9AC3") : Catalyst.Attributes(species_attrs...)
+    rattrs = isnothing(rxn_attrs) ? Catalyst.Attributes(:shape => "point", :color => "#E28F41") : Catalyst.Attributes(rxn_attrs...)
+    eattrs = isnothing(edge_attrs) ? Catalyst.edge_attrs : Catalyst.Attributes(edge_attrs...)
 
     @parameters k[1:rd.nr]
     @variables t 
@@ -40,15 +50,8 @@ function Catalyst.Graph(sd::SpeciesData, rd::RxData; graph_attrs::Union{Nothing,
     rxs = reactions(rs)
     specs = species(rs)
     spec_names = use_smiles ? [sd.toStr[i] for i in 1:sd.n] : ["S"*subscript(i) for i in 1:sd.n]
-    statenodes = [
-        Catalyst.Node(spec_names[i], 
-                      Catalyst.Attributes(:shape => "circle", :color => "#6C9AC3", :width => "0.5", :margin => "0.05,0.05")
-                     ) for i in 1:sd.n]
-    transnodes = [
-        Catalyst.Node("R"*subscript(i),
-                      Catalyst.Attributes(:shape => "point", :color => "#E28F41", :width => "0.25", :margin => "0.05,0.05")
-                     ) for (i, r) in enumerate(rxs)
-    ]
+    statenodes = [Catalyst.Node(spec_names[i], sattrs) for i in 1:sd.n]
+    transnodes = [Catalyst.Node("R"*subscript(i), rattrs) for (i, r) in enumerate(rxs)]
 
     stmts = vcat(statenodes, transnodes)
     edges = map(enumerate(rxs)) do (i, r)
@@ -62,7 +65,7 @@ function Catalyst.Graph(sd::SpeciesData, rd::RxData; graph_attrs::Union{Nothing,
     append!(stmts2, stmts)
     append!(stmts2, collect(Iterators.flatten(edges)))
     g = Catalyst.Digraph("G", stmts2; graph_attrs = gattrs, 
-                         node_attrs = Catalyst.node_attrs, edge_attrs = Catalyst.edge_attrs)
+                         node_attrs = Catalyst.node_attrs, edge_attrs = eattrs)
     return g
 end
 
