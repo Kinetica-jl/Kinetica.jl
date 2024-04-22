@@ -38,6 +38,7 @@ function Catalyst.Graph(sd::SpeciesData, rd::RxData;
                         edge_attrs::Union{Nothing, Dict{Symbol, String}}=nothing,
                         use_smiles=false)
     gattrs = isnothing(graph_attrs) ? Catalyst.graph_attrs : Catalyst.Attributes(graph_attrs...)
+    prog = get(gattrs, :layout, "dot")
     sattrs = isnothing(species_attrs) ? Catalyst.Attributes(:shape => "circle", :color => "#6C9AC3") : Catalyst.Attributes(species_attrs...)
     rattrs = isnothing(rxn_attrs) ? Catalyst.Attributes(:shape => "point", :color => "#E28F41", :width => ".1") : Catalyst.Attributes(rxn_attrs...)
     eattrs = isnothing(edge_attrs) ? Catalyst.edge_attrs : Catalyst.Attributes(edge_attrs...)
@@ -64,7 +65,7 @@ function Catalyst.Graph(sd::SpeciesData, rd::RxData;
     stmts2 = Vector{Catalyst.Statement}()
     append!(stmts2, stmts)
     append!(stmts2, collect(Iterators.flatten(edges)))
-    g = Catalyst.Digraph("G", stmts2; graph_attrs = gattrs, 
+    g = Catalyst.Digraph("G", stmts2; prog = prog, graph_attrs = gattrs, 
                          node_attrs = Catalyst.node_attrs, edge_attrs = eattrs)
     return g
 end
