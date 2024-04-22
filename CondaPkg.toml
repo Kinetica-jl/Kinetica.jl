@@ -4,6 +4,7 @@ rdkit = ""
 xtb = ""
 matplotlib = ""
 ase = ">=3.22.1"
+graphviz = ""
 python = ">=3.7,<3.11"
 scipy = ""
 
