@@ -29,7 +29,7 @@ using OrderedCollections
 using PythonCall
 using CDE_jll
 
-const version = VersionNumber(0, 5, 5)
+const version = VersionNumber(0, 5, 6)
 
 # Global Python package interfaces
 const pybel = PythonCall.pynew()
