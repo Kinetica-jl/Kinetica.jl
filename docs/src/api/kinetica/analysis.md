@@ -9,3 +9,9 @@ ODESolveOutput
 save_output
 load_output
 ```
+
+### Graphing
+
+```@docs
+Graph(::SpeciesData, ::RxData)
+```
