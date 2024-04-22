@@ -39,7 +39,7 @@ function Catalyst.Graph(sd::SpeciesData, rd::RxData;
                         use_smiles=false)
     gattrs = isnothing(graph_attrs) ? Catalyst.graph_attrs : Catalyst.Attributes(graph_attrs...)
     sattrs = isnothing(species_attrs) ? Catalyst.Attributes(:shape => "circle", :color => "#6C9AC3") : Catalyst.Attributes(species_attrs...)
-    rattrs = isnothing(rxn_attrs) ? Catalyst.Attributes(:shape => "point", :color => "#E28F41") : Catalyst.Attributes(rxn_attrs...)
+    rattrs = isnothing(rxn_attrs) ? Catalyst.Attributes(:shape => "point", :color => "#E28F41", :width => ".1") : Catalyst.Attributes(rxn_attrs...)
     eattrs = isnothing(edge_attrs) ? Catalyst.edge_attrs : Catalyst.Attributes(edge_attrs...)
 
     @parameters k[1:rd.nr]
