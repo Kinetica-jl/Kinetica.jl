@@ -56,6 +56,11 @@ function __init__()
 end
 export pybel, obcr, rdChem
 
+# Global AbstractVariableProfile counters.
+# Ensures non-overlapping profile function names.
+_n_direct_condition_functions = 0
+_n_gradient_condition_functions = 0
+
 include("constants.jl")
 using .Constants
 

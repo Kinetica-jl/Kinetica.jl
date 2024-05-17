@@ -42,7 +42,7 @@ function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
             X_sym = only(@variables($sym(t)))
         end
         D = Differential(t)
-        @named profile_sys = ODESystem([D(X_sym) ~ profile.grad(t)], t)
+        @named profile_sys = ODESystem([D(X_sym) ~ profile.grad(t, profile)], t)
 
         u0map = [Pair(X_sym, profile.X_start)]
         profile_solve_kwargs = deepcopy(solve_kwargs)
@@ -95,16 +95,20 @@ Contains fields for:
 * Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
 """
 function NullGradientProfile(;
-    X::uType,
+    X_start::uType,
     t_end::tType,
 ) where {uType <: AbstractFloat, tType <: AbstractFloat}
-    function grad(t)
-        return 0.0
+    
+    Kinetica._n_gradient_condition_functions += 1
+    funcname = Symbol(:gradient_func_, Kinetica._n_gradient_condition_functions)
+    @eval function $(funcname)(t, profile)
+        return typeof(profile.X_start)(0.0)
     end
+    grad = @eval $(funcname)
 
     tstops = [t_end]
 
-    return NullGradientProfile(grad, X, t_end, tstops, nothing)
+    return NullGradientProfile(grad, X_start, t_end, tstops, nothing)
 end
 
 function create_discrete_tstops!(profile::NullGradientProfile, ts_update::AbstractFloat)
@@ -153,15 +157,20 @@ function LinearGradientProfile(;
 ) where {uType <: AbstractFloat}
 
     if (X_end < X_start && rate > 0) || (X_end > X_start && rate < 0)
-        error("Impossible temperature ramp defined. Check heating rates have the correct signs.")
+        error("Impossible condition ramp defined. Check heating rates have the correct signs.")
     end
 
     t_end = (X_end - X_start)/rate
 
-    function grad(t)
-        return ((t <= t_end) * rate) +
-               ((t > t_end) * 0.0)
+    Kinetica._n_gradient_condition_functions += 1
+    funcname = Symbol(:gradient_func_, Kinetica._n_gradient_condition_functions)
+    @eval function $(funcname)(t, profile)
+        return typeof(profile.X_start)(
+            ((t <= profile.t_end) * profile.rate) +
+            ((t > profile.t_end) * 0.0)
+        )
     end
+    grad = @eval $(funcname)
 
     tstops = [t_end]
 
@@ -187,6 +196,10 @@ mutable struct DoubleRampGradientProfile{uType, tType} <: AbstractGradientProfil
     t_start_plateau::tType
     t_mid_plateau::tType
     t_end_plateau::tType
+    t_startr1::tType
+    t_endr1::tType
+    t_startr2::tType
+    t_endr2::tType
     t_blend::tType
     t_end::tType
     tstops::Vector{tType}
@@ -235,7 +248,7 @@ function DoubleRampGradientProfile(;
     
     if (X_mid > X_start && rate1 < 0) || (X_mid < X_start && rate1 > 0) ||
         (X_end > X_mid && rate2 < 0) || (X_end < X_mid && rate2 > 0)
-        error("Impossible temperature ramp defined. Check heating rates have the correct signs.")
+        error("Impossible condition ramp defined. Check heating rates have the correct signs.")
     end
 
     t_startr1 = t_start_plateau
@@ -244,37 +257,43 @@ function DoubleRampGradientProfile(;
     t_endr2 = tType(t_startr2 + ((X_end - X_mid)/rate2))
     t_end = t_endr2 + t_end_plateau
 
-    function grad(t)
-        return uType(
-            ((t < t_startr1) * 0.0) +
-            ((t >= t_startr1 && t < t_endr1) * rate1) +
-            ((t >= t_endr1 && t < t_startr2) * 0.0) +
-            ((t >= t_startr2 && t < t_endr2) * rate2) +
-            ((t >= t_endr2) * 0.0) 
-        )
-    end
-
-    function grad_blend(t)
-        return uType(
-            ((t < t_startr1-t_blend) * 0.0) +
-            ((t >= t_startr1-t_blend && t < t_startr1+t_blend) * (rate1*(t-t_startr1-t_blend)/(2*t_blend) + rate1)) +
-            ((t >= t_startr1+t_blend && t < t_endr1-t_blend) * rate1) +
-            ((t >= t_endr1-t_blend && t < t_endr1+t_blend) * (-rate1*(t-t_endr1-t_blend)/(2*t_blend))) +
-            ((t >= t_endr1+t_blend && t < t_startr2-t_blend) * 0.0) +
-            ((t >= t_startr2-t_blend && t < t_startr2+t_blend) * (rate2*(t-t_startr2-t_blend)/(2*t_blend) + rate2)) +
-            ((t >= t_startr2+t_blend && t < t_endr2-t_blend) * rate2) +
-            ((t >= t_endr2-t_blend && t < t_endr2+t_blend) * (-rate2*(t-t_endr2-t_blend)/(2*t_blend))) +
-            ((t >= t_endr2+t_blend) * 0.0)
-        )
-    end
+    Kinetica._n_gradient_condition_functions += 1
+    funcname = Symbol(:gradient_func_, Kinetica._n_gradient_condition_functions)
 
     if isnothing(t_blend)
+        @eval function $(funcname)(t, p)
+            return typeof(p.X_start)(
+                ((t < p.t_startr1) * 0.0) +
+                ((t >= p.t_startr1 && t < p.t_endr1) * p.rate1) +
+                ((t >= p.t_endr1 && t < p.t_startr2) * 0.0) +
+                ((t >= p.t_startr2 && t < p.t_endr2) * p.rate2) +
+                ((t >= p.t_endr2) * 0.0) 
+            )
+        end
+        grad = @eval $(funcname)
+
         tstops = [t_startr1, t_endr1, t_startr2, t_endr2, t_end]
         return DoubleRampGradientProfile(
             grad, rate1, rate2, X_start, X_mid, X_end, 
             t_start_plateau, t_mid_plateau, t_end_plateau, 
-            tType(0.0), t_end, tstops, nothing)
+            t_startr1, t_endr1, t_startr2, t_endr2, tType(0.0), 
+            t_end, tstops, nothing)
     else
+        @eval function $(funcname)(t, p)
+            return typeof(p.X_start)(
+                ((t < p.t_startr1-p.t_blend) * 0.0) +
+                ((t >= p.t_startr1-p.t_blend && t < p.t_startr1+p.t_blend) * (p.rate1*(t-p.t_startr1-p.t_blend)/(2*p.t_blend) + p.rate1)) +
+                ((t >= p.t_startr1+p.t_blend && t < p.t_endr1-p.t_blend) * p.rate1) +
+                ((t >= p.t_endr1-p.t_blend && t < p.t_endr1+p.t_blend) * (-p.rate1*(t-p.t_endr1-p.t_blend)/(2*p.t_blend))) +
+                ((t >= p.t_endr1+p.t_blend && t < p.t_startr2-p.t_blend) * 0.0) +
+                ((t >= p.t_startr2-p.t_blend && t < p.t_startr2+p.t_blend) * (p.rate2*(t-p.t_startr2-p.t_blend)/(2*p.t_blend) + p.rate2)) +
+                ((t >= p.t_startr2+p.t_blend && t < p.t_endr2-p.t_blend) * p.rate2) +
+                ((t >= p.t_endr2-p.t_blend && t < p.t_endr2+p.t_blend) * (-p.rate2*(t-p.t_endr2-p.t_blend)/(2*p.t_blend))) +
+                ((t >= p.t_endr2+p.t_blend) * 0.0)
+            )
+        end
+        grad = @eval $(funcname)
+
         tstops = [
             t_startr1-t_blend, t_startr1+t_blend,
             t_endr1-t_blend, t_endr1+t_blend,
@@ -283,24 +302,20 @@ function DoubleRampGradientProfile(;
             t_end
         ]
         return DoubleRampGradientProfile(
-            grad_blend, rate1, rate2, X_start, X_mid, X_end,
+            grad, rate1, rate2, X_start, X_mid, X_end,
             t_start_plateau, t_mid_plateau, t_end_plateau,
-            t_blend, t_end, tstops, nothing)
+            t_startr1, t_endr1, t_startr2, t_endr2, t_blend,
+            t_end, tstops, nothing)
     end
 end
 
 function create_discrete_tstops!(profile::DoubleRampGradientProfile, ts_update::AbstractFloat)
     if ts_update > profile.t_end throw(ArgumentError("Error defining tstops, `ts_update` is too large.")) end
 
-    tType = eltype(profile.tstops)
-    t_startr1 = profile.t_start_plateau
-    t_endr1 = tType(t_startr1 + ((profile.X_mid - profile.X_start)/profile.rate1))
-    t_startr2 = t_endr1 + profile.t_mid_plateau
-    t_endr2 = tType(t_startr2 + ((profile.X_end - profile.X_mid)/profile.rate2))
     profile.tstops = reduce(vcat, [
         [0.0],
-        create_savepoints(t_startr1-profile.t_blend, t_endr1+profile.t_blend, ts_update),
-        create_savepoints(t_startr2-profile.t_blend, t_endr2+profile.t_blend, ts_update),
+        create_savepoints(profile.t_startr1-profile.t_blend, profile.t_endr1+profile.t_blend, ts_update),
+        create_savepoints(profile.t_startr2-profile.t_blend, profile.t_endr2+profile.t_blend, ts_update),
         [profile.t_end]
     ])
 end

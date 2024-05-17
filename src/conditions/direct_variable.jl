@@ -36,7 +36,7 @@ function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
     if isnothing(profile.sol) || reset            
         save_interval = isnothing(pars.save_interval) ? pars.tspan[2]/1000 : pars.save_interval
         t = create_savepoints(pars.tspan[1], pars.tspan[2], save_interval)
-        u = [[profile.f(tp)] for tp in t]
+        u = [[profile.f(tp, profile)] for tp in t]
         profile.sol = DiffEqArray(u, t)
     end
     return
@@ -76,10 +76,13 @@ Contains fields for:
 function NullDirectProfile(;
     X::uType,
     t_end::tType,
-) where {uType <: AbstractFloat, tType <: AbstractFloat}
-    function f(t)
-        return X
+) where {uType <: AbstractFloat, tType <: AbstractFloat} 
+    Kinetica._n_direct_condition_functions += 1
+    funcname = Symbol(:direct_func_, Kinetica._n_direct_condition_functions)
+    @eval function $(funcname)(t, profile)
+        return profile.X
     end
+    f = @eval $(funcname)
 
     tstops = [t_end]
 
@@ -137,13 +140,16 @@ function LinearDirectProfile(;
 
     t_end = (X_end - X_start)/rate
 
-    function f(t)
-        return uType(
-            ((t <= 0.0) * X_start) +
-            ((t > 0.0 && t <= t_end) * (X_start + (rate * t))) + 
-            ((t > t_end) * X_end)
+    Kinetica._n_direct_condition_functions += 1
+    funcname = Symbol(:direct_func_, Kinetica._n_direct_condition_functions)
+    @eval function $(funcname)(t, p)
+        return typeof(p.X_start)(
+            ((t <= 0.0) * p.X_start) +
+            ((t > 0.0 && t <= p.t_end) * (p.X_start + (p.rate * t))) + 
+            ((t > p.t_end) * p.X_end)
         )
     end
+    f = @eval $(funcname)
 
     tstops = [t_end]
 

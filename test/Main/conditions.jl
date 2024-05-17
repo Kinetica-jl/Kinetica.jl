@@ -10,7 +10,7 @@ using Kinetica
         t_end = 10.0)
     @test nulldirect.X_start == 300.0
     @test nulldirect.t_end == 10.0
-    @test nulldirect.f(5.0) ≈ 300.0
+    @test nulldirect.f(5.0, nulldirect) ≈ 300.0
     @test length(nulldirect.tstops) == 1
     @test nulldirect.tstops[1] ≈ 10.0
 
@@ -22,7 +22,7 @@ using Kinetica
     @test lineardirect.X_start == 300.0
     @test lineardirect.X_end == 500.0
     @test lineardirect.t_end ≈ 4.0
-    @test lineardirect.f(2.0) ≈ 400.0
+    @test lineardirect.f(2.0, lineardirect) ≈ 400.0
     @test length(lineardirect.tstops) == 1
     @test lineardirect.tstops[1] ≈ 4.0
 
@@ -31,7 +31,7 @@ using Kinetica
         t_end = 10.0)
     @test nullgradient.X_start == 300.0
     @test nullgradient.t_end == 10.0
-    @test nullgradient.grad(5.0) == 0.0
+    @test nullgradient.grad(5.0, nullgradient) == 0.0
     @test length(nullgradient.tstops) == 1
     @test nullgradient.tstops[1] ≈ 10.0
 
@@ -43,8 +43,8 @@ using Kinetica
     @test lineargradient.X_start == 300.0
     @test lineargradient.X_end == 500.0
     @test lineargradient.t_end ≈ 4.0
-    @test lineargradient.grad(2.0) == 50.0
-    @test lineargradient.grad(5.0) == 0.0
+    @test lineargradient.grad(2.0, lineargradient) == 50.0
+    @test lineargradient.grad(5.0, lineargradient) == 0.0
     @test length(lineargradient.tstops) == 1
     @test lineargradient.tstops[1] ≈ 4.0
 
@@ -68,12 +68,12 @@ using Kinetica
     @test doublerampgradient.t_blend == 0.0
     @test doublerampgradient.t_end ≈ 48.0
     @test doublerampgradient.tstops ≈ [5.0, 25.0, 28.0, 43.0, 48.0]
-    @test doublerampgradient.grad(1.0) == 0.0
-    @test doublerampgradient.grad(15.0) == 10.0
-    @test doublerampgradient.grad(27.0) == 0.0
-    @test doublerampgradient.grad(35.0) == -20.0
-    @test doublerampgradient.grad(45.0) == 0.0
-    @test doublerampgradient.grad(100.0) == 0.0
+    @test doublerampgradient.grad(1.0, doublerampgradient) == 0.0
+    @test doublerampgradient.grad(15.0, doublerampgradient) == 10.0
+    @test doublerampgradient.grad(27.0, doublerampgradient) == 0.0
+    @test doublerampgradient.grad(35.0, doublerampgradient) == -20.0
+    @test doublerampgradient.grad(45.0, doublerampgradient) == 0.0
+    @test doublerampgradient.grad(100.0, doublerampgradient) == 0.0
 
     doublerampgradientblended = DoubleRampGradientProfile(;
         X_start = 300.0,

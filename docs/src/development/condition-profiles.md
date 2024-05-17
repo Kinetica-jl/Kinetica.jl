@@ -64,6 +64,7 @@ mutable struct SinusoidDirectProfile{uType, tType} <: Kinetica.AbstractDirectPro
     A::uType
     freq::uType
     X_start::uType
+    X_end::uType
     t_end::tType
     tstops::Vector{tType}
     sol
@@ -86,15 +87,18 @@ function SinusoidDirectProfile(;
     X_end = X_start + A*sin(2*pi*freq*t_end)
     tstops = [t_end]
 
-    function f(t)
-        return uType(
-            ((t <= 0.0) * X_start) +
-            ((t > 0.0 && t <= t_end) * (X_start + A*sin(2*pi*freq*t))) + 
-            ((t > t_end) * X_end)
+    Kinetica._n_direct_condition_functions += 1
+    funcname = Symbol(:direct_func_, Kinetica._n_direct_condition_functions)
+    @eval function $(funcname)(t, profile)
+        return typeof(profile.X_start)(
+            ((t <= 0.0) * profile.X_start) +
+            ((t > 0.0 && t <= profile.t_end) * (profile.X_start + profile.A*sin(2*pi*profile.freq*t))) + 
+            ((t > profile.t_end) * profile.X_end)
         )
     end
+    f = @eval $(funcname)
 
-    return SinusoidDirectProfile(f, A, freq, X_start, t_end, tstops, nothing)
+    return SinusoidDirectProfile(f, A, freq, X_start, X_end, t_end, tstops, nothing)
 end
 nothing # hide
 ```
@@ -214,13 +218,16 @@ function SinusoidGradientProfile(;
     t_end::tType
 ) where {uType <: AbstractFloat, tType <: AbstractFloat}
 
-    function grad(t)
-        return uType(
+    Kinetica._n_gradient_condition_functions += 1
+    funcname = Symbol(:gradient_func_, Kinetica._n_gradient_condition_functions)
+    @eval function $(funcname)(t, profile)
+        return typeof(profile.X_start)(
             ((t <= 0.0) * 0.0) +
-            ((t > 0.0 && t <= t_end) * (2*pi*freq*A*cos(2*pi*freq*t + φ))) + 
-            ((t > t_end) * 0.0)
+            ((t > 0.0 && t <= profile.t_end) * (2*pi*profile.freq*profile.A*cos(2*pi*profile.freq*t + profile.φ))) + 
+            ((t > profile.t_end) * 0.0)
         )
     end
+    grad = @eval $(funcname)
 
     tstops = [t_end]
 

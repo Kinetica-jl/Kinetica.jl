@@ -205,7 +205,7 @@ function register_direct_conditions(cs::ConditionSet)
     for sym in cs.symbols
         profile = get_profile(cs, sym)
         if isvariable(profile) && isdirectprofile(profile)
-            eval(:(@register_symbolic($profile.f(t))))
+            eval(:(@register_symbolic($profile.f(t, p::AbstractDirectProfile))))
         end
     end
 end
@@ -224,7 +224,7 @@ function register_gradient_conditions(cs::ConditionSet)
     for sym in cs.symbols
         profile = get_profile(cs, sym)
         if isvariable(profile) && isgradientprofile(profile)
-            eval(:(@register_symbolic($profile.grad(t))))
+            eval(:(@register_symbolic($profile.grad(t, p::AbstractGradientProfile))))
         end
     end
 end

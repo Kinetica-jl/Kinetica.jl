@@ -384,9 +384,9 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     for sym in keys(vc_symmap)
         prof = get_profile(method.conditions, sym)
         if isdirectprofile(prof)
-            push!(direct_profiles, vc_symmap[sym] ~ prof.f(t))
+            push!(direct_profiles, vc_symmap[sym] ~ prof.f(t, prof))
         elseif isgradientprofile(prof)
-            push!(gradient_profiles, D(vc_symmap[sym]) ~ prof.grad(t))
+            push!(gradient_profiles, D(vc_symmap[sym]) ~ prof.grad(t, prof))
             push!(gradient_profile_symbols, sym)
         else
             throw(ErrorException("Undefined condition profile type. Something is very wrong..."))
@@ -479,9 +479,9 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     for sym in keys(vc_symmap)
         prof = get_profile(method.conditions, sym)
         if isdirectprofile(prof)
-            push!(direct_profiles, vc_symmap[sym] ~ prof.f(t + (chunktime * n_chunks)))
+            push!(direct_profiles, vc_symmap[sym] ~ prof.f(t + (chunktime * n_chunks), prof))
         elseif isgradientprofile(prof)
-            push!(gradient_profiles, D(vc_symmap[sym]) ~ prof.grad(t + (chunktime * n_chunks)))
+            push!(gradient_profiles, D(vc_symmap[sym]) ~ prof.grad(t + (chunktime * n_chunks), prof))
             push!(gradient_profile_symbols, sym)
         else
             throw(ErrorException("Undefined condition profile type. Something is very wrong..."))
