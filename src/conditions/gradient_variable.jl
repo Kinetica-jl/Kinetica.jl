@@ -75,7 +75,7 @@ mutable struct NullGradientProfile{uType, tType} <: AbstractGradientProfile
 end
 
 """
-    NullGradientProfile(; X, t_end)
+    NullGradientProfile(; X_start, t_end)
 
 Container for null gradient profile data and gradient function.
 

@@ -55,7 +55,7 @@ mutable struct NullDirectProfile{uType, tType} <: AbstractDirectProfile
 end
 
 """
-    NullDirectProfile(; X, t_end)
+    NullDirectProfile(; X_start, t_end)
     
 Container for null direct profile data and condition function.
 

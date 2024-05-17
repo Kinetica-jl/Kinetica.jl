@@ -27,7 +27,7 @@ using Kinetica
     @test lineardirect.tstops[1] ≈ 4.0
 
     nullgradient = Kinetica.NullGradientProfile(;
-        X = 300.0,
+        X_start = 300.0,
         t_end = 10.0)
     @test nullgradient.X_start == 300.0
     @test nullgradient.t_end == 10.0
