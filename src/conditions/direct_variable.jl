@@ -74,19 +74,19 @@ Contains fields for:
 * Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
 """
 function NullDirectProfile(;
-    X::uType,
+    X_start::uType,
     t_end::tType,
 ) where {uType <: AbstractFloat, tType <: AbstractFloat} 
     Kinetica._n_direct_condition_functions += 1
     funcname = Symbol(:direct_func_, Kinetica._n_direct_condition_functions)
     @eval function $(funcname)(t, profile)
-        return profile.X
+        return profile.X_start
     end
     f = @eval $(funcname)
 
     tstops = [t_end]
 
-    return NullDirectProfile(f, X, t_end, tstops, nothing)
+    return NullDirectProfile(f, X_start, t_end, tstops, nothing)
 end
 
 function create_discrete_tstops!(profile::NullDirectProfile, ts_update::AbstractFloat)

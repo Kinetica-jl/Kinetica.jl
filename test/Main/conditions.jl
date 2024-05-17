@@ -6,7 +6,7 @@ using Kinetica
     @test static.value == 10.0
 
     nulldirect = Kinetica.NullDirectProfile(;
-        X = 300.0, 
+        X_start = 300.0, 
         t_end = 10.0)
     @test nulldirect.X_start == 300.0
     @test nulldirect.t_end == 10.0
