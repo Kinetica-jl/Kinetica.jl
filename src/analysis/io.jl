@@ -105,7 +105,7 @@ function save_output(out::ODESolveOutput, saveto::String)
     end
 
     savedict = Dict(
-        :KineticaCoreVersion => version,
+        :KineticaCoreVersion => pkgversion(Kinetica),
         :sd => Dict(
             :toInt => out.sd.toInt,
             :n => out.sd.n,
@@ -168,10 +168,10 @@ for details.
 """
 function load_output(outfile::String)
     savedict = BSON.load(outfile)
-    if savedict[:KineticaCoreVersion] < version
-        @warn "Loaded network output was made in a previous version of KineticaCore, reconstructed output may not be fully compatible."
-    elseif savedict[:KineticaCoreVersion] > version
-        @warn "Loaded network output was made in a newer version of KineticaCore, reconstructed output may not be fully compatible."
+    if savedict[:KineticaCoreVersion] < pkgversion(Kinetica)
+        @warn "Loaded network output was made in a previous version of Kinetica.jl, reconstructed output may not be fully compatible."
+    elseif savedict[:KineticaCoreVersion] > pkgversion(Kinetica)
+        @warn "Loaded network output was made in a newer version of Kinetica.jl, reconstructed output may not be fully compatible."
     end
 
     sd_iType = typeof(savedict[:sd][:n])
