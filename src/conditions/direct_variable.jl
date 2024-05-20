@@ -36,7 +36,7 @@ function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
     if isnothing(profile.sol) || reset            
         save_interval = isnothing(pars.save_interval) ? pars.tspan[2]/1000 : pars.save_interval
         t = create_savepoints(pars.tspan[1], pars.tspan[2], save_interval)
-        u = [[profile.f(tp)] for tp in t]
+        u = [[profile.f(tp, profile)] for tp in t]
         profile.sol = DiffEqArray(u, t)
     end
     return
@@ -55,7 +55,7 @@ mutable struct NullDirectProfile{uType, tType} <: AbstractDirectProfile
 end
 
 """
-    NullDirectProfile(; X, t_end)
+    NullDirectProfile(; X_start, t_end)
     
 Container for null direct profile data and condition function.
 
@@ -74,16 +74,16 @@ Contains fields for:
 * Profile solution, constructed by call to `solve_variable_condition!` (`sol`)
 """
 function NullDirectProfile(;
-    X::uType,
+    X_start::uType,
     t_end::tType,
 ) where {uType <: AbstractFloat, tType <: AbstractFloat}
-    function f(t)
-        return X
-    end
 
     tstops = [t_end]
+    return NullDirectProfile(_f_NullDirectProfile, X_start, t_end, tstops, nothing)
+end
 
-    return NullDirectProfile(f, X, t_end, tstops, nothing)
+function _f_NullDirectProfile(t, profile::NullDirectProfile)
+    return profile.X_start
 end
 
 function create_discrete_tstops!(profile::NullDirectProfile, ts_update::AbstractFloat)
@@ -136,18 +136,17 @@ function LinearDirectProfile(;
     end
 
     t_end = (X_end - X_start)/rate
-
-    function f(t)
-        return uType(
-            ((t <= 0.0) * X_start) +
-            ((t > 0.0 && t <= t_end) * (X_start + (rate * t))) + 
-            ((t > t_end) * X_end)
-        )
-    end
-
     tstops = [t_end]
 
-    return LinearDirectProfile(f, rate, X_start, X_end, t_end, tstops, nothing)
+    return LinearDirectProfile(_f_LinearDirectProfile, rate, X_start, X_end, t_end, tstops, nothing)
+end
+
+function _f_LinearDirectProfile(t, p::LinearDirectProfile)
+    return typeof(p.X_start)(
+        ((t <= 0.0) * p.X_start) +
+        ((t > 0.0 && t <= p.t_end) * (p.X_start + (p.rate * t))) + 
+        ((t > p.t_end) * p.X_end)
+    )
 end
 
 function create_discrete_tstops!(profile::LinearDirectProfile, ts_update::AbstractFloat)
