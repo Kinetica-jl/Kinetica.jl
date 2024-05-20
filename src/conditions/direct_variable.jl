@@ -76,17 +76,14 @@ Contains fields for:
 function NullDirectProfile(;
     X_start::uType,
     t_end::tType,
-) where {uType <: AbstractFloat, tType <: AbstractFloat} 
-    Kinetica._n_direct_condition_functions += 1
-    funcname = Symbol(:direct_func_, Kinetica._n_direct_condition_functions)
-    @eval function $(funcname)(t, profile)
-        return profile.X_start
-    end
-    f = @eval $(funcname)
+) where {uType <: AbstractFloat, tType <: AbstractFloat}
 
     tstops = [t_end]
+    return NullDirectProfile(_f_NullDirectProfile, X_start, t_end, tstops, nothing)
+end
 
-    return NullDirectProfile(f, X_start, t_end, tstops, nothing)
+function _f_NullDirectProfile(t, profile::NullDirectProfile)
+    return profile.X_start
 end
 
 function create_discrete_tstops!(profile::NullDirectProfile, ts_update::AbstractFloat)
@@ -139,21 +136,17 @@ function LinearDirectProfile(;
     end
 
     t_end = (X_end - X_start)/rate
-
-    Kinetica._n_direct_condition_functions += 1
-    funcname = Symbol(:direct_func_, Kinetica._n_direct_condition_functions)
-    @eval function $(funcname)(t, p)
-        return typeof(p.X_start)(
-            ((t <= 0.0) * p.X_start) +
-            ((t > 0.0 && t <= p.t_end) * (p.X_start + (p.rate * t))) + 
-            ((t > p.t_end) * p.X_end)
-        )
-    end
-    f = @eval $(funcname)
-
     tstops = [t_end]
 
-    return LinearDirectProfile(f, rate, X_start, X_end, t_end, tstops, nothing)
+    return LinearDirectProfile(_f_LinearDirectProfile, rate, X_start, X_end, t_end, tstops, nothing)
+end
+
+function _f_LinearDirectProfile(t, p::LinearDirectProfile)
+    return typeof(p.X_start)(
+        ((t <= 0.0) * p.X_start) +
+        ((t > 0.0 && t <= p.t_end) * (p.X_start + (p.rate * t))) + 
+        ((t > p.t_end) * p.X_end)
+    )
 end
 
 function create_discrete_tstops!(profile::LinearDirectProfile, ts_update::AbstractFloat)

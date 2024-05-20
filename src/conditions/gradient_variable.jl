@@ -98,17 +98,13 @@ function NullGradientProfile(;
     X_start::uType,
     t_end::tType,
 ) where {uType <: AbstractFloat, tType <: AbstractFloat}
-    
-    Kinetica._n_gradient_condition_functions += 1
-    funcname = Symbol(:gradient_func_, Kinetica._n_gradient_condition_functions)
-    @eval function $(funcname)(t, profile)
-        return typeof(profile.X_start)(0.0)
-    end
-    grad = @eval $(funcname)
 
     tstops = [t_end]
+    return NullGradientProfile(_grad_NullGradientProfile, X_start, t_end, tstops, nothing)
+end
 
-    return NullGradientProfile(grad, X_start, t_end, tstops, nothing)
+function _grad_NullGradientProfile(t, profile::NullGradientProfile)
+    return typeof(profile.X_start)(0.0)
 end
 
 function create_discrete_tstops!(profile::NullGradientProfile, ts_update::AbstractFloat)
@@ -159,22 +155,17 @@ function LinearGradientProfile(;
     if (X_end < X_start && rate > 0) || (X_end > X_start && rate < 0)
         error("Impossible condition ramp defined. Check heating rates have the correct signs.")
     end
-
     t_end = (X_end - X_start)/rate
-
-    Kinetica._n_gradient_condition_functions += 1
-    funcname = Symbol(:gradient_func_, Kinetica._n_gradient_condition_functions)
-    @eval function $(funcname)(t, profile)
-        return typeof(profile.X_start)(
-            ((t <= profile.t_end) * profile.rate) +
-            ((t > profile.t_end) * 0.0)
-        )
-    end
-    grad = @eval $(funcname)
-
     tstops = [t_end]
 
-    return LinearGradientProfile(grad, rate, X_start, X_end, t_end, tstops, nothing)
+    return LinearGradientProfile(_grad_LinearGradientProfile, rate, X_start, X_end, t_end, tstops, nothing)
+end
+
+function _grad_LinearGradientProfile(t, profile::LinearGradientProfile)
+    return typeof(profile.X_start)(
+        ((t <= profile.t_end) * profile.rate) +
+        ((t > profile.t_end) * 0.0)
+    )
 end
 
 function create_discrete_tstops!(profile::LinearGradientProfile, ts_update::AbstractFloat)
@@ -257,43 +248,15 @@ function DoubleRampGradientProfile(;
     t_endr2 = tType(t_startr2 + ((X_end - X_mid)/rate2))
     t_end = t_endr2 + t_end_plateau
 
-    Kinetica._n_gradient_condition_functions += 1
-    funcname = Symbol(:gradient_func_, Kinetica._n_gradient_condition_functions)
-
     if isnothing(t_blend)
-        @eval function $(funcname)(t, p)
-            return typeof(p.X_start)(
-                ((t < p.t_startr1) * 0.0) +
-                ((t >= p.t_startr1 && t < p.t_endr1) * p.rate1) +
-                ((t >= p.t_endr1 && t < p.t_startr2) * 0.0) +
-                ((t >= p.t_startr2 && t < p.t_endr2) * p.rate2) +
-                ((t >= p.t_endr2) * 0.0) 
-            )
-        end
-        grad = @eval $(funcname)
-
         tstops = [t_startr1, t_endr1, t_startr2, t_endr2, t_end]
         return DoubleRampGradientProfile(
-            grad, rate1, rate2, X_start, X_mid, X_end, 
+            _grad_DoubleRampGradientProfile,
+            rate1, rate2, X_start, X_mid, X_end, 
             t_start_plateau, t_mid_plateau, t_end_plateau, 
             t_startr1, t_endr1, t_startr2, t_endr2, tType(0.0), 
             t_end, tstops, nothing)
     else
-        @eval function $(funcname)(t, p)
-            return typeof(p.X_start)(
-                ((t < p.t_startr1-p.t_blend) * 0.0) +
-                ((t >= p.t_startr1-p.t_blend && t < p.t_startr1+p.t_blend) * (p.rate1*(t-p.t_startr1-p.t_blend)/(2*p.t_blend) + p.rate1)) +
-                ((t >= p.t_startr1+p.t_blend && t < p.t_endr1-p.t_blend) * p.rate1) +
-                ((t >= p.t_endr1-p.t_blend && t < p.t_endr1+p.t_blend) * (-p.rate1*(t-p.t_endr1-p.t_blend)/(2*p.t_blend))) +
-                ((t >= p.t_endr1+p.t_blend && t < p.t_startr2-p.t_blend) * 0.0) +
-                ((t >= p.t_startr2-p.t_blend && t < p.t_startr2+p.t_blend) * (p.rate2*(t-p.t_startr2-p.t_blend)/(2*p.t_blend) + p.rate2)) +
-                ((t >= p.t_startr2+p.t_blend && t < p.t_endr2-p.t_blend) * p.rate2) +
-                ((t >= p.t_endr2-p.t_blend && t < p.t_endr2+p.t_blend) * (-p.rate2*(t-p.t_endr2-p.t_blend)/(2*p.t_blend))) +
-                ((t >= p.t_endr2+p.t_blend) * 0.0)
-            )
-        end
-        grad = @eval $(funcname)
-
         tstops = [
             t_startr1-t_blend, t_startr1+t_blend,
             t_endr1-t_blend, t_endr1+t_blend,
@@ -302,11 +265,36 @@ function DoubleRampGradientProfile(;
             t_end
         ]
         return DoubleRampGradientProfile(
-            grad, rate1, rate2, X_start, X_mid, X_end,
+            _grad_DoubleRampGradientProfile_blended,
+            rate1, rate2, X_start, X_mid, X_end,
             t_start_plateau, t_mid_plateau, t_end_plateau,
             t_startr1, t_endr1, t_startr2, t_endr2, t_blend,
             t_end, tstops, nothing)
     end
+end
+
+function _grad_DoubleRampGradientProfile(t, p::DoubleRampGradientProfile)
+    return typeof(p.X_start)(
+        ((t < p.t_startr1) * 0.0) +
+        ((t >= p.t_startr1 && t < p.t_endr1) * p.rate1) +
+        ((t >= p.t_endr1 && t < p.t_startr2) * 0.0) +
+        ((t >= p.t_startr2 && t < p.t_endr2) * p.rate2) +
+        ((t >= p.t_endr2) * 0.0) 
+    )
+end
+
+function _grad_DoubleRampGradientProfile_blended(t, p::DoubleRampGradientProfile)
+    return typeof(p.X_start)(
+        ((t < p.t_startr1-p.t_blend) * 0.0) +
+        ((t >= p.t_startr1-p.t_blend && t < p.t_startr1+p.t_blend) * (p.rate1*(t-p.t_startr1-p.t_blend)/(2*p.t_blend) + p.rate1)) +
+        ((t >= p.t_startr1+p.t_blend && t < p.t_endr1-p.t_blend) * p.rate1) +
+        ((t >= p.t_endr1-p.t_blend && t < p.t_endr1+p.t_blend) * (-p.rate1*(t-p.t_endr1-p.t_blend)/(2*p.t_blend))) +
+        ((t >= p.t_endr1+p.t_blend && t < p.t_startr2-p.t_blend) * 0.0) +
+        ((t >= p.t_startr2-p.t_blend && t < p.t_startr2+p.t_blend) * (p.rate2*(t-p.t_startr2-p.t_blend)/(2*p.t_blend) + p.rate2)) +
+        ((t >= p.t_startr2+p.t_blend && t < p.t_endr2-p.t_blend) * p.rate2) +
+        ((t >= p.t_endr2-p.t_blend && t < p.t_endr2+p.t_blend) * (-p.rate2*(t-p.t_endr2-p.t_blend)/(2*p.t_blend))) +
+        ((t >= p.t_endr2+p.t_blend) * 0.0)
+    )
 end
 
 function create_discrete_tstops!(profile::DoubleRampGradientProfile, ts_update::AbstractFloat)
