@@ -36,6 +36,7 @@ const pyextxyz = PythonCall.pynew()
 const rdChem = PythonCall.pynew()
 const rdGeometry = PythonCall.pynew()
 const rdLogger = PythonCall.pynew()
+const frame_to_rdkit_remap_atoms = PythonCall.pynew()
 function __init__()
     PythonCall.pycopy!(pybel, pyimport("openbabel.pybel"))
     PythonCall.pycopy!(obcr, pyimport("obcr"))
@@ -43,6 +44,27 @@ function __init__()
     PythonCall.pycopy!(rdChem, pyimport("rdkit.Chem"))
     PythonCall.pycopy!(rdGeometry, pyimport("rdkit.Geometry"))
     PythonCall.pycopy!(rdLogger, pyimport("rdkit.RDLogger"))
+
+    PythonCall.pycopy!(frame_to_rdkit_remap_atoms, pyexec(
+        @NamedTuple{f::Py}, 
+        """
+global pybel; pybel = _pybel
+global Chem; Chem = _rdChem
+
+def rdmol_addbonds(pbmol, rdmol):
+    for obbond in pybel.ob.OBMolBondIter(pbmol.OBMol):
+        a1 = obbond.GetBeginAtom()
+        a2 = obbond.GetEndAtom()
+        idx1 = a1.GetIdx()
+        idx2 = a2.GetIdx()
+        rdmol.AddBond(idx1-1, idx2-1, Chem.rdchem.BondType.SINGLE)
+
+    return rdmol.GetMol()
+
+f = rdmol_addbonds""",
+        Kinetica,
+        (_pybel=pybel, _rdChem=rdChem)
+    )[1])
 
     # Force import of RDKit modules to enable access through rdChem
     pyimport("rdkit.Chem.rdForceFieldHelpers")

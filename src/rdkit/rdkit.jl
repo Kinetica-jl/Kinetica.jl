@@ -51,14 +51,7 @@ function frame_to_rdkit(frame::Dict{String, Any}; with_coords=false)
         rdmol.AddAtom(rdatom)
     end
 
-    for obbond in pybel.ob.OBMolBondIter(pbmol.OBMol)
-        a1 = obbond.GetBeginAtom()
-        a2 = obbond.GetEndAtom()
-        idx1 = a1.GetIdx()
-        idx2 = a2.GetIdx()
-        rdmol.AddBond(idx1-1, idx2-1, rdChem.rdchem.BondType.SINGLE)
-    end
-    rdmol = rdmol.GetMol()
+    rdmol = frame_to_rdkit_remap_atoms(pbmol, rdmol)
 
     if with_coords
         conf = rdChem.Conformer(frame["N_atoms"])
