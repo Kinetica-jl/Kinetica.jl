@@ -1,7 +1,9 @@
 abstract type AbstractExploreMethod end
 
 """
-    DirectExplore(rdir_head::String, reac_smiles::VEctor{String}, cde::CDE[, maxiters::Int=1000, rxn_convergence_threshold::Int=5])
+    DirectExplore(rdir_head::String, reac_smiles::Vector{String}, cde::CDE[, 
+                  maxiters::Int=1000, rxn_convergence_threshold::Int=5,
+                  modify_network_on_solve::Bool=true])
 
 Keyword-based container for parameters used in direct CRN exploration.
 
@@ -11,6 +13,7 @@ Contains fields for:
 * `CDE` instance (`cde`)
 * Maximum number of iterations to perform (`maxiters`)
 * Number of iterations with no change in reactions to consider as converged (`rxn_convergence_threshold`)
+* Whether to allow CRN modification after solving (`modify_network_on_solve`)
 """
 @kwdef mutable struct DirectExplore <: AbstractExploreMethod
     rdir_head::String
@@ -18,13 +21,15 @@ Contains fields for:
     cde::CDE
     maxiters::Integer = 1000
     rxn_convergence_threshold::Integer = 5
+    modify_network_on_solve::Bool = true
 end
 
 
 """
     IterativeExplore(rdir_head::String, reac_smiles::VEctor{String}, cde::CDE[, maxiters::Int=1000, 
                      rxn_convergence_threshold::Int=5, seed_convergence_threshold::Int=3, seed_conc=0.05,
-                     independent_blacklist::Vector{String}=[], inert_species::Vector{String}=[]])
+                     independent_blacklist::Vector{String}=[], inert_species::Vector{String}=[],
+                     modify_network_on_solve::Bool=true])
 
 Keyword-based container for parameters used in iterative kinetics-based CRN exploration.
 
@@ -38,6 +43,7 @@ Contains fields for:
 * Concentration above which species will be selected as seeds each level (`seed_conc`)
 * Blacklist of species to avoid doing independent subspace explorations on (`independent_blacklist`)
 * Inert species that should not be considered for reaction (`inert_species`)
+* Whether to allow CRN modification after solving (`modify_network_on_solve`)
 """
 @kwdef struct IterativeExplore{uType} <: AbstractExploreMethod
     rdir_head::String
@@ -49,6 +55,7 @@ Contains fields for:
     seed_conc::uType = 0.05
     independent_blacklist::Vector{String} = String[]
     inert_species::Vector{String} = String[]
+    modify_network_on_solve::Bool = true
 end
 
 
@@ -125,7 +132,7 @@ function explore_network(exploremethod::DirectExplore,
 
     explore_subspace!(sd, rd, loc, exploremethod)
     @info "Exploration complete, running kinetic simulation of current network."; flush_log()
-    res = solve_network(solvemethod, sd, rd)
+    res = solve_network(solvemethod, sd, rd; copy_network=!exploremethod.modify_network_on_solve)
     @info "Direct network exploration complete."
 
     if !isnothing(savedir)
@@ -209,7 +216,7 @@ function explore_network(exploremethod::IterativeExplore,
 
         explore_subspace!(sd, rd, loc, exploremethod)
         @info "Exploration complete, running kinetic simulation of current network."; flush_log()
-        res = solve_network(solvemethod, sd, rd)
+        res = solve_network(solvemethod, sd, rd; copy_network=!exploremethod.modify_network_on_solve)
 
         if !isnothing(savedir)
             @info "Saving incomplete network..."; flush_log()
