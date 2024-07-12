@@ -32,7 +32,7 @@ UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 [compat]
 BSON = "0.3.7"
 CDE_jll = "1.0.2"
-Catalyst = "~13.5.1"
+Catalyst = "~13.5.1, 14"
 CondaPkg = "0.2.22"
 DataStructures = "0.18.16"
 DelimitedFiles = "1.9.1"
