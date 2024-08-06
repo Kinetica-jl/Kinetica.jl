@@ -24,7 +24,8 @@ end
 """
     IterativeExplore(rdir_head::String, reac_smiles::VEctor{String}, cde::CDE[, maxiters::Int=1000, 
                      rxn_convergence_threshold::Int=5, seed_convergence_threshold::Int=3, seed_conc=0.05,
-                     independent_blacklist::Vector{String}=[], inert_species::Vector{String}=[]])
+                     n_undirected_levels::Int=0, independent_blacklist::Vector{String}=[], 
+                     inert_species::Vector{String}=[]])
 
 Keyword-based container for parameters used in iterative kinetics-based CRN exploration.
 
@@ -36,6 +37,7 @@ Contains fields for:
 * Number of subspace iterations with no change in reactions to consider a subspace converged (`rxn_convergence_threshold`)
 * Number of level iterations with no change in seeds to consider the network converged (`seed_convergence_threshold`)
 * Concentration above which species will be selected as seeds each level (`seed_conc`)
+* Number of undirected levels of exploration to perform at the start (`n_undirected_levels`)
 * Blacklist of species to avoid doing independent subspace explorations on (`independent_blacklist`)
 * Inert species that should not be considered for reaction (`inert_species`)
 """
@@ -47,6 +49,7 @@ Contains fields for:
     rxn_convergence_threshold::Integer = 5
     seed_convergence_threshold::Integer = 3
     seed_conc::uType = 0.05
+    n_undirected_levels::Integer = 0
     independent_blacklist::Vector{String} = String[]
     inert_species::Vector{String} = String[]
 end
@@ -220,9 +223,15 @@ function explore_network(exploremethod::IterativeExplore,
 
         for seed in current_seeds push!(explored_seeds, seed) end
         seeds_out_saveto = isnothing(savedir) ? nothing : joinpath(savedir, "seeds_level$(loc.level).out")
-        next_seeds = identify_next_seeds(res.sol, sd, exploremethod.seed_conc;
-                                        ignore=exploremethod.inert_species,
-                                        saveto=seeds_out_saveto)
+        if loc.level <= exploremethod.n_undirected_levels
+            next_seeds = identify_next_seeds(res.sol, sd; 
+                                             ignore=exploremethod.inert_species,
+                                             saveto=seeds_out_saveto)
+        else
+            next_seeds = identify_next_seeds(res.sol, sd, exploremethod.seed_conc;
+                                             ignore=exploremethod.inert_species,
+                                             saveto=seeds_out_saveto)
+        end
 
         if Set(current_seeds) == Set(next_seeds)
             convergence_count += 1

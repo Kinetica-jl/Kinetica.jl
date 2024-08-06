@@ -295,11 +295,15 @@ end
 """
     identify_next_seeds(sol, sd::SpeciesData, seed_conc<:AbstractFloat[, elim_small_na::Int=0, 
                         ignore::Vector{String}=[], saveto::Union{String, Nothing}=nothing])
+    identify_next_seeds(sol, sd::SpeciesData[, elim_small_na::Int=0, ignore::Vector{String}=[],
+                        saveto::Union{String, Nothing}=nothing])
 
 Selects seed species for the next level of network exploration.
 
 Identifies species in `sol` with a maximum concentration above
 `seed_conc` and returns an array of the SMILES of these species.
+If `seed_conc` is not provided, assumes all species in `sd` should
+become seeds.
 
 Species meeting selection criteria can be manually ignored
 by including their SMILES in the `ignore` argument. Similarly,
@@ -333,6 +337,42 @@ function identify_next_seeds(sol, sd::SpeciesData, seed_conc::AbstractFloat;
                 push!(next_seeds, sd.toStr[species])
                 push!(next_seed_concs, spec_max_conc)
             end
+        end
+    end
+    
+    if !isnothing(saveto)
+        max_smi_length = maximum(length.(next_seeds))
+        open(saveto, "w") do f
+            write(f, "$(length(next_seeds))\n")
+            write(f, "SID   $(rpad("SMILES", max_smi_length))   Max. Conc.\n")
+            for (sid, (smi, conc)) in enumerate(zip(next_seeds, next_seed_concs))
+                write(f, "$(rpad(sid, 5)) $(rpad(smi, max_smi_length))   $conc\n")
+            end
+        end
+    end
+
+    return next_seeds
+end
+
+function identify_next_seeds(sol, sd::SpeciesData;
+                             elim_small_na::Int = 0,
+                             ignore::Vector{String} = [],
+                             saveto::Union{String, Nothing} = nothing)
+    next_seeds = String[]
+    next_seed_concs = Float64[]
+    umat = reduce(vcat, sol.u')
+    for species in axes(umat, 2)
+        if !isnothing(ignore) && sd.toStr[species] in ignore
+            continue
+        end
+        spectrace = umat[:, species]
+        spec_max_conc = maximum(spectrace)
+        spec_na = sd.xyz[species]["N_atoms"]
+        if elim_small_na > 0 && spec_na < elim_small_na
+            continue
+        else
+            push!(next_seeds, sd.toStr[species])
+            push!(next_seed_concs, spec_max_conc)
         end
     end
     
