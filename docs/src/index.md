@@ -74,7 +74,7 @@ If you use any of the Kinetica packages in your work, please cite the following:
 
 ### Kinetica.jl
 
-> ```Gilkes, J.; Storr, M.; Maurer, R. J.; Habershon, S. Predicting long timescale kinetics under variable experimental conditions with Kinetica.jl. 2024, arXiv:2403.08657. arXiv.org e-Print archive. https://arxiv.org/abs/2403.08657```
+> ```Gilkes, J., Storr, M. T., Maurer, R. J., & Habershon, S. (2024). Predicting Long-Time-Scale Kinetics under Variable Experimental Conditions with Kinetica.jl. Journal of Chemical Theory and Computation, 20(12), 5196–5214. https://doi.org/10.1021/acs.jctc.4c00333```
 
 ### KineticaKPM.jl
 

@@ -1,5 +1,5 @@
 """
-    Graph(sd::SpeciesData, rd::RxData[, graph_attrs, species_attrs, rxn_attrs, edge_attrs, use_smiles=false])
+    Graph(sd::SpeciesData, rd::RxData[, graph_attrs, species_attrs, rxn_attrs, edge_attrs, use_smiles=false, remove_inactive_species=true])
 
 Creates a Graphviz graph from the supplied CRN.
 
@@ -36,7 +36,8 @@ function Catalyst.Graph(sd::SpeciesData, rd::RxData;
                         species_attrs::Union{Nothing, Dict{Symbol, String}}=nothing,
                         rxn_attrs::Union{Nothing, Dict{Symbol, String}}=nothing,
                         edge_attrs::Union{Nothing, Dict{Symbol, String}}=nothing,
-                        use_smiles=false)
+                        use_smiles=false,
+                        remove_inactive_species=true)
     gattrs = isnothing(graph_attrs) ? Catalyst.graph_attrs : Catalyst.Attributes(graph_attrs...)
     prog = get(gattrs, :layout, "dot")
     sattrs = isnothing(species_attrs) ? Catalyst.Attributes(:shape => "circle", :color => "#6C9AC3") : Catalyst.Attributes(species_attrs...)
@@ -51,7 +52,11 @@ function Catalyst.Graph(sd::SpeciesData, rd::RxData;
     rxs = reactions(rs)
     specs = species(rs)
     spec_names = use_smiles ? [sd.toStr[i] for i in 1:sd.n] : ["S"*subscript(i) for i in 1:sd.n]
-    statenodes = [Catalyst.Node(spec_names[i], sattrs) for i in 1:sd.n]
+    if remove_inactive_species
+        statenodes = [Catalyst.Node(spec_names[i], sattrs) for i in unique(reduce(vcat, [rd.id_reacs; rd.id_prods]))]
+    else
+        statenodes = [Catalyst.Node(spec_names[i], sattrs) for i in 1:sd.n]
+    end
     transnodes = [Catalyst.Node("R"*subscript(i), rattrs) for (i, r) in enumerate(rxs)]
 
     stmts = vcat(statenodes, transnodes)
