@@ -47,45 +47,47 @@ end
 
 
 """
-    import_mechanism(rdir::String, rcount[, max_molecularity=2])
+    import_mechanism(loc::ExploreLoc, rcount[, max_molecularity=2])
 
 Create a CRN's initial `SpeciesData` and `RxData` from a CDE generated mechanism(s).
 
 Reads in the results of a CDE run at the `rcount` reaction
-directory under `rdir`. Returns a new `SpeciesData` and `RxData`
+directory specified by `loc`. Returns a new `SpeciesData` and `RxData`
 containing the unique species and reactions within these results,
 provided these reactions do not exceed the maximum molecularity
 set by `max_molecularity`, which defaults to only accepting
 unimolecular and bimolecular reactions.
 """
-function import_mechanism(rdir::String, rcount; max_molecularity=2)
+function import_mechanism(loc::ExploreLoc, rcount; max_molecularity=2)
+    rdir = pathof(loc)
     rsmis, rxyzs, rsys, psmis, pxyzs, psys, dHs = ingest_cde_run(rdir, rcount)
     all_smis = vcat(reduce(vcat, rsmis), reduce(vcat, psmis))
     all_xyzs = vcat(reduce(vcat, rxyzs), reduce(vcat, pxyzs))
-    sd = SpeciesData(all_smis, all_xyzs)
-    rd = RxData(sd, rsmis, psmis, rsys, psys, dHs; max_molecularity=max_molecularity)
+    sd = SpeciesData(all_smis, all_xyzs, loc.level)
+    rd = RxData(sd, rsmis, psmis, rsys, psys, dHs, loc.level; max_molecularity=max_molecularity)
     return sd, rd
 end
 
 """
-    import_mechanism!(sd::SpeciesData, rd::RxData, rdir::String, rcount[, max_molecularity=2])
+    import_mechanism!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, rcount[, max_molecularity=2])
 
 Extend a CRN's `SpeciesData` and `RxData` from a CDE generated mechanism(s).
 
 Reads in the results of a CDE run at the `rcount` reaction
-directory under `rdir`. Extends `sd` and `rd` with the unique 
+directory specified by `loc`. Extends `sd` and `rd` with the unique 
 species and reactions within these results, provided these 
 reactions do not exceed the maximum molecularity set by 
 `max_molecularity`, which defaults to only accepting unimolecular
 and bimolecular reactions.
 """
-function import_mechanism!(sd::SpeciesData, rd::RxData, rdir::String, rcount;
+function import_mechanism!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, rcount;
         max_molecularity=2)
+    rdir = pathof(loc)
     rsmis, rxyzs, rsys, psmis, pxyzs, psys, dHs = ingest_cde_run(rdir, rcount)
     all_smis = vcat(reduce(vcat, rsmis), reduce(vcat, psmis))
     all_xyzs = vcat(reduce(vcat, rxyzs), reduce(vcat, pxyzs))
-    push_unique!(sd, all_smis, all_xyzs)
-    push!(rd, sd, rsmis, psmis, rsys, psys, dHs; max_molecularity=max_molecularity)
+    push_unique!(sd, all_smis, all_xyzs, loc.level)
+    push!(rd, sd, rsmis, psmis, rsys, psys, dHs, loc.level; max_molecularity=max_molecularity)
     return
 end
 
@@ -106,7 +108,8 @@ function import_network(rdir_head::String)
     @info "Importing all reactions in level tree under $(rdir_head)"; flush_log()
     level_dirs = readdir(rdir_head)
     level_dirs = level_dirs[startswith.(level_dirs, "level_")]
-    if length(level_dirs) == 0
+    n_levels = length(level_dirs)
+    if length(n_levels) == 0
         error("ERROR: No network levels found in rdir_head.")
     end
 
@@ -124,25 +127,28 @@ function import_network(rdir_head::String)
     # Add inert species, if there are any.
     for spec in inert_species
         xyz = frame_from_smiles(spec)
-        push_unique!(sd, spec, xyz)
+        push_unique!(sd, spec, xyz, 0)
     end
 
     # Loop through each level, adding each subspace.
-    for lv in level_dirs
-        lv_dir = joinpath(rdir_head, lv)
-        ss_dirs = readdir(lv_dir)
+    loc = ExploreLoc(rdir_head, 1, 1)
+    for i in 1:n_levels
+        reset_subspace!(loc)
+        ss_dirs = readdir(pathof(loc; to_level=true))
         ss_dirs = ss_dirs[startswith.(ss_dirs, "subspace_")]
-        for ss in ss_dirs
-            ss_dir = joinpath(lv_dir, ss)
-            rcount = make_rcount(joinpath(ss_dir, "rcount"))
+        n_subspaces = length(ss_dirs)
+        for j in 1:n_subspaces
+            rcount = make_rcount(joinpath(pathof(loc), "rcount"))
             for reac in 1:rcount
-                import_mechanism!(sd, rd, ss_dir, reac)
+                import_mechanism!(sd, rd, loc, reac)
             end
+            inc_subspace!(loc)
         end
+        inc_level!(loc)
     end
 
     @info "Finished network import."
-    @info "Network contains $(sd.n) species over $(rd.nr) reactions.\n"
+    @info "Network contains $(sd.n) species over $(rd.nr) reactions, explored over $(n_levels) levels.\n"
     flush_log()
 
     return sd, rd
