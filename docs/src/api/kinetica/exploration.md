@@ -6,9 +6,9 @@
 
 ```@docs
 SpeciesData
-Base.push!(::SpeciesData, ::String, ::Dict{String, Any})
-Base.push!(::SpeciesData, ::Vector{String}, ::Vector{Any})
-Base.push!(::SpeciesData, ::String)
+Base.push!(::SpeciesData, ::String, ::Dict{String, Any}, ::Int)
+Base.push!(::SpeciesData, ::Vector{String}, ::Vector{Any}, ::Int)
+Base.push!(::SpeciesData, ::String, ::Int)
 push_unique!
 ```
 
@@ -16,7 +16,7 @@ push_unique!
 
 ```@docs
 RxData
-Base.push!(::RxData{iType, fType}, ::SpeciesData, ::Vector{Vector{String}}, ::Vector{Vector{String}}, ::Vector{Dict{String, Any}}, ::Vector{Dict{String, Any}}, ::Vector{fType}) where {iType, fType <: AbstractFloat}
+Base.push!(::RxData{iType, fType}, ::SpeciesData, ::Vector{Vector{String}}, ::Vector{Vector{String}}, ::Vector{Dict{String, Any}}, ::Vector{Dict{String, Any}}, ::Vector{fType}, ::Int) where {iType, fType <: AbstractFloat}
 Base.splice!(::RxData, ::Vector{Int})
 ```
 
