@@ -344,11 +344,11 @@ function explore_subspace!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, explore
         n_reacs_prev = rd.nr
         if exploremethod.cde.parallel_runs > 1
             for rc in rcountrange
-                import_mechanism!(sd, rd, pathof(loc), rc)
+                import_mechanism!(sd, rd, loc, rc)
             end
             rcount += length(rcountrange)-1
         else
-            import_mechanism!(sd, rd, pathof(loc), rcount)
+            import_mechanism!(sd, rd, loc, rcount)
         end
         @info "   - Reaction network now contains $(rd.nr) reactions over $(sd.n) unique fragments."
         flush_log()

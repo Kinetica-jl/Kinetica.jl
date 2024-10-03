@@ -26,6 +26,8 @@ properties.
 Additionally allows for plotting with SMILES node labels.
 This is disabled by default, as many of the special
 characters in SMILES cannot currently be rendered properly.
+The exploration level in which species and reactions were
+found is also exported as a node attribute.
 
 The resulting `Catalyst.Graph` can be rendered in a notebook,
 or saved to file using `Catalyst.savegraph`, both of which
@@ -52,12 +54,19 @@ function Catalyst.Graph(sd::SpeciesData, rd::RxData;
     rxs = reactions(rs)
     specs = species(rs)
     spec_names = use_smiles ? [sd.toStr[i] for i in 1:sd.n] : ["S"*subscript(i) for i in 1:sd.n]
-    if remove_inactive_species
-        statenodes = [Catalyst.Node(spec_names[i], sattrs) for i in unique(reduce(vcat, [rd.id_reacs; rd.id_prods]))]
-    else
-        statenodes = [Catalyst.Node(spec_names[i], sattrs) for i in 1:sd.n]
+    statenodes = []
+    states = remove_inactive_species ? unique(reduce(vcat, [rd.id_reacs; rd.id_prods])) : 1:sd.n
+    for i in states
+        this_sattrs = deepcopy(sattrs)
+        this_sattrs[:level] = string(sd.level_found[i])
+        push!(statenodes, Catalyst.Node(spec_names[i], this_sattrs))
     end
-    transnodes = [Catalyst.Node("R"*subscript(i), rattrs) for (i, r) in enumerate(rxs)]
+    transnodes = []
+    for (i, r) in enumerate(rxs)
+        this_rattrs = deepcopy(rattrs)
+        this_rattrs[:level] = string(rd.level_found[i])
+        push!(transnodes, Catalyst.Node("R"*subscript(i), this_rattrs))
+    end
 
     stmts = vcat(statenodes, transnodes)
     edges = map(enumerate(rxs)) do (i, r)

@@ -109,7 +109,8 @@ function save_output(out::ODESolveOutput, saveto::String)
         :sd => Dict(
             :toInt => out.sd.toInt,
             :n => out.sd.n,
-            :xyz => out.sd.xyz
+            :xyz => out.sd.xyz,
+            :level_found => out.sd.level_found
         ),
         :rd => Dict(
             :nr => out.rd.nr,
@@ -119,7 +120,8 @@ function save_output(out::ODESolveOutput, saveto::String)
             :stoic_reacs => out.rd.stoic_reacs,
             :stoic_prods => out.rd.stoic_prods,
             :dH => out.rd.dH,
-            :rhash => out.rd.rhash
+            :rhash => out.rd.rhash,
+            :level_found => out.rd.level_found
         ),
         :pars => Dict(
             :tspan => out.pars.tspan,
@@ -176,11 +178,13 @@ function load_output(outfile::String)
 
     sd_iType = typeof(savedict[:sd][:n])
     sd_toStr = Dict{sd_iType, String}(value => key for (key, value) in savedict[:sd][:toInt])
+    sd_levels = get(savedict[:sd], :level_found, Dict{sd_iType, Int}(i => 1 for i in 1:savedict[:sd][:n]))
     sd = SpeciesData(
         savedict[:sd][:toInt],
         sd_toStr,
         savedict[:sd][:n],
         savedict[:sd][:xyz],
+        sd_levels,
         Dict()
     )
     # For some reason ExtXYZ dicts can get a bit type unstable, species arrays need special handling.
@@ -193,6 +197,7 @@ function load_output(outfile::String)
     if length(rd_mapped_rxns) == 0
         @warn "No reaction atom maps found in output."
     end
+    rd_levels = get(savedict[:rd], :level_found, ones(Int, savedict[:rd][:nr]))
     rd = RxData(
         savedict[:rd][:nr], String[rxn for rxn in rd_mapped_rxns],
         Vector{rd_iType}[reac for reac in savedict[:rd][:id_reacs]], 
@@ -200,7 +205,8 @@ function load_output(outfile::String)
         Vector{rd_iType}[sreac for sreac in savedict[:rd][:stoic_reacs]], 
         Vector{rd_iType}[sprod for sprod in savedict[:rd][:stoic_prods]],
         savedict[:rd][:dH], 
-        Vector{UInt8}[hash for hash in savedict[:rd][:rhash]]
+        Vector{UInt8}[hash for hash in savedict[:rd][:rhash]],
+        rd_levels
     )
 
     pars_fields = fieldnames(ODESimulationParams)
