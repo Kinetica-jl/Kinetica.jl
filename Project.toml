@@ -1,7 +1,7 @@
 name = "Kinetica"
 uuid = "3847ce11-53ec-444b-aa85-3b6606472139"
 authors = ["joegilkes <j.gilkes@warwick.ac.uk>"]
-version = "0.5.11"
+version = "0.5.12"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
