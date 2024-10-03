@@ -18,7 +18,7 @@ At the core of [`SpeciesData`](@ref) is a bidirectional mapping between species 
 !!! note "Species Within ODESystems"
     When a CRN gets converted to a ModelingToolkit `ODESystem`, every species needs to have a symbolic representation that can be mapped to its concentration during kinetic simulations. While it may be natural to assume we'd simply use the species' SMILES representations here, these contain special characters that cannot be present in `Symbol`s. To also facilitate simple scaling to any number of species, species are automatically mapped to time-dependent symbolic variables `spec(t)[i]`, where `i` becomes an integer ID within the range `1:SpeciesData.n`. This is one of the core reasons why this SMILES to ID mapping is required.
 
-An instance of [`SpeciesData`](@ref) can be constructed in one of three ways:
+An instance of [`SpeciesData`](@ref) can be constructed in one of four ways:
 
 * From an array of SMILES strings and a corresponding array of geometries (ExtXYZ `frame`s).
 * From a single XYZ file containing one or more species.
@@ -32,7 +32,8 @@ Once created, more species can be added, again from SMILES and their respective 
 Aside from the aforementioned `toStr` and `toInt` fields, [`SpeciesData`](@ref) structs can hold a wealth of information:
 
 * `SpeciesData.n` holds the total number of species that have been added.
-* `SpeciesData.xyz` holds a `Vector` of species geometries, indexed by species ID, in ExtXYZ.jl `frame` format. These store the cartesian coordinates of all atoms within a species, but can be used to store additional information related to a species.
+* `SpeciesData.xyz` holds a `Dict` of species geometries, indexed by species ID, in ExtXYZ.jl `frame` format. These store the Cartesian coordinates of all atoms within a species, but can be used to store additional information related to a species.
+* `SpeciesData.level_found` holds a `Dict` mapping species ID to the numerical exploration level in which each species was found. In [`DirectExplore`](@ref)-based simulations, every species defaults to being from level 1. 
 * `SpeciesData.cache` holds an empty `Dict`, which can be used to store temporary information related to a species. For example, caling [`get_species_stats!`] populates the cache with `Dict`s that map species IDs to properties including molecular weight and hard-sphere radius.
 
 ### Use of SMILES
@@ -67,10 +68,11 @@ Instances of [`RxData`](@ref) contain the following fields:
 
 * `RxData.nr` counts the number of reactions currently in the struct.
 * `RxData.mapped_rxns` holds the atom-mapped reaction SMILES representations of each reaction in the struct. These can be useful for generating correctly atom-indexed reactant/product systems (see [Analysing the CRN](@ref) for an example).
-* `id_reacs` and `id_prods` hold `Vector`s of the unique reactant/product IDs in each reaction. For example, if the CRN's [`SpeciesData`](@ref) dictated that species `"CC"` had ID `1` and `"[CH3]"` had ID `2`, and reaction `5` was `CC -> 2 [CH3]` (heterolytic cleavage of ethane), then `id_reacs[5] == ["CC"]` and `id_prods[5] == ["[CH3]"]`.
-* `stoic_reacs` and `stoic_prods` hold `Vector`s of the stoichiometry of each species in the reactions in `id_reacs` and `id_prods` respectively. This is why in the above example, `id_prods[5]` does not contain two `"[CH3]"`s - because `stoic_reacs[5] == [1]` and `stoic_prods[5] == [2]`.
-* `dH` holds each reaction's enthalpy of reaction, ``\Delta H_r``, as calculated by the level of electronic structure theory used within CDE during reaction generation.
-* `rhash` holds a unique reaction hash for every reaction in the struct. This is calculated by taking the `sha256` of the concatenation of the sorted reactant and product SMILES, and is used for checking whether new reactions are duplicates of any others already in the struct.
+* `RxData.id_reacs` and `RxData.id_prods` hold `Vector`s of the unique reactant/product IDs in each reaction. For example, if the CRN's [`SpeciesData`](@ref) dictated that species `"CC"` had ID `1` and `"[CH3]"` had ID `2`, and reaction `5` was `CC -> 2 [CH3]` (heterolytic cleavage of ethane), then `id_reacs[5] == ["CC"]` and `id_prods[5] == ["[CH3]"]`.
+* `RxData.stoic_reacs` and `RxData.stoic_prods` hold `Vector`s of the stoichiometry of each species in the reactions in `RxData.id_reacs` and `RxData.id_prods` respectively. This is why in the above example, `id_prods[5]` does not contain two `"[CH3]"`s - because `stoic_reacs[5] == [1]` and `stoic_prods[5] == [2]`.
+* `RxData.dH` holds each reaction's enthalpy of reaction, ``\Delta H_r``, as calculated by the level of electronic structure theory used within CDE during reaction generation.
+* `RxData.rhash` holds a unique reaction hash for every reaction in the struct. This is calculated by taking the `sha256` of the concatenation of the sorted reactant and product SMILES, and is used for checking whether new reactions are duplicates of any others already in the struct.
+* `RxData.level_found` contains, similarly to the same field in [`SpeciesData`](@ref) structs, the exploration level in which reactions were found. In [`DirectExplore`](@ref)-based simulations, every reaction defaults to being from level 1. 
 
 ### New Reaction Criteria
 

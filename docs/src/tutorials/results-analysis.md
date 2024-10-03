@@ -36,6 +36,8 @@ nothing # hide
 !!! note "Using format_rxn"
     [`print_rxn`](@ref) is just a wrapper to print the string returned by [`format_rxn`](@ref), which uses the reactants/products and stoichiometries in `rd` and the species SMILES in `sd` to generate a human-readable string describing a reaction. If you need to print more information alongside a reaction, consider something like `println("$(format_rxn(sd, rd, rid)): $(extra_data[rid])")`.
 
+    Both [`print_rxn`](@ref) and [`format_rxn`](@ref) accept a keyword argument `display_level`, which also tags the requested reaction with the exploration level (see [Iterative CRN Exploration](@ref)) in which it was discovered.
+
 The total number of reactions in a CRN is stored in `RxData.nr`, so printing all of the reactions in a CRN is as simple as this loop:
 
 ```@example results_analysis
@@ -113,10 +115,14 @@ savegraph(g, "../assets/tutorials/results_analysis/modified_graph.svg", "svg"); 
 
 ![](../assets/tutorials/results_analysis/modified_graph.svg)
 
+The exploration level that each species and reaction was found in (see [Iterative CRN Exploration](@ref)) is additionally added as a Graphviz attribute to each respective node. While this is (probably) not useful within the context of Graphviz's layout engines, more advanced graphical interfaces such as [Gephi](https://gephi.org/) can be used to create level-driven layouts:
+
+![](../assets/crn11.png)
+
 !!! note "On Graphviz Installation"
     Graphviz is one of Kinetica's Python dependencies, and as such is always installed at the same time as Kinetica. This is not the case for Catalyst.jl, which either requires a user-installed version of Graphviz, or it uses the [Graphviz_jll](https://github.com/JuliaBinaryWrappers/Graphviz_jll.jl) package. As discussed in the section on the [Graphviz](@ref) dependency, we avoid the JLL due to it missing some key features which Kinetica's CRNs typically need.
 
-    Kinetica always adds its Python dependencies to the end of the current `PATH`, so if you have your own installation that you'd like to use, just make sure it's in your `PATH` before you start Julia!
+    Kinetica always adds its Python dependencies to the end of the current `PATH`, so if you have your own installation of Graphviz that you'd like to use, just make sure it's in your `PATH` before you start Julia!
 
 ### Species Analysis
 
