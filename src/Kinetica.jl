@@ -25,6 +25,7 @@ using ProgressLogging: Progress
 using UUIDs: uuid4
 using StableHashTraits
 using BSON
+using Glob
 using OrderedCollections
 using PythonCall
 using CDE_jll
@@ -37,6 +38,16 @@ const rdChem = PythonCall.pynew()
 const rdGeometry = PythonCall.pynew()
 const rdLogger = PythonCall.pynew()
 const frame_to_rdkit_remap_atoms = PythonCall.pynew()
+const np = PythonCall.pynew()
+const ase = PythonCall.pynew()
+const aseopt = PythonCall.pynew()
+const aseneb = PythonCall.pynew()
+const aseio = PythonCall.pynew()
+const asevib = PythonCall.pynew()
+const asethermo = PythonCall.pynew()
+const ade = PythonCall.pynew()
+const rmsd = PythonCall.pynew()
+const rdSmilesParamsWithH = PythonCall.pynew()
 function __init__()
     PythonCall.pycopy!(pybel, pyimport("openbabel.pybel"))
     PythonCall.pycopy!(obcr, pyimport("obcr"))
@@ -44,6 +55,20 @@ function __init__()
     PythonCall.pycopy!(rdChem, pyimport("rdkit.Chem"))
     PythonCall.pycopy!(rdGeometry, pyimport("rdkit.Geometry"))
     PythonCall.pycopy!(rdLogger, pyimport("rdkit.RDLogger"))
+    PythonCall.pycopy!(np, pyimport("numpy"))
+    PythonCall.pycopy!(ase, pyimport("ase"))
+    PythonCall.pycopy!(aseopt, pyimport("ase.optimize"))
+    PythonCall.pycopy!(aseneb, pyimport("ase.neb"))
+    PythonCall.pycopy!(aseio, pyimport("ase.io"))
+    PythonCall.pycopy!(asevib, pyimport("ase.vibrations"))
+    PythonCall.pycopy!(asethermo, pyimport("ase.thermochemistry"))
+    PythonCall.pycopy!(ade, pyimport("autode"))
+    PythonCall.pycopy!(rmsd, pyimport("rmsd"))
+
+    # Set up custom SMILES parser.
+    smilesparams = rdChem.SmilesParserParams()
+    smilesparams.removeHs = false
+    PythonCall.pycopy!(rdSmilesParamsWithH, smilesparams)
 
     PythonCall.pycopy!(frame_to_rdkit_remap_atoms, pyexec(
         @NamedTuple{f::Py}, 
@@ -104,7 +129,7 @@ export register_direct_conditions, solve_variable_conditions!
 
 include("exploration/network.jl")
 export SpeciesData, push!, push_unique!
-export RxData
+export RxData, get_reverse_rhash
 export init_network
 export format_rxn, print_rxn
 
@@ -116,6 +141,13 @@ export get_species_stats!
 
 include("rdkit/rdkit.jl")
 export frame_to_rdkit, atom_map_smiles, atom_map_frame
+
+include("ase/conversion.jl")
+export frame_to_atoms, atoms_to_frame
+
+include("autode/utils.jl")
+include("autode/conversion.jl")
+include("autode/conformers.jl")
 
 include("exploration/cde_utils.jl")
 export env_multithread
@@ -130,6 +162,16 @@ export system_from_smiles, system_from_mols
 include("solving/calculator.jl")
 export DummyKineticCalculator, PrecalculatedArrheniusCalculator, PrecalculatedLindemannCalculator
 export allows_continuous, has_conditions, setup_network!
+include("ase/calculator.jl")
+export ASENEBCalculator, calculate_entropy_enthalpy
+include("ase/neb.jl")
+include("ase/io.jl")
+include("ase/optimise.jl")
+include("ase/vibrations.jl")
+include("ase/builders.jl")
+include("ase/asethermo_interface.jl")
+
+
 include("solving/solve_utils.jl")
 include("solving/filters.jl")
 export RxFilter, get_filter_mask
