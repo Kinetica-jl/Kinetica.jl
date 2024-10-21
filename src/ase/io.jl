@@ -116,6 +116,7 @@ function load_asecalc(calcfile::String, calc_builder=nothing)
         savedict[:interpolation],
         savedict[:n_images],
         savedict[:parallel],
+        savedict[:geom_optimiser],
         savedict[:neb_optimiser],
         savedict[:remove_unconverged],
         savedict[:vibration_displacement],
