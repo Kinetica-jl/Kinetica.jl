@@ -36,7 +36,14 @@ makedocs(
                 "Analysis" => "api/kinetica/analysis.md",
                 "Open Babel" => "api/kinetica/openbabel.md",
                 "RDKit" => "api/kinetica/rdkit.md",
-                "Utilities" => "api/kinetica/utilities.md"
+                "Utilities" => "api/kinetica/utilities.md",
+                "ASE Interface" => [
+                    "Kinetic Calculator" => "api/kinetica/ase_calculator/calculator.md",
+                    "Optimisation" => "api/kinetica/ase_calculator/optimisation.md",
+                    "Builders" => "api/kinetica/ase_calculator/builders.md",
+                    "Utilities" => "api/kinetica/ase_calculator/utilities.md"
+                ],
+                "autodE Interface" => "api/kinetica/autode.md"
             ],
             "KineticaKPM.jl" => "api/kineticakpm.md"
         ]
