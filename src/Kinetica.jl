@@ -169,6 +169,7 @@ include("ase/io.jl")
 include("ase/optimise.jl")
 include("ase/vibrations.jl")
 include("ase/builders.jl")
+export EMTBuilder, NWChemDFTBuilder, FHIAimsBuilder
 include("ase/asethermo_interface.jl")
 
 

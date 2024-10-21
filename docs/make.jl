@@ -26,6 +26,7 @@ makedocs(
             "CRN Representation" => "development/crn-representation.md",
             "Condition Profiles" => "development/condition-profiles.md",
             "Calculator Interface" => "development/calculator-interface.md",
+            "ASE Calculator Builders" => "development/ase-calculator-builders.md",
             "Implementation Details" => "development/implementation-details.md"
         ],
         "API" => [

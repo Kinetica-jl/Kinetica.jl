@@ -3,7 +3,7 @@
 ## ASE Calculator Builders
 
 ```@docs
-Kinetica.EMTBuilder
-Kinetica.NWChemDFTBuilder
-Kinetica.FHIAimsBuilder
+EMTBuilder
+NWChemDFTBuilder
+FHIAimsBuilder
 ```
