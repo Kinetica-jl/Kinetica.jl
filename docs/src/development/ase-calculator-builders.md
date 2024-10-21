@@ -1,4 +1,4 @@
-# ASE Calculator Builders
+# Creating ASE Calculator Builders
 
 One of the key parts of the [`ASENEBCalculator`](@ref) kinetic calculator is the idea of an energy/force calculator *builder*. These are Julia functors that instantiate the Python `Calculator` classes responsible for determining the energy of a given atomic system in ASE. These builders are required because it is often necessary to construct multiple ASE `Calculator`s for different `Atoms` objects, but there is no simple way to do this automatically within Kinetica's calculation workflows. Builders therefore abstract this construction away from the user, presenting a handful of parameters with sensible defaults for a given calculator.
 
