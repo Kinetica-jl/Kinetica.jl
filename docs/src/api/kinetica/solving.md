@@ -17,6 +17,8 @@ Base.splice!(rd::RxData, calculator::cType, rids::Vector{Int}) where {cType <: K
 PrecalculatedArrheniusCalculator
 ```
 
+The [`ASENEBCalculator`](@ref) ASE-driven NEB-based calculator also implemented in Kinetica.jl is significantly more complex, and has its own API page [here](@ref api_ase_calculator).
+
 ## Solvers
 
 ```@docs

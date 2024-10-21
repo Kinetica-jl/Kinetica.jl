@@ -318,3 +318,7 @@ function has_conditions(::PrecalculatedLindemannCalculator, symbols::Vector{Symb
 end
 
 allows_continuous(::PrecalculatedLindemannCalculator) = true
+
+
+# For ASE calculator(s), see src/ase/calculator.jl
+# For other calculator extension packages, see docs.
