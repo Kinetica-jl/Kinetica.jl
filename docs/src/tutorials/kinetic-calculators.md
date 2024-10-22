@@ -2,9 +2,9 @@
 
 Kinetica allows for any and all rate constant expressions to be used within kinetic simulations through its modular kinetic calculator interface. This allows users and developers alike to quickly define a set of functions which are dependent on a CRN (through a [`SpeciesData`](@ref) and an [`RxData`](@ref)) and some arbitrary experimental conditions which the simulation takes place under, such as temperature and pressure, and to calculate rate constants. For more information on how kinetic calculators are implemented, see [Calculator Interface](@ref).
 
-Kinetica features a single base calculator, the [`PrecalculatedArrheniusCalculator`](@ref). This calculator relies on having Arrhenius prefactors and activation energies precalculated for every reaction in a CRN, and serves mostly as a test calculator and an implementation example. 
+Kinetica features a couple of base calculators. The [`PrecalculatedArrheniusCalculator`](@ref) relies on having Arrhenius prefactors and activation energies precalculated for every reaction in a CRN, and serves mostly as a test calculator and an implementation example. The [`ASENEBCalculator`](@ref) is a much more full-featured calculator that uses the nudged elastic band (NEB) method to determine transition state theory (TST) rate constants from first principles at solution time.
 
-Other more useful calculators are provided as modular addon packages that extend Kinetica.jl (e.g. KineticaKPM.jl). Some calculators have extensive dependencies, so this modularisation allows for picking and choosing only the calculators required for a specific project rather than having every available calculator in one bloated Julia/Python environment.
+Other calculators are provided as modular addon packages that extend Kinetica.jl (e.g. KineticaKPM.jl). Some calculators have extensive dependencies, so this modularisation allows for picking and choosing only the calculators required for a specific project rather than having every available calculator in one bloated Julia/Python environment.
 
 ## Manually Calling Calculators
 
@@ -40,6 +40,52 @@ calc = PrecalculatedArrheniusCalculator(Ea, A; k_max = 1e12)
 setup_network!(sd, rd, calc)
 k = calc(; T = 300.0)
 ```
+
+#### [`ASENEBCalculator`](@ref)
+
+This calculator is dependent on both temperature and pressure as experimental conditions. At CRN solution time, it uses the [ASE](https://wiki.fysik.dtu.dk/ase/) Python package to perform the following workflow for every reaction in the network:
+
+* The [autodE](https://github.com/duartegroup/autodE) Python package is used to sample conformers of all active species - the species in a given [`SpeciesData`](@ref) which currently feature in the reactions of the given [`RxData`](@ref) - using the GFN2-xTB method.
+* The most stable conformers are optimised to an energetic minimum on the PES specified by the energy/force calculator passed to ASE.
+* Optimised geometries and other properties enter a purpose-built cache for chemical species data. All reactions are re-enumerated and any multi-molecular reaction endpoint geometries are created by autodE non-covalent conformer generation and ASE optimisation with the same energy/force calculator.
+* For each reaction, the endpoints are interpolated between to generate an initial reaction path, then CI-NEB is run until forces converge across the path. Optimised transition state (TS) geometries enter their own reaction-indexed cache alongside a number of properties.
+* All relevant species and TSs undergo vibrational analysis within ASE with the same energy/force calculator to obtain vibrational energies, which are added to their respective caches.
+* The information in the caches is used to calculate TST rate constants that can be used directly in kinetic simulations. Currently, this is limited to working with the discrete rate update formalism only due to the complexity of the rate constant expression (see [ODE Solution](@ref) for details).
+
+![](../assets/ase_workflow.svg)
+
+This calculator is theoretically compatible with any energy/force calculator implemented in ASE, although each needs an interface to let Kinetica know how to construct the Python `Calculator` interface at runtime. Kinetica calls these interfaces calculator *builders*; right now, three are implemented:
+
+* [`EMTBuilder`](@ref) allows for calculations to be performed with a fast, inexpensive EMT calculator. This method is not intended to be accurate enough for kinetics, and is mostly used for quick tests.
+* [`NWChemDFTBuilder`](@ref) implements DFT calculations through the [NWChem](https://nwchemgit.github.io/index.html) code, with any of its supported XC functionals and basis sets. It allows for passing a subset of input parameters to the ASE `Calculator`.
+* [`FHIAimsBuilder`](@ref) implements DFT calculations through the [FHI-aims](https://fhi-aims.org/) code, with any of its supported XC functionals and basis set options. It allows for passing a subset of input parameters to the ASE `Calculator`.
+
+Other builders can be added with minimal effort, including those for packages which extend ASE. An example of this is shown in the page for [Creating ASE Calculator Builders](@ref).
+
+Of course, running CI-NEB calculations under DFT is a resource-intensive and costly task, especially over potentially thousands of reactions in a CRN. The [`ASENEBCalculator`](@ref) therefore implements a few precautions and quality of life features:
+
+* Completed conformer generations, species and endpoint optimisations, CI-NEB TSs and vibrational energies are saved to disk to allow for quick restarts if calculations fail.
+* Save files for reactions are reusable across different CRNs, as they are saved under unique reaction hashes that represent the reactants and products of a reaction. For example, if the reaction `CC -> C=C + [H][H]` was explored and characterised in one CRN, the TS geometry and properties could be reused without having to redo the calculation provided the [`ASENEBCalculator`](@ref) is pointed to the same calculation directory.
+* If a reaction is being characterised and its reverse reaction already has a converged TS in the TS cache, this is copied to avoid redoing an expensive calculation. If the reverse reaction's NEB was unsuccessful, the forward reaction undergoes NEB as usual. If this converges to a TS, it is copied back to the unsuccessful reverse reaction's cache too. If both forward and reverse reaction calculations fail, both reactions are removed from the CRN.
+
+The calculator calculates rate constants with the Eyring equation:
+
+```math
+k = \dfrac{k_B T}{h} e^{-\dfrac{\Delta G^{\ddagger}}{RT}} = \dfrac{k_B T}{h} e^{\dfrac{\Delta S^{\ddagger}\left( T, P \right)}{R}} e^{-\dfrac{\Delta H^{\ddagger}\left( T \right)}{RT}}
+```
+
+where ``\Delta S^{\ddagger}\left( T, P \right)`` and ``\Delta H^{\ddagger}\left( T \right)`` are the entropy and enthalpy changes of activation, calculated as properties of the reactants and the transition state. If these values are desired outside of the final, rate constants, [`calculate_entropy_enthalpy`](@ref) can be called.
+
+##### Example:
+
+```julia
+builder = EMTBuilder()
+calcdir_head = "/path/to/working_dir_for_calcs"
+calc = ASENEBCalculator(builder, calcdir_head; n_images=15, neb_optimiser="fire")
+setup_network!(sd, rd, calc)
+k = calc(; T = 300.0, P = 1e5)
+```
+
 
 ### KineticaKPM.jl
 

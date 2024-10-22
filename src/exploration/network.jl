@@ -425,6 +425,39 @@ function Base.push!(rd::RxData{iType, fType}, sd::SpeciesData,
     return
 end
 
+
+"""
+    get_reverse_rhash(sd, rd, rid)
+
+Returns the reverse reaction hash for the reaction at `rid` in `rd`.
+
+Useful when needing to identify if a reverse reaction
+is already in a CRN without having to look through many
+species permutations.
+"""
+function get_reverse_rhash(sd::SpeciesData, rd::RxData, rid)
+    reacs = []
+    for (i, sid) in enumerate(rd.id_reacs[rid])
+        for _ in 1:rd.stoic_reacs[rid][i] 
+            push!(reacs, sd.toStr[sid])
+        end
+    end
+    sort!(reacs)
+    prods = []
+    for (i, sid) in enumerate(rd.id_prods[rid])
+        for _ in 1:rd.stoic_prods[rid][i] 
+            push!(prods, sd.toStr[sid])
+        end
+    end
+    sort!(prods)
+
+    forw_rhash = stable_hash(vcat(reacs, prods))
+    @assert rd.rhash[rid] == forw_rhash
+    rev_rhash = stable_hash(vcat(prods, reacs))
+    return rev_rhash
+end
+
+
 """
     init_network([iType=Int64, fType=Float64])
 

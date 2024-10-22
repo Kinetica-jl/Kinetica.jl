@@ -3,3 +3,6 @@ Manifest.toml
 .vscode
 .CondaPkg
 docs/build
+
+.envrc
+shell.nix

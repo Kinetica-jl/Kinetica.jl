@@ -2,7 +2,7 @@
 
 The iterative CRN exploration method ([`IterativeExplore`](@ref)) allows for CRNs to be efficiently explored by only attempting to find reactions involving kinetically viable species. In the vast majority of cases, this produces CRNs with more thoroughly sampled reactions per species than the direct exploration method ([`DirectExplore`](@ref), demonstrated in [Getting Started](@ref)).
 
-![](../assets/Direct_vs_iterative_schematics.png)
+![](../assets/Direct_vs_iterative_schematics.svg)
 
 The figure above shows the main methodological differences between the direct and iterative exploration methods. In the direct method (a), as many reactions as possible are explored outwards from a starting system of species. This is done by successive iterations of stochastic mechanism generation with CDE's single-ended graph-driven sampling (SE-GDS) method. Each random mechanism is of length ``n_r``, controlled within Kinetica by the `radius` parameter in a [`CDE`](@ref) parameter block. 
 

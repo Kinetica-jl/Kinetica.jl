@@ -18,6 +18,7 @@ push_unique!
 RxData
 Base.push!(::RxData{iType, fType}, ::SpeciesData, ::Vector{Vector{String}}, ::Vector{Vector{String}}, ::Vector{Dict{String, Any}}, ::Vector{Dict{String, Any}}, ::Vector{fType}, ::Int) where {iType, fType <: AbstractFloat}
 Base.splice!(::RxData, ::Vector{Int})
+get_reverse_rhash
 ```
 
 ### CRN Initialisation
