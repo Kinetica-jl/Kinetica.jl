@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Filtering CRNs · Kinetica.jl</title><meta name="title" content="Filtering CRNs · Kinetica.jl"/><meta property="og:title" content="Filtering CRNs · Kinetica.jl"/><meta property="twitter:title" content="Filtering CRNs · Kinetica.jl"/><meta name="description" content="Documentation for the Kinetica.jl package and its modular kinetic calculators."/><meta property="og:description" content="Documentation for the Kinetica.jl package and its modular kinetic calculators."/><meta property="twitter:description" content="Documentation for the Kinetica.jl package and its modular kinetic calculators."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/favicon.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="Kinetica.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Kinetica.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../getting-started/">Getting Started</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../arbitrary-conditions/">Arbitrary Simulation Conditions</a></li><li><a class="tocitem" href="../ode-solution/">ODE Solution</a></li><li><a class="tocitem" href="../kinetic-calculators/">Kinetic Calculators</a></li><li><a class="tocitem" href="../iterative-exploration/">Iterative CRN Exploration</a></li><li><a class="tocitem" href="../results-analysis/">Results Analysis</a></li><li class="is-active"><a class="tocitem" href>Filtering CRNs</a></li><li><a class="tocitem" href="../saving-loading/">Saving &amp; Loading</a></li><li><a class="tocitem" href="../logging/">Logging</a></li></ul></li><li><span class="tocitem">Developing with Kinetica</span><ul><li><a class="tocitem" href="../../development/crn-representation/">CRN Representation</a></li><li><a class="tocitem" href="../../development/condition-profiles/">Condition Profiles</a></li><li><a class="tocitem" href="../../development/calculator-interface/">Calculator Interface</a></li><li><a class="tocitem" href="../../development/implementation-details/">Implementation Details</a></li></ul></li><li><span class="tocitem">API</span><ul><li><input class="collapse-toggle" id="menuitem-5-1" type="checkbox"/><label class="tocitem" for="menuitem-5-1"><span class="docs-label">Kinetica.jl</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../api/kinetica/exploration/">Exploration</a></li><li><a class="tocitem" href="../../api/kinetica/solving/">Solving</a></li><li><a class="tocitem" href="../../api/kinetica/conditions/">Conditions</a></li><li><a class="tocitem" href="../../api/kinetica/analysis/">Analysis</a></li><li><a class="tocitem" href="../../api/kinetica/openbabel/">Open Babel</a></li><li><a class="tocitem" href="../../api/kinetica/rdkit/">RDKit</a></li><li><a class="tocitem" href="../../api/kinetica/utilities/">Utilities</a></li></ul></li><li><a class="tocitem" href="../../api/kineticakpm/">KineticaKPM.jl</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Filtering CRNs</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Filtering CRNs</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/Kinetica-jl/Kinetica.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/Kinetica-jl/Kinetica.jl/blob/main/docs/src/tutorials/filtering-crns.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Filtering-CRNs"><a class="docs-heading-anchor" href="#Filtering-CRNs">Filtering CRNs</a><a id="Filtering-CRNs-1"></a><a class="docs-heading-anchor-permalink" href="#Filtering-CRNs" title="Permalink"></a></h1><p>Sometimes, certain chemical reactions are known to be unwanted in a CRN before any kinetic simulations are run. For example, it may be desirable to place a limit on the size of chemical species within a CRN by removing any reactions which create species above this size.</p><p>Kinetica enables this reaction filtering through an easily extensible system that can scale to as many arbitrary filters as desired. This is done by constructing a <a href="../../api/kinetica/solving/#Kinetica.RxFilter"><code>RxFilter</code></a>. This is essentially a <code>Vector</code> of functions, each of which takes the current CRN in the form <code>(SpeciesData, RxData)</code> and returns a boolean mask over the reactions in the given <a href="../../api/kinetica/exploration/#Kinetica.RxData"><code>RxData</code></a>.</p><p>To demonstrate, let&#39;s construct an <a href="../../api/kinetica/solving/#Kinetica.RxFilter"><code>RxFilter</code></a> which removes all reactions involving double bonds from a CRN. We&#39;ll use the CRN we created in <a href="../../getting-started/#Getting-Started">Getting Started</a> by loading the results file and extracting the <a href="../../api/kinetica/exploration/#Kinetica.SpeciesData"><code>SpeciesData</code></a> and <a href="../../api/kinetica/exploration/#Kinetica.RxData"><code>RxData</code></a>:</p><pre><code class="language-julia hljs">using Kinetica
+res = load_output(&quot;../my_CRN_out/direct_network_final.bson&quot;)
+sd, rd = res.sd, res.rd</code></pre><p>If we inspect the reactions in this CRN, we can see that quite a few of them involve double bonds (represented in SMILES by an equals sign <code>=</code> between two elements):</p><pre><code class="language-julia hljs">for i in 1:rd.nr
+    print_rxn(sd, rd, i)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">C --&gt; [CH2] + [H][H]
+[CH2] + [H][H] --&gt; [CH3] + [H]
+[CH2] + [H][H] --&gt; C
+[CH3] + [H] --&gt; [CH2] + [H][H]
+C --&gt; [CH3] + [H]
+[CH3] + [H] --&gt; C
+[H][H] --&gt; 2 [H]
+2 [H] --&gt; [H][H]
+2 [CH2] --&gt; [CH]C
+[CH]C + [H][H] --&gt; CC
+CC --&gt; [CH2]C + [H]
+[CH]C --&gt; 2 [CH2]
+CC --&gt; [CH]C + [H][H]
+[CH2]C + [H] --&gt; CC
+C + [CH3] --&gt; CC + [H]
+CC + [H] --&gt; C + [CH3]
+[CH2] + [CH3] --&gt; [CH2]C
+[CH2]C + [H] --&gt; C=C + [H][H]
+C=C --&gt; [CH]=C + [H]
+[CH2]C --&gt; [CH2] + [CH3]
+C=C + [H][H] --&gt; [CH2]C + [H]
+[CH]=C + [H] --&gt; C=C
+[CH3] --&gt; [CH2] + [H]
+[CH2] + [H] --&gt; [CH3]
+C + [CH2] --&gt; [CH2]C + [H]
+[CH2]C + [H] --&gt; C + [CH2]
+C + [CH2] --&gt; CC
+[CH2]C --&gt; [CH]=C + [H][H]
+CC --&gt; C + [CH2]
+[CH]=C + [H][H] --&gt; [CH2]C</code></pre><p>To create our <a href="../../api/kinetica/solving/#Kinetica.RxFilter"><code>RxFilter</code></a>, we must first write a function that identifies reactions which involve double bonds, then writes a boolean mask which indicates that these reactions should be removed. Remember that this function must take the current CRN in the form <code>(SpeciesData, RxData)</code>:</p><pre><code class="language-julia hljs">function db_filter(sd, rd)
+    # Create a mask where no reactions are removed.
+    mask = [false for _ in 1:rd.nr]
+
+    # Iterate through products of reactions.
+    for (i, rx_reac_ids) in enumerate(rd.id_reacs)
+        for reac_species_id in rx_reac_ids
+            # Set mask at this reaction to true if there are double bonds.
+            # We can determine this easily by the presence of &#39;=&#39; in a species&#39; SMILES.
+            if &#39;=&#39; in sd.toStr[reac_species_id]
+                mask[i] = true
+                break
+            end
+        end
+    end
+
+    # Do the same for products of reactions.
+    for (i, rx_prod_ids) in enumerate(rd.id_prods)
+        # Skip already masked reactions.
+        if mask[i] continue end
+        for prod_species_id in rx_prod_ids
+            if &#39;=&#39; in sd.toStr[prod_species_id]
+                mask[i] = true
+                break
+            end
+        end
+    end
+
+    return mask
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">db_filter (generic function with 1 method)</code></pre><p>We can turn this into a <a href="../../api/kinetica/solving/#Kinetica.RxFilter"><code>RxFilter</code></a> like so:</p><pre><code class="language-julia hljs">filter = RxFilter([db_filter])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">RxFilter([Main.db_filter], false)</code></pre><div class="admonition is-info"><header class="admonition-header">Inverting Filters</header><div class="admonition-body"><p>We have created a filter that will remove reactions where the mask is <code>true</code>, however sometimes it may be more convenient to write filters that only <em>keep</em> reactions where the mask is <code>true</code>. This is supported by passing the keyword argument <code>keep_filtered=true</code> (<code>false</code> by default) to <a href="../../api/kinetica/solving/#Kinetica.RxFilter"><code>RxFilter</code></a> during its construction.</p></div></div><p>Filters are applied automatically when running a kinetic simulation, as long as they are provided when constructing the intermediate <a href="../../api/kinetica/solving/#Kinetica.StaticODESolve"><code>StaticODESolve</code></a>/<a href="../../api/kinetica/solving/#Kinetica.VariableODESolve"><code>VariableODESolve</code></a> object:</p><pre><code class="language-julia hljs"># conditions = ConditionSet(...)
+# pars = ODESimulationParams(...)
+# calculator = ...
+solvemethod = VariableODESolve(pars, conditions, calculator, filter)
+# res = solve_network(solvemethod, sd, rd)</code></pre><p>Under the hood, this is just calling a simple procedure: <code>filter</code> is queried to construct a combined mask from all filter functions given the current CRN, and <a href="../../api/kinetica/exploration/#Base.splice!-Tuple{RxData, Vector{Int64}}"><code>splice!(::RxData, ::Vector{Int})</code></a> is called to remove the masked reactions from the CRN. We can replicate this to see how the CRN is modified by our filter:</p><pre><code class="language-julia hljs">mask = get_filter_mask(filter, sd, rd)
+# Create a copy of RxData to avoid modifying it.
+filtered_rd = deepcopy(rd)
+splice!(filtered_rd, findall(mask))
+
+for i in 1:filtered_rd.nr
+    print_rxn(sd, filtered_rd, i)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">C --&gt; [CH2] + [H][H]
+[CH2] + [H][H] --&gt; [CH3] + [H]
+[CH2] + [H][H] --&gt; C
+[CH3] + [H] --&gt; [CH2] + [H][H]
+C --&gt; [CH3] + [H]
+[CH3] + [H] --&gt; C
+[H][H] --&gt; 2 [H]
+2 [H] --&gt; [H][H]
+2 [CH2] --&gt; [CH]C
+[CH]C + [H][H] --&gt; CC
+CC --&gt; [CH2]C + [H]
+[CH]C --&gt; 2 [CH2]
+CC --&gt; [CH]C + [H][H]
+[CH2]C + [H] --&gt; CC
+C + [CH3] --&gt; CC + [H]
+CC + [H] --&gt; C + [CH3]
+[CH2] + [CH3] --&gt; [CH2]C
+[CH2]C --&gt; [CH2] + [CH3]
+[CH3] --&gt; [CH2] + [H]
+[CH2] + [H] --&gt; [CH3]
+C + [CH2] --&gt; [CH2]C + [H]
+[CH2]C + [H] --&gt; C + [CH2]
+C + [CH2] --&gt; CC
+CC --&gt; C + [CH2]</code></pre><div class="admonition is-info"><header class="admonition-header">Using findall(mask)</header><div class="admonition-body"><p>Note that we can&#39;t just pass the <code>mask</code> directly to the <code>splice!</code> function - instead, we must pass it through <code>findall</code>. This converts the <code>BitVector</code> <code>mask</code> into a <code>Vector{Int}</code> containing the indices of reactions where the mask is <code>true</code>, which is compatible with <code>splice!</code>.</p></div></div><p>We&#39;ve now successfully masked out all of the reactions that involve double bonds from our CRN! However, let&#39;s say we also want to remove all reactions that consume methane (<code>C</code> in SMILES). We could extend our <code>db_filter</code> function above, but it would start to become quite large. Instead, we can create a new function for this new filter and let the <a href="../../api/kinetica/solving/#Kinetica.RxFilter"><code>RxFilter</code></a> do the work of combining the resulting masks together:</p><pre><code class="language-julia hljs">function methane_filter(sd, rd)
+    mask = [false for _ in 1:rd.nr]
+    for (i, rx_reac_ids) in enumerate(rd.id_reacs)
+        for reac_species_id in rx_reac_ids
+            if sd.toStr[reac_species_id] == &quot;C&quot;
+                mask[i] = true
+                break
+            end
+        end
+    end
+    return mask
+end
+
+# Create a new filter that uses both filter functions.
+filter = RxFilter([db_filter, methane_filter])
+
+# Create a new combined mask to act on the original CRN.
+mask = get_filter_mask(filter, sd, rd)
+
+# Filter the original CRN with both filters.
+filtered_rd = deepcopy(rd)
+splice!(filtered_rd, findall(mask))
+
+for i in 1:filtered_rd.nr
+    print_rxn(sd, filtered_rd, i)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[CH2] + [H][H] --&gt; [CH3] + [H]
+[CH2] + [H][H] --&gt; C
+[CH3] + [H] --&gt; [CH2] + [H][H]
+[CH3] + [H] --&gt; C
+[H][H] --&gt; 2 [H]
+2 [H] --&gt; [H][H]
+2 [CH2] --&gt; [CH]C
+[CH]C + [H][H] --&gt; CC
+CC --&gt; [CH2]C + [H]
+[CH]C --&gt; 2 [CH2]
+CC --&gt; [CH]C + [H][H]
+[CH2]C + [H] --&gt; CC
+CC + [H] --&gt; C + [CH3]
+[CH2] + [CH3] --&gt; [CH2]C
+[CH2]C --&gt; [CH2] + [CH3]
+[CH3] --&gt; [CH2] + [H]
+[CH2] + [H] --&gt; [CH3]
+[CH2]C + [H] --&gt; C + [CH2]
+CC --&gt; C + [CH2]</code></pre><p>Notice that now we&#39;ve also filtered out all reactions where methane (<code>C</code>) was a reactant! We can combine as many filter functions as we want in this way to remove arbitrary sets of reactions from a CRN as needed.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../results-analysis/">« Results Analysis</a><a class="docs-footer-nextpage" href="../saving-loading/">Saving &amp; Loading »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.4.0 on <span class="colophon-date" title="Monday 22 April 2024 21:35">Monday 22 April 2024</span>. Using Julia version 1.10.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
