@@ -142,7 +142,7 @@ function correct_magmoms_for_mult!(reac_magmoms::Vector{Float64}, prod_magmoms::
 
     while rdiff != 0
         # Prefer lone electron spin flips where possible.
-        if length(lone_flippable_reac_idxs) >= rdiff
+        if length(lone_flippable_reac_idxs) >= abs(rdiff)
             flip_idx = pop!(lone_flippable_reac_idxs)
             @debug "Flipping initial magmom of lone electron in atom $(flip_idx) of reactant."
             i_reac_magmoms[flip_idx] *= -1
@@ -160,7 +160,7 @@ function correct_magmoms_for_mult!(reac_magmoms::Vector{Float64}, prod_magmoms::
 
     while pdiff != 0
         # Prefer lone electron spin flips where possible.
-        if length(lone_flippable_prod_idxs) >= pdiff
+        if length(lone_flippable_prod_idxs) >= abs(pdiff)
             flip_idx = pop!(lone_flippable_prod_idxs)
             @debug "Flipping initial magmom of lone electron in atom $(flip_idx) of product."
             i_prod_magmoms[flip_idx] *= -1
@@ -191,7 +191,7 @@ end
              fmax=0.01, maxiters=nothing, check_isomorphic=true, kwargs...])
     geomopt!(frame::Dict{String, Any}, calc_builder[, calcdir::String="./", mult::Int=1, 
              chg::Int=0, formal_charges=nothing, initial_magmoms=nothing, 
-             optimiser="LBFGSLineSearch", fmax=0.01, maxiters=1000, check_isomorphic=true, 
+             optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, check_isomorphic=true, 
              kwargs...])   
 
 Runs an ASE-driven geometry optimisation of the species in `frame`.
@@ -221,17 +221,17 @@ IMPORTANTLY, any `formal_charges` array MUST match the atom
 ordering of the provided `frame`. This can by calling 
 `get_formal_charges` on an atom-mapped SMILES from `atom_map_smiles`.
 
-This optimisation always uses ASE's `BFGSLineSearch` optimiser,
-but the maximum force `fmax` and maximum number of iterations
-`maxiters` that this optimiser converges with can be
-controlled with this method's keyword arguments.
+This optimisation always uses one of ASE's optimisers out of
+"BFGSLineSearch", "fire", "bfgs" or "lbfgs". The maximum force
+`fmax` and maximum number of iterations `maxiters` that this
+optimiser converges with can also be controlled.
 
 Directly modifies the atomic positions and energy of the
 passed in `frame`. Energies returned are in eV. Returns a
 boolean for whether the optimisation was a conv.
 """
 function geomopt!(sd::SpeciesData, i, calc_builder; calcdir::String="./", 
-                  optimiser="LBFGSLineSearch", fmax=0.01, maxiters=1000, 
+                  optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, 
                   check_isomorphic=true, kwargs...)
     frame = sd.xyz[i]
     conv = geomopt!(frame, calc_builder; calcdir=calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
@@ -244,7 +244,7 @@ end
 function geomopt!(frame::Dict{String, Any}, calc_builder; 
                   calcdir::String="./", mult::Int=1, chg::Int=0, 
                   formal_charges=nothing, initial_magmoms=nothing,
-                  optimiser="LBFGSLineSearch", fmax=0.01, maxiters=1000, 
+                  optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, 
                   check_isomorphic=true, kwargs...)
     @debug "Starting geometry optimisation."
     atoms = frame_to_atoms(frame, formal_charges, initial_magmoms)
