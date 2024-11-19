@@ -31,6 +31,12 @@ function frame_to_atoms(frame::Dict{String, Any}, charges=nothing, magmoms=nothi
             atoms.set_initial_magnetic_moments(np.asarray(magmoms))
         end
     end
+    pbc = get(frame, "pbc", nothing)
+    if !isnothing(pbc) atoms.set_pbc(pbc) end
+    cell = get(frame, "cell", nothing)
+    if !isnothing(cell) atoms.set_cell(cell) end
+    tags = get(frame["arrays"], "tags", nothing)
+    if !isnothing(tags) atoms.set_tags(tags) end
     atoms.info = frame["info"]
     return atoms
 end
@@ -58,6 +64,12 @@ function atoms_to_frame(atoms::Py, ase_energy=nothing, inertias=nothing)
         ),
         "info" => pyconvert(Dict{String, Any}, atoms.info)
     )
+    tags = pyconvert(Vector{Int}, atoms.get_tags())
+    if any((!).(iszero.(tags))) frame["arrays"]["tags"] = tags end
+    pbc = pyconvert(Vector{Bool}, atoms.get_pbc())
+    if any((!).(iszero.(pbc))) frame["pbc"] = pbc end
+    cell = pyconvert(Matrix{Float64}, cell)
+    if any((!).(iszero.(cell))) frame["cell"] = cell end
     if !isnothing(ase_energy) frame["info"]["energy_ASE"] = ase_energy end
     if !isnothing(inertias) frame["arrays"]["inertias"] = inertias end
     return frame
