@@ -38,12 +38,8 @@ end
 
 Convenient handler for converting string-form xyz to ExtXYZ frame.
 
-ExtXYZ is very resistant to reading in frames from memory,
-instead requiring a file to load from. Circumvents this by
-falling back to a Python implementation of the reader which
-can accept a list of lines from the file to iterate over.
-Constructs this list within an in-memory IOBuffer to avoid
-large IO overhead of writing to disk (repeatedly).
+Reformats string-form xyz into an `IOBuffer` so it can
+be read in-memory by `read_frames`.
 
 Can also be used to go directly from a Pybel pbmol to frame:
 
@@ -51,17 +47,65 @@ Can also be used to go directly from a Pybel pbmol to frame:
 """
 function xyz_to_frame(xyz::String)
     iob = IOBuffer(xyz)
+    frame = read_frame(iob)
+    return frame
+end
+
+
+function _py_xyz_to_frame(xyz::String)
+    function map_dtypes(descr)
+        out = []
+        for dtype in descr
+            pytype = pyconvert(String, dtype[1])
+            jltype = nothing
+            if 'U' in pytype
+                jltype = String
+            elseif 'f' in pytype
+                jltype = Float64
+            elseif 'i' in pytype
+                jltype = Int
+            else
+                error("Unknown dtype in ExtXYZ arrays: $(pytype)")
+            end
+            if pylen(dtype) == 3
+                jltype = Vector{jltype}
+            end
+            push!(out, jltype)
+        end
+        return out
+    end
+
+    iob = IOBuffer(xyz)
     na, info, arrays, _ = pyextxyz.extxyz.read_frame_dicts(split(String(take!(iob)), '\n'), use_regex=false)
     close(iob)
 
-    info = pyconvert(Dict{String, Any}, info)
+    # Arrays in info dict need to be pure Julia for ExtXYZ.jl writes,
+    # but also needs to be a Dict{String, Any}.
+    info = pyconvert(Dict{String, Array}, info)
+    info = Dict{String, Any}(k => v for (k, v) in pairs(info))
+    
     na = pyconvert(Int, na)
+    array_keys = pyconvert(Vector{String}, arrays.dtype.names)
+    dtype_map = map_dtypes(arrays.dtype.descr)
+
+    jlarrays = Dict{String, Any}()
+    for (i, (key, dtype)) in enumerate(zip(array_keys, dtype_map))
+        if dtype <: Vector
+            if na == 1
+                jlarrays[key] = reduce(hcat, [pyconvert(dtype, arrays.item()[i-1])]) 
+            else
+                jlarrays[key] = reduce(hcat, [pyconvert(dtype, a[i-1]) for a in arrays])
+            end
+        else
     if na == 1
-        arrays = Dict{String, Any}("species" => [pyconvert(String, arrays.item()[0])], "pos" => reduce(hcat, [pyconvert(Vector, arrays.item()[1])]))
+                jlarrays[key] = [pyconvert(dtype, arrays.item()[i-1])]
     else
-        arrays = Dict{String, Any}("species" => [pyconvert(String, a[0]) for a in arrays], "pos" => reduce(hcat, [pyconvert(Vector, a[1]) for a in arrays]))
+                jlarrays[key] = [pyconvert(dtype, a[i-1]) for a in arrays]
+            end
+        end
     end
-    frame = Dict{String, Any}("N_atoms" => na, "info" => info, "arrays" => arrays)
+
+    frame = Dict{String, Any}("N_atoms" => na, "info" => info, "arrays" => jlarrays)
     return frame
 end
 
@@ -147,9 +191,5 @@ end
 Converts contents of an XYZ file into string-form XYZ.
 """
 function xyz_file_to_str(xyz_file::String)
-    pbmol = collect(pybel.readfile("xyz", xyz_file))[1]
-    if pyconvert(String, pbmol._gettitle()) == xyz_file
-        pbmol._settitle("")
-    end
-    return pyconvert(String, pbmol.write("xyz"))
+    return read(xyz_file, String)
 end
