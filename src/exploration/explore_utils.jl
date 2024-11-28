@@ -63,7 +63,7 @@ function import_mechanism(loc::ExploreLoc, rcount; max_molecularity=2)
     rsmis, rxyzs, rsys, psmis, pxyzs, psys, dHs = ingest_cde_run(rdir, rcount)
     all_smis = vcat(reduce(vcat, rsmis), reduce(vcat, psmis))
     all_xyzs = vcat(reduce(vcat, rxyzs), reduce(vcat, pxyzs))
-    sd = SpeciesData(all_smis, all_xyzs, loc.level)
+    sd = SpeciesData(all_smis, all_xyzs; level=loc.level)
     rd = RxData(sd, rsmis, psmis, rsys, psys, dHs, loc.level; max_molecularity=max_molecularity)
     return sd, rd
 end
