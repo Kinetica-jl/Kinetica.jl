@@ -3,43 +3,42 @@ mutable struct SpeciesData{iType}
     toStr::Dict{iType, String}
     n::iType
     xyz::Dict{iType, Dict{String, Any}}
+    surfdata::Union{SurfaceData, Nothing}
     level_found::Dict{iType, Int}
     cache::Dict{Any, Any}
 end
 
 """
-    SpeciesData(smi_list, xyz_list[, unique_species=true])
-    SpeciesData(smi_list, xyz_list, level[, unique_species=true])
-    SpeciesData(xyz_file[, unique_species=true, fix_radicals=true])
-    SpeciesData(xyz_file, level[, unique_species=true, fix_radicals=true])
+    SpeciesData(smi_list, xyz_list, surfaces::Vector{Surface}[, level::Int=1, unique_species=true])
+    SpeciesData(smi_list, xyz_list, surfdata::SurfaceData[, level::Int=1, unique_species=true])
+    SpeciesData(smi_list, xyz_list[, level::Int=1, unique_species=true])
 
 Bidirectional String-Int dictionary for chemical species.
 
-Can either be constructed from an array of SMILES strings
-and their corresponding ExtXYZ frames, or from a single
-XYZ file with one or multiple species present. If
-`unique_species=true`, will not include any duplicate
-species if present. If `fix_radicals=true` in the XYZ
-file loading case, will attempt to tidy up radical
-SMILES with OBCR.
+Given an array of SMILES strings and their corresponding
+ExtXYZ frames, builds a container for the supplied species.
+If `unique_species=true`, will not include any duplicate
+species if present.
 
-Both constuctors can optionally be given a `level` argument,
-indicating the exploration level which a species (or set of
-species) was first discovered. If this is not provided,
-assumes species are entering the struct at level 1.
+Can optionally be given a `level` argument, indicating the
+exploration level which a species (or set of species) was
+first discovered. If this is not provided, assumes species
+are entering the struct at level 1.
 
 Contains fields for:
 * SMILES string -> integer ID dictionary (`toInt`)
 * Integer ID -> SMILES string dictionary (`toStr`)
 * Number of species (`n`)
 * ExtXYZ structures of species (`xyz`)
+* `SurfaceData` instance containing surface information and ASESurfaceFinder interface (`surfdata`)
 * Integer ID -> initial discovered level dictionary (`level_found`)
 * Dictionary of per-species cached values (`cache`)
 """
-function SpeciesData(smi_list, xyz_list, level; unique_species=true)
+function SpeciesData(smi_list, xyz_list, surfdata::Union{SurfaceData, Nothing};
+                     level::Int=1, unique_species=true)
     n = length(smi_list)
     if n == 0
-        return SpeciesData(Dict(), Dict(), 0, Dict(), Dict(), Dict())
+        return SpeciesData(Dict(), Dict(), 0, Dict(), surfdata, Dict(), Dict())
     end
 
     if unique_species
@@ -56,6 +55,7 @@ function SpeciesData(smi_list, xyz_list, level; unique_species=true)
             Dict(i => smi for (i, smi) in enumerate(unique_smi_list)),
             length(unique_smi_list),
             Dict(i => x for (i, x) in enumerate(unique_xyz_list)),
+            surfdata,
             Dict(i => level for i in 1:length(unique_smi_list)),
             Dict()
         )
@@ -65,18 +65,70 @@ function SpeciesData(smi_list, xyz_list, level; unique_species=true)
             Dict(i => smi for (i, smi) in enumerate(smi_list)),
             n,
             Dict(i => x for (i, x) in enumerate(xyz_list)),
+            surfdata,
             Dict(i => level for i in 1:n),
             Dict()
         )
     end
 end
-SpeciesData(smi_list, xyz_list; unique_species=true) = SpeciesData(smi_list, xyz_list, 1; unique_species=unique_species)
 
-function SpeciesData(xyz_file::String, level::Int; unique_species=true, fix_radicals=true)
-    smi_list, xyz_list = ingest_xyz_system(xyz_file; fix_radicals)
-    SpeciesData(smi_list, xyz_list, level; unique_species=unique_species)
+function SpeciesData(smi_list, xyz_list, surfaces::Vector{Surface};
+                     level::Int=1, unique_species=true)
+    if length(surfaces) == 0
+        surfdata = nothing
+    else
+        surfdata = SurfaceData(surfaces)
+    end
+    return SpeciesData(smi_list, xyz_list, surfdata; level, unique_species)
 end
-SpeciesData(xyz_file::String; unique_species=true, fix_radicals=true) = SpeciesData(xyz_file, 1; unique_species=unique_species, fix_radicals=fix_radicals)
+
+function SpeciesData(smi_list, xyz_list;
+                     level::Int=1, unique_species=true)
+    return SpeciesData(smi_list, xyz_list, nothing; level, unique_species)
+end
+
+
+"""
+    SpeciesData(xyz_file::String, surfdata::SurfaceData[, level::Int=1, unique_species=true, fix_radicals=true])
+    SpeciesData(xyz_file::String, surfaces::Vector{Surfaces}[, level::Int=1, unique_species=true, fix_radicals=true])
+    SpeciesData(xyz_file::String[, level::Int=1, unique_species=true, fix_radicals=true])
+
+Bidirectional String-Int dictionary for chemical species.
+
+Alternate constructor which takes a single XYZ file
+potentially containing multiple species and parses them
+into indiviual SMILES. If `fix_radicals=true`, will 
+attempt to tidy up radical SMILES with OBCR.
+
+Otherwise functions identically to the main constructor,
+see its docs for further information.
+"""
+function SpeciesData(xyz_file::String, surfdata::SurfaceData; 
+                     level::Int=1, unique_species=true, 
+                     fix_radicals=true)
+    smi_list, xyz_list = ingest_xyz_system(xyz_file, surfdata; fix_radicals)
+    SpeciesData(smi_list, xyz_list, surfdata; level, unique_species)
+end
+
+function SpeciesData(xyz_file::String, surfaces::Vector{Surface}; 
+                     level::Int=1, unique_species=true, 
+                     fix_radicals=true)
+    if length(surfaces) == 0
+        surfdata = nothing
+        smi_list, xyz_list = ingest_xyz_system(xyz_file; fix_radicals)
+    else
+        surfdata = SurfaceData(surfaces)
+        smi_list, xyz_list = ingest_xyz_system(xyz_file, surfdata; fix_radicals)
+    end
+    SpeciesData(smi_list, xyz_list, surfdata; level, unique_species)
+end
+
+function SpeciesData(xyz_file::String; 
+                     level::Int=1, unique_species=true, 
+                     fix_radicals=true)
+    smi_list, xyz_list = ingest_xyz_system(xyz_file; fix_radicals)
+    SpeciesData(smi_list, xyz_list, nothing; level, unique_species)
+end
 
 """
     push!(sd::SpeciesData, smi::String, xyz::Dict{String, Any})
@@ -109,7 +161,7 @@ if not provided). Does not account for `smi` already existing
 within `sd`. To ensure no overlap, use `push_unique!`.
 """
 function Base.push!(sd::SpeciesData, xyz_file::String, level::Int; fix_radicals=true)
-    smi_list, xyz_list = ingest_xyz_system(xyz_file; fix_radicals)
+    smi_list, xyz_list = ingest_xyz_system(xyz_file, sd.surfaces; fix_radicals)
     for (smi, xyz) in zip(smi_list, xyz_list)
         push!(sd, smi, xyz, level)
     end
@@ -162,7 +214,7 @@ Optionally takes a specified exploration level (defaults to 1
 if not provided).
 """
 function push_unique!(sd::SpeciesData, xyz_file::String, level::Int; fix_radicals=true)
-    smi_list, xyz_list = ingest_xyz_system(xyz_file; fix_radicals)
+    smi_list, xyz_list = ingest_xyz_system(xyz_file_to_str(xyz_file), sd.surfaces; fix_radicals)
     for (smi, xyz) in zip(smi_list, xyz_list)
         if !(smi in keys(sd.toInt))
             push!(sd, smi, xyz, level)
@@ -188,6 +240,21 @@ function push_unique!(sd::SpeciesData, smis::Vector{String}, xyzs::Vector{Dict{S
     return
 end
 push_unique!(sd::SpeciesData, smis::Vector{String}, xyzs::Vector{Dict{String, Any}}) = push_unique!(sd, smis, xyzs, 1)
+
+
+"""
+    add_surface!(sd::SpeciesData, surface::Surface)
+
+Adds a `Surface` to `sd.surfdata`.
+
+Determines the next free surface ID and adds to underlying
+list of `Surface`s, additionally retraining the ASESurfaceFinder
+random forest classifier instance to also work with this surface.
+"""
+function add_surface!(sd::SpeciesData, surface::Surface)
+    add_surface!(sd.surfdata, surface)
+    return
+end
 
 
 mutable struct RxData{iType, fType}
@@ -493,6 +560,7 @@ function init_network(; iType=Int64, fType=Float64)
         Dict{String, iType}(), Dict{iType, String}(),
         0, 
         Dict{iType, Dict{String, Any}}(), 
+        nothing,
         Dict{iType, Int}(), Dict()
     )
     rd = RxData{iType, fType}(

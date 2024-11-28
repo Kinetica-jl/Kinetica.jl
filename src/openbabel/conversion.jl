@@ -1,7 +1,12 @@
 """
-    ingest_xyz_system(xyz_str::String[, fix_radicals=true])
+    ingest_xyz_system(xyz_str::String[, surfacefinder::Py, fix_radicals=true])
 
-Converts a molecule system from a single XYZ string into a list of SMILES strings and their respective ExtXYZ representataions.
+Converts a molecule system from a single XYZ string into a list of SMILES strings and their respective ExtXYZ representations.
+
+If `surfaces` are passed, runs graph isomorphism checks on all
+disconnected species for each surface's unit cell, isolating the
+correct surface and absorption point to be used in the generated
+species' SMILES.
 
 OBCR can be used to attempt to fix Openbabel's radical structure
 by enabling `fix_radicals`. If parsing directly from an XYZ file
@@ -9,6 +14,68 @@ is required, this can be achieved with
 
     smi_list, xyz_list = ingest_xyz_system(xyz_file_to_str(xyz_file))
 """
+function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=true)
+    surf_elems = surfdata.finder.elements
+    frame = xyz_to_frame(xyz_str)
+    ads_slab = frame_to_atoms(frame)
+
+    # If no surface is found, proceed with normal ingest.
+    has_surface = pyconvert(bool, asesf.utils.has_elems(ads_slab, surf_elems))
+    if !(has_surface)
+        smi_list, xyz_list = ingest_xyz_system(xyz_str; fix_radicals)
+        return smi_list, xyz_list
+    end
+
+    # Otherwise, separate adsorbates and predict surface sites.
+    _, ads_molecules, sf_labels_per_molecule = surfdata.finder.predict(ads_slab)
+
+    smi_list = []
+    xyz_list = []
+    for (ads_molecule, sf_labels) in zip(ads_molecules, sf_labels_per_molecule)
+        ads_atom_idxs = pyconvert(Vector{Int}, sf_labels.keys())
+        ads_frame = atoms_to_frame(ads_molecule)
+        push!(xyz_list, ads_frame)
+        ads_pbmol = pybel.readstring("xyz", frame_to_xyz(ads_frame))
+        ads_smi = String(strip(pyconvert(String, ads_pbmol.write("can")), ['\n', '\t']))
+
+        if fix_radicals && pyconvert(Bool, obcr.is_radical(ads_smi))
+            ads_pbmol = obcr.fix_radicals(ads_pbmol)
+            ads_pbmol.addh()
+            ads_smi = String(strip(pyconvert(String, ads_pbmol.write("can")), ['\n', '\t']))
+        end
+
+        elem_replacements = []
+        site_atomic_number = 100
+        for atom_idx in ads_atom_idxs
+            # Determine SMILES label for surface site that adsorbed atom is on.
+            label = pyconvert(String, sf_labels[atom_idx]["site"])
+            split_labels = split(label, '_')
+            surf_label = join(split_labels[begin:end-1], '_')
+            site_label = String(split_labels[end])
+            surf_idx = surfdata.nameToInt[surf_label]
+            site_idx = surfdata.surfaces[surf_idx].siteids[site_label]
+            smi_label = "X$(surf_idx)_$(site_idx)"
+
+            # Attach unique atoms of atomic number 100+ in OB to adsorbed atom
+            site_elem = pyconvert(String, pybel.ob.GetSymbol(site_atomic_number))
+            site_atom = ads_pbmol.OBMol.NewAtom()
+            site_atom.SetAtomicNum(site_atomic_number)
+            ads_pbmol.OBMol.AddBond(atom_idx+1, site_atom.GetIdx(), 1)
+            
+            push!(elem_replacements, Pair(site_elem, smi_label))
+        end
+
+        # Generate new SMILES, replace dummy atoms with ads labels.
+        ads_smi = String(strip(pyconvert(String, ads_pbmol.write("can")), ['\n', '\t']))
+        replace(ads_smi, elem_replacements...)
+
+        push!(smi_list, ads_smi)
+    end
+
+    return smi_list, xyz_list
+end
+
+
 function ingest_xyz_system(xyz_str::String; fix_radicals=true)
     pbmol = pybel.readstring("xyz", xyz_str)
     fragments = [pybel.Molecule(obmol) for obmol in pbmol.OBMol.Separate()]
@@ -97,9 +164,9 @@ function _py_xyz_to_frame(xyz::String)
                 jlarrays[key] = reduce(hcat, [pyconvert(dtype, a[i-1]) for a in arrays])
             end
         else
-    if na == 1
+            if na == 1
                 jlarrays[key] = [pyconvert(dtype, arrays.item()[i-1])]
-    else
+            else
                 jlarrays[key] = [pyconvert(dtype, a[i-1]) for a in arrays]
             end
         end

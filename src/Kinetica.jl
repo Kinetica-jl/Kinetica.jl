@@ -46,6 +46,8 @@ const aseneb = PythonCall.pynew()
 const aseio = PythonCall.pynew()
 const asevib = PythonCall.pynew()
 const asethermo = PythonCall.pynew()
+const asebuild = PythonCall.pynew()
+const asesf = PythonCall.pynew()
 const ade = PythonCall.pynew()
 const rmsd = PythonCall.pynew()
 const rdSmilesParamsWithH = PythonCall.pynew()
@@ -63,6 +65,8 @@ function __init__()
     PythonCall.pycopy!(aseio, pyimport("ase.io"))
     PythonCall.pycopy!(asevib, pyimport("ase.vibrations"))
     PythonCall.pycopy!(asethermo, pyimport("ase.thermochemistry"))
+    PythonCall.pycopy!(asebuild, pyimport("ase.build"))
+    PythonCall.pycopy!(asesf, pyimport("asesurfacefinder"))
     PythonCall.pycopy!(ade, pyimport("autode"))
     PythonCall.pycopy!(rmsd, pyimport("rmsd"))
 
@@ -71,6 +75,7 @@ function __init__()
     smilesparams.removeHs = false
     PythonCall.pycopy!(rdSmilesParamsWithH, smilesparams)
 
+    # If this code isn't executed on the Python side, OB segfaults.
     PythonCall.pycopy!(frame_to_rdkit_remap_atoms, pyexec(
         @NamedTuple{f::Py}, 
         """
@@ -129,6 +134,9 @@ export ConditionSet, isstatic, isvariable
 export get_profile, get_tstops, get_t_final
 export register_direct_conditions, solve_variable_conditions!
 
+include("exploration/species_traits.jl")
+include("exploration/surfaces.jl")
+export Surface, SurfaceData
 include("exploration/network.jl")
 export SpeciesData, push!, push_unique!
 export RxData, get_rhash, get_reverse_rhash
