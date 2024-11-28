@@ -22,6 +22,9 @@ if GROUP == "All" || GROUP == "Python"
     @safetestset "ASE Tests" begin
         include("Python/ase.jl")
     end
+    @safetestset "Surface Tests" begin
+        include("Python/surfaces.jl")
+    end
     @safetestset "autodE Tests" begin
         include("Python/autode.jl")
     end
