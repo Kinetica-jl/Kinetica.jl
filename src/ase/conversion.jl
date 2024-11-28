@@ -56,19 +56,20 @@ be a `Vector{Float64}` for proper compatibility.
 function atoms_to_frame(atoms::Py, ase_energy=nothing, inertias=nothing)
     symbols = pyconvert(Vector{String}, atoms.get_chemical_symbols())
     positions = pyconvert(Matrix, atoms.get_positions().T)
+    info = pyconvert_dict(Dict{String, Any}, atoms.info)
     frame = Dict{String, Any}(
         "N_atoms" => length(symbols),
         "arrays" => Dict{String, Any}(
             "species" => symbols,
             "pos" => positions
         ),
-        "info" => pyconvert(Dict{String, Any}, atoms.info)
+        "info" => info
     )
     tags = pyconvert(Vector{Int}, atoms.get_tags())
     if any((!).(iszero.(tags))) frame["arrays"]["tags"] = tags end
     pbc = pyconvert(Vector{Bool}, atoms.get_pbc())
     if any((!).(iszero.(pbc))) frame["pbc"] = pbc end
-    cell = pyconvert(Matrix{Float64}, cell)
+    cell = pyconvert(Matrix{Float64}, atoms.get_cell())
     if any((!).(iszero.(cell))) frame["cell"] = cell end
     if !isnothing(ase_energy) frame["info"]["energy_ASE"] = ase_energy end
     if !isnothing(inertias) frame["arrays"]["inertias"] = inertias end
