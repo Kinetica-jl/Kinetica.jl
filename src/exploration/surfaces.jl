@@ -171,3 +171,66 @@ function add_surface!(surfdata::SurfaceData, surface::Surface)
     surfdata.finder = finder
     return
 end
+
+
+"""
+    get_surfid(smi::String)
+
+Returns the surface ID of adsorption sites in a surface SMILES.
+
+If a gas-phase species (i.e. a regular SMILES without a surface
+tag) is passed, returns nothing.
+"""
+get_surfid(smi::String) = get_surfid(SpeciesStyle(smi), smi)
+function get_surfid(::SurfaceSpecies, smi::String)
+    m = match(r"(X\d_\d)", smi)
+    return parse(Int, split(m.match[2:end], '_')[1])
+end
+get_surfid(::GasSpecies, smi::String) = nothing
+
+
+"""
+    get_surf_siteids(smi::String)
+
+Returns the surface site IDs of adsorption sites in a surface SMILES.
+
+If a gas-phase species (i.e. a regular SMILES without a surface
+tag) is passed, returns nothing.
+"""
+get_surf_siteids(smi::String) = get_surf_siteids(SpeciesStyle(smi), smi)
+function get_surf_siteids(::SurfaceSpecies, smi::String)
+    m = 1
+    offset = 0
+    siteids = Int[]
+    while !isnothing(m)
+        m = match(r"(X\d_\d)", smi, offset+1)
+        if isnothing(m) continue end
+        push!(siteids, parse(Int, split(m.match[2:end], '_')[2]))
+        offset = m.offset
+    end
+    
+    return siteids
+end
+get_surf_siteids(::GasSpecies, smi::String) = nothing
+
+
+"""
+    remove_surface_atoms!(frame::Dict{String, Any}, surfdata::SurfaceData, surfid::Int)
+
+Removes the atoms corresponding to the `Surface` in `surfdata.surfaces[surfid]` from `frame`.
+"""
+function remove_surface_atoms!(frame::Dict{String, Any}, surfdata::SurfaceData, surfid::Int)
+    surface = surfdata.surfaces[surfid]
+    elems = surface.elements
+    remove_idxs = [i for (i, e) in enumerate(frame["arrays"]["species"]) if e in elems]
+    keep_idxs = [i for i in 1:frame["N_atoms"] if !(i in remove_idxs)]
+    for arrkey in keys(frame["arrays"])
+        if frame["arrays"][arrkey] isa Vector
+            deleteat!(frame["arrays"][arrkey], remove_idxs)
+        else
+            frame["arrays"][arrkey] = frame["arrays"][arrkey][:, keep_idxs]
+        end
+    end
+    frame["N_atoms"] -= length(remove_idxs)
+    return
+end
