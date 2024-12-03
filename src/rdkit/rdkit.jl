@@ -1,4 +1,4 @@
-function xyz_from_smiles(::Val{:rdkit}, smi::String, seed)
+function xyz_from_smiles(::Val{:rdkit}, ::GasSpecies, smi::String, seed)
     mol = rdChem.MolFromSmiles(smi)
     mol = rdChem.AddHs(mol)
     rdChem.rdDistGeom.EmbedMolecule(mol, randomSeed=seed)
@@ -10,8 +10,11 @@ function xyz_from_smiles(::Val{:rdkit}, smi::String, seed)
 
     return pyconvert(String, rdChem.MolToXYZBlock(mol))
 end
+function xyz_from_smiles(::Val{:rdkit}, ::SurfaceSpecies, smi::String, seed)
+    throw(ArgumentError("Kinetica does not currently support creation of surface-bound species from SMILES."))
+end
 
-function xyz_from_smiles(::Val{:rdkit}, smi::String, saveto::String, overwrite::Bool, seed)
+function xyz_from_smiles(::Val{:rdkit}, ::GasSpecies, smi::String, saveto::String, overwrite::Bool, seed)
     mol = rdChem.MolFromSmiles(smi)
     mol = rdChem.AddHs(mol)
     rdChem.rdDistGeom.EmbedMolecule(mol, randomSeed=seed)
@@ -26,6 +29,9 @@ function xyz_from_smiles(::Val{:rdkit}, smi::String, saveto::String, overwrite::
     )) end
     rdChem.MolToXYZFile(mol, saveto)
     return
+end
+function xyz_from_smiles(::Val{:rdkit}, ::SurfaceSpecies, smi::String, saveto::String, overwrite::Bool, seed)
+    throw(ArgumentError("Kinetica does not currently support creation of surface-bound species from SMILES."))
 end
 
 """

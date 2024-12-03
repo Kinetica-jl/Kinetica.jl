@@ -211,9 +211,12 @@ Can generate geometries using either Openbabel or RDKit, chosen
 using `generator=:openbabel` or `generator=:rdkit`. RDKit-based
 generation can be seeded for consistency using the `seed` argument,
 while trying to supply a seed to Openbabel will throw an error.
+
+Does not currently support the creation of surface-bound species from
+SMILES, although this feature is planned.
 """
-xyz_from_smiles(smi::String; generator::Symbol=:openbabel, seed=-1) = xyz_from_smiles(Val(generator), smi, seed) 
-function xyz_from_smiles(::Val{:openbabel}, smi::String, seed)
+xyz_from_smiles(smi::String; generator::Symbol=:openbabel, seed=-1) = xyz_from_smiles(Val(generator), SpeciesStyle(smi), smi, seed) 
+function xyz_from_smiles(::Val{:openbabel}, ::GasSpecies, smi::String, seed)
     if seed != -1
         throw(ArgumentError("OpenBabel generator does not support seeded generation of molecular geometries."))
     end
@@ -222,9 +225,12 @@ function xyz_from_smiles(::Val{:openbabel}, smi::String, seed)
     pbmol.make3D(forcefield=ff)
     return pyconvert(String, pbmol.write("xyz"))
 end
+function xyz_from_smiles(::Val{:openbabel}, ::SurfaceSpecies, smi::String, seed)
+    throw(ArgumentError("Kinetica does not currently support creation of surface-bound species from SMILES."))
+end
 
-xyz_from_smiles(smi::String, saveto::String; generator::Symbol=:openbabel, overwrite::Bool=true, seed=-1) = xyz_from_smiles(Val(generator), smi, saveto, overwrite, seed)
-function xyz_from_smiles(::Val{:openbabel}, smi::String, saveto::String, overwrite::Bool, seed)
+xyz_from_smiles(smi::String, saveto::String; generator::Symbol=:openbabel, overwrite::Bool=true, seed=-1) = xyz_from_smiles(Val(generator), SpeciesStyle(smi), smi, saveto, overwrite, seed)
+function xyz_from_smiles(::Val{:openbabel}, ::GasSpecies, smi::String, saveto::String, overwrite::Bool, seed)
     if seed != -1
         throw(ArgumentError("OpenBabel generator does not support seeded generation of molecular geometries."))
     end
@@ -233,6 +239,9 @@ function xyz_from_smiles(::Val{:openbabel}, smi::String, saveto::String, overwri
     pbmol.make3D(forcefield=ff)
     pbmol.write("xyz", saveto; overwrite=overwrite)
     return
+end
+function xyz_from_smiles(::Val{:openbabel}, ::SurfaceSpecies, smi::String, saveto::String, overwrite::Bool, seed)
+    throw(ArgumentError("Kinetica does not currently support creation of surface-bound species from SMILES."))
 end
 
 
