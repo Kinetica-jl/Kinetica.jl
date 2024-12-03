@@ -353,7 +353,19 @@ function RxData(sd::SpeciesData{iType},
         # Add reaction to arrays if it is unique.
         if !unique_rxns || !(rhash in hashes_final)
             # Construct atom-mapped reaction SMILES from original geometries.
+            # Remove surface atoms if present so that atom-mapping only
+            # represents adsorbates.
+            reacs_surfids = get_surfid.(all_reacs)
+            if !(all(isnothing.(reacs_surfids))) 
+                reacs_surfid = [(!).(isnothing.(reacs_surfids))][1]
+                remove_surface_atoms!(rsys[i], sd.surfdata, reacs_surfid)
+            end
             mapped_reacs = atom_map_smiles(rsys[i], join(all_reacs, "."))
+            prods_surfids = get_surfid.(all_prods)
+            if !(all(isnothing.(prods_surfids))) 
+                prods_surfid = [(!).(isnothing.(prods_surfids))][1]
+                remove_surface_atoms!(psys[i], sd.surfdata, prods_surfid)
+            end
             mapped_prods = atom_map_smiles(psys[i], join(all_prods, "."))
             mapped_rxn = join([mapped_reacs, mapped_prods], ">>")
 
@@ -454,7 +466,19 @@ function Base.push!(rd::RxData{iType, fType}, sd::SpeciesData,
         # Add reaction to arrays if it is unique.
         if !unique_rxns || !(rhash in rd.rhash)
             # Construct atom-mapped reaction SMILES from original geometries.
+            # Remove surface atoms if present so that atom-mapping only
+            # represents adsorbates.
+            reacs_surfids = get_surfid.(all_reacs)
+            if !(all(isnothing.(reacs_surfids))) 
+                reacs_surfid = [(!).(isnothing.(reacs_surfids))][1]
+                remove_surface_atoms!(rsys[i], sd.surfdata, reacs_surfid)
+            end
             mapped_reacs = atom_map_smiles(rsys[i], join(all_reacs, "."))
+            prods_surfids = get_surfid.(all_prods)
+            if !(all(isnothing.(prods_surfids))) 
+                prods_surfid = [(!).(isnothing.(prods_surfids))][1]
+                remove_surface_atoms!(psys[i], sd.surfdata, prods_surfid)
+            end
             mapped_prods = atom_map_smiles(psys[i], join(all_prods, "."))
             mapped_rxn = join([mapped_reacs, mapped_prods], ">>")
 

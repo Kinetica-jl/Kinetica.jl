@@ -87,10 +87,16 @@ products are accessible, as by calling this function for each, a
 fully atom-mapped reaction SMILES can be constructed, allowing for
 later reconstruction of atom-mapped geometries.
 
+When given a surface SMILES and a corresponding adsorbate frame
+without any surface atoms, makes a set of substitutions that
+allows for atom mapping the adsorbate without assigning any
+indices to the surface sites themselves.
+
 Heavily based on the implementation in Colin Grambow's `ard_gsm`
 package: https://github.com/cgrambow/ard_gsm/tree/v1.0.0
 """
-function atom_map_smiles(frame::Dict{String, Any}, smi::String)
+atom_map_smiles(frame::Dict{String, Any}, smi::String) = atom_map_smiles(SpeciesStyle(smi), frame, smi)
+function atom_map_smiles(::GasSpecies, frame::Dict{String, Any}, smi::String; allow_ads_mismatch=false)
     atoms_in_mol_true = Dict{String, Int}()
     for i in 1:frame["N_atoms"]
         elem = frame["arrays"]["species"][i]
@@ -104,7 +110,7 @@ function atom_map_smiles(frame::Dict{String, Any}, smi::String)
         elem = pyconvert(String, atom.GetSymbol())
         atoms_in_mol_sani[elem] = get(atoms_in_mol_sani, elem, 0) + 1
     end
-    if atoms_in_mol_true != atoms_in_mol_sani
+    if atoms_in_mol_true != atoms_in_mol_sani && !(allow_ads_mismatch)
         println(smi)
         println(frame)
         println(atoms_in_mol_true)
@@ -131,6 +137,30 @@ function atom_map_smiles(frame::Dict{String, Any}, smi::String)
 
     return pyconvert(String, rdChem.MolToSmiles(mol_sanitised))
 end
+function atom_map_smiles(::SurfaceSpecies, frame::Dict{String, Any}, smi::String)
+    surfid = get_surfid(smi)
+    siteids = get_surf_siteids(smi)
+    pt = rdChem.GetPeriodicTable()
+
+    # Substitute surface site tags with unique elements.
+    site_atomic_number = 100
+    elem_replacements = []
+    for siteid in siteids
+        elem = pyconvert(String, pt.GetElementSymbol(site_atomic_number))
+        push!(elem_replacements, Pair("X$(surfid)_$(siteid)", elem))
+        site_atomic_number += 1
+    end
+    smi_replaced = replace(smi, elem_replacements...)
+
+    # Generate atom mapped SMILES, ignoring substituted elements.
+    amsmi = atom_map_smiles(GasSpecies(), frame, smi_replaced; allow_ads_mismatch=true)
+
+    # Substitute site tags back into atom mapped SMILES.
+    elem_replacements_flipped = [Pair(e[2], e[1]) for e in elem_replacements]
+    amsmi_final = replace(amsmi, elem_replacements_flipped...)
+
+    return amsmi_final
+end
 
 
 """
@@ -149,7 +179,8 @@ conformers to existing `Mol`s without calling `EmbedMolecule` is
 not simple. Instead, constructs a transfer array for atom indices
 and applies this directly to the `frame`.
 """
-function atom_map_frame(am_smi::String, frame::Dict{String, Any})
+atom_map_frame(am_smi::String, frame::Dict{String, Any}) = atom_map_frame(SpeciesStyle(am_smi), am_smi, frame)
+function atom_map_frame(::GasSpecies, am_smi::String, frame::Dict{String, Any})
     smiles_params = rdChem.SmilesParserParams()
     smiles_params.removeHs = false
     smiles_params.sanitize = false
@@ -194,4 +225,7 @@ function atom_map_frame(am_smi::String, frame::Dict{String, Any})
     end
 
     return new_frame
+end
+function atom_map_frame(::SurfaceSpecies, am_smi::String, frame::Dict{String, Any})
+    throw(ErrorException("Not implemented yet."))
 end
