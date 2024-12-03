@@ -1,16 +1,18 @@
 """
-    ingest_xyz_system(xyz_str::String[, surfacefinder::Py, fix_radicals=true])
+    ingest_xyz_system(xyz_str::String, surfdata::SurfaceData[, fix_radicals=true])
+    ingest_xyz_system(xyz_str::String[, fix_radicals=true])
 
 Converts a molecule system from a single XYZ string into a list of SMILES strings and their respective ExtXYZ representations.
 
-If `surfaces` are passed, runs graph isomorphism checks on all
-disconnected species for each surface's unit cell, isolating the
-correct surface and absorption point to be used in the generated
-species' SMILES.
+If `surfdata` is passed, allows species on matching surfaces to be
+isolated and classified by their adsorption sites via surface SMILES.
+Otherwise, assumes there are only molecules and separates them into
+individual species.
 
 OBCR can be used to attempt to fix Openbabel's radical structure
-by enabling `fix_radicals`. If parsing directly from an XYZ file
-is required, this can be achieved with
+by enabling `fix_radicals`. 
+
+If parsing directly from an XYZ file is required, this can be achieved with
 
     smi_list, xyz_list = ingest_xyz_system(xyz_file_to_str(xyz_file))
 """
@@ -67,9 +69,9 @@ function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=
 
         # Generate new SMILES, replace dummy atoms with ads labels.
         ads_smi = String(strip(pyconvert(String, ads_pbmol.write("can")), ['\n', '\t']))
-        replace(ads_smi, elem_replacements...)
+        ads_smi_replaced = replace(ads_smi, elem_replacements...)
 
-        push!(smi_list, ads_smi)
+        push!(smi_list, ads_smi_replaced)
     end
 
     return smi_list, xyz_list
