@@ -14,13 +14,13 @@ having to sacrifice the simplicity of them being `String`s.
 Given a function `myfunc(a::Int, smi::String)`, this can be made to
 dispatch on SMILES type by piping it to
 `myfunc(SpeciesStyle(smi), a::Int, smi::String)` and creating methods
-for `myfunc(GasSpecies, a::Int, smi::String)` and
-`myfunc(SurfaceSpecies, a::Int, smi::String)`.
+for `myfunc(::GasSpecies, a::Int, smi::String)` and
+`myfunc(::SurfaceSpecies, a::Int, smi::String)`.
 """
 function SpeciesStyle(smi::String)
-    if "X_" in smi
-        return SurfaceSpecies
+    if !isnothing(match(r"(X\d_\d)", smi))
+        return SurfaceSpecies()
     else
-        return GasSpecies
+        return GasSpecies()
     end
 end
