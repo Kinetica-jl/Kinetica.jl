@@ -22,17 +22,20 @@ function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=
     ads_slab = frame_to_atoms(frame)
 
     # If no surface is found, proceed with normal ingest.
-    has_surface = pyconvert(bool, asesf.utils.has_elems(ads_slab, surf_elems))
+    has_surface = pyconvert(Bool, asesf.utils.has_elems(ads_slab, surf_elems))
     if !(has_surface)
         smi_list, xyz_list = ingest_xyz_system(xyz_str; fix_radicals)
         return smi_list, xyz_list
     end
 
     # Otherwise, separate adsorbates and predict surface sites.
+    if pyconvert(Float64, sum(ads_slab.cell[2])) == 0.0
+        ads_slab.center(10.0, axis=2)
+    end
     _, ads_molecules, sf_labels_per_molecule = surfdata.finder.predict(ads_slab)
 
-    smi_list = []
-    xyz_list = []
+    smi_list = String[]
+    xyz_list = Dict{String, Any}[]
     for (ads_molecule, sf_labels) in zip(ads_molecules, sf_labels_per_molecule)
         ads_atom_idxs = pyconvert(Vector{Int}, sf_labels.keys())
         ads_frame = atoms_to_frame(ads_molecule)
