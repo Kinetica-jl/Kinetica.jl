@@ -54,11 +54,15 @@ function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=
         for atom_idx in ads_atom_idxs
             # Determine SMILES label for surface site that adsorbed atom is on.
             label = pyconvert(String, sf_labels[atom_idx]["site"])
+            coord = pyconvert(Int, sf_labels[atom_idx]["coordination"])
             split_labels = split(label, '_')
             surf_label = join(split_labels[begin:end-1], '_')
             site_label = String(split_labels[end])
             surf_idx = surfdata.nameToInt[surf_label]
             site_idx = surfdata.surfaces[surf_idx].siteids[site_label]
+            if surfdata.surfaces[surf_idx].sitecoords[site_label] != coord
+                throw(ErrorException("Unable to match expected coordination of surface site to input coordination."))
+            end
             smi_label = "X$(surf_idx)_$(site_idx)"
 
             # Attach unique atoms of atomic number 100+ in OB to adsorbed atom

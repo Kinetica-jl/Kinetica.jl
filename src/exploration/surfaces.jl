@@ -4,6 +4,7 @@ struct Surface
     elements::Set{String}
     sites::Dict{Int, String}
     siteids::Dict{String, Int}
+    sitecoords::Dict{String, Int}
 end
 
 """
@@ -32,11 +33,12 @@ function Surface(name::String, atoms::Py)
     site_names = pyconvert(Vector{String}, atoms.info["adsorbate_info"]["sites"].keys())
     sites = Dict{Int, String}(i => s for (i, s) in enumerate(site_names))
     siteids = Dict{String, Int}(s => i for (i, s) in enumerate(site_names))
+    sitecoords = Dict{String, Int}(s => get_surfsite_coordination(atoms, s) for s in site_names)
 
     # Extract elements.
     elements = pyconvert(Set{String}, atoms.symbols.species())
 
-    return Surface(name, atoms, elements, sites, siteids)
+    return Surface(name, atoms, elements, sites, siteids, sitecoords)
 end
 
 """
@@ -81,8 +83,21 @@ function Surface(name::String, frame::Dict{String, Any}, sitedict::Dict{String, 
     site_names = pyconvert(Vector{String}, atoms.info["adsorbate_info"]["sites"].keys())
     kinetica_sites = Dict{Int, String}(i => s for (i, s) in enumerate(site_names))
     kinetica_siteids = Dict{String, Int}(s => i for (i, s) in enumerate(site_names))
+    sitecoords = Dict{String, Int}(s => get_surfsite_coordination(atoms, s) for s in site_names)
 
-    return Surface(name, atoms, elements, kinetica_sites, kinetica_siteids)
+    return Surface(name, atoms, elements, kinetica_sites, kinetica_siteids, sitecoords)
+end
+
+
+function get_surfsite_coordination(atoms::Py, sitename, height=1.5)
+    slab = atoms.copy()
+    asebuild.add_adsorbate(slab, "H", height, sitename)
+    
+    ana = aseanalysis.Analysis(slab)
+    adj = ana.adjacency_matrix[0]
+    na = pylen(atoms)
+    coord = sum(pyconvert(Vector{Int}, [adj[i, na] for i in 0:na-1]))
+    return coord
 end
 
 
