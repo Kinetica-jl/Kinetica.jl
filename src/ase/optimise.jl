@@ -1,10 +1,13 @@
 """
-    get_mult(sd::SpeciesData, sid)
+    get_mult(smi::String)
 
-Calculates the spin multiplicity of the species in `sd` at ID `sid`.
+Calculates the spin multiplicity of the species represented by SMILES `smi`.
+
+For surfaces-bound species, this is currently undefined and returns
+a multiplicity of 1.
 """
-function get_mult(sd::SpeciesData, sid)
-    smi = sd.toStr[sid]
+get_mult(smi::String) = get_mult(SpeciesStyle(smi), smi)
+function get_mult(::GasSpecies, smi::String)
     mol = rdChem.MolFromSmiles(smi)
     n_radical_electrons = 0
     for atom in mol.GetAtoms()
@@ -13,6 +16,17 @@ function get_mult(sd::SpeciesData, sid)
     mult = n_radical_electrons + 1
     return mult
 end
+get_mult(::SurfaceSpecies, smi::String) = 1
+
+"""
+    get_mult(sd::SpeciesData, sid)
+
+Calculates the spin multiplicity of the species in `sd` at ID `sid`.
+"""
+function get_mult(sd::SpeciesData, sid)
+    smi = sd.toStr[sid]
+    return get_mult(smi)
+end
 
 """
     get_mult!(sd::SpeciesData, sid)
@@ -20,14 +34,26 @@ end
 Caches the spin multiplicity of the species in `sd` at ID `sid` in `sd.cache[:mult]`.
 """
 get_mult!(sd::SpeciesData, sid) = sd.cache[:mult][sid] = get_mult(sd, sid)
-    
+
+
+"""
+    get_charge(smi::String)
+
+Calculates the charge of the species represented by SMILES `smi`.
+
+For surfaces-bound species, this is currently undefined and returns
+a charge of 0.
+"""
+get_charge(smi::String) = get_charge(SpeciesStyle(smi), smi)
+get_charge(::GasSpecies, smi::String) = pyconvert(Int, pybel.readstring("can", smi).charge)
+get_charge(::SurfaceSpecies, smi::String) = 0
 
 """
     get_charge(sd::SpeciesData, sid)
 
 Calculates the charge of the species in `sd` at ID `sid`.
 """
-get_charge(sd::SpeciesData, sid) = pyconvert(Int, pybel.readstring("can", sd.toStr[sid]).charge)
+get_charge(sd::SpeciesData, sid) = get_charge(sd.toStr[sid])
 
 """
     get_charge!(sd::SpeciesData, sid)
@@ -46,12 +72,22 @@ Calculates formal charges on each atom of a species.
 Can be given an atom-mapped SMILES `amsmi` to calculate from,
 or a species in `sd` at ID `sid`, in which case the atom-mapped
 SMILES is calculated on-the-fly.
+
+For surfaces-bound species, this is currently undefined and returns
+a charge of 0 on each atom.
 """
-function get_formal_charges(amsmi::String)
+get_formal_charges(amsmi::String) = get_formal_charges(SpeciesStyle, amsmi)
+function get_formal_charges(::GasSpecies, amsmi::String)
     mol = pybel.readstring("smi", amsmi)
     formal_charges = [pyconvert(Int, atom.formalcharge) for atom in mol.atoms]
     return formal_charges
 end
+function get_formal_charges(::SurfaceSpecies, amsmi::String)
+    mol = pybel.readstring("smi", amsmi)
+    formal_charges = [0 for _ in mol.atoms]
+    return formal_charges
+end
+
 function get_formal_charges(sd::SpeciesData, sid)
     amsmi = atom_map_smiles(sd.xyz[sid], sd.toStr[sid])
     return get_formal_charges(amsmi)
@@ -74,8 +110,12 @@ Calculates initial magnetic moments on each atom of a species.
 Can be given an atom-mapped SMILES `amsmi` to calculate from,
 or a species in `sd` at ID `sid`, in which case the atom-mapped
 SMILES is calculated on-the-fly.
+
+For surfaces-bound species, this is currently undefined and returns
+a magnetic moment of 0 on each atom.
 """
-function get_initial_magmoms(amsmi::String)
+get_initial_magmoms(amsmi::String) = get_initial_magmoms(SpeciesStyle, amsmi)
+function get_initial_magmoms(::GasSpecies, amsmi::String)
     mol = rdChem.MolFromSmiles(amsmi, rdSmilesParamsWithH)
     magmoms = zeros(Float64, pyconvert(Int, mol.GetNumAtoms()))
     for atom in mol.GetAtoms()
@@ -83,6 +123,12 @@ function get_initial_magmoms(amsmi::String)
     end
     return magmoms
 end 
+function get_initial_magmoms(::SurfaceSpecies, amsmi::String)
+    mol = pybel.readstring("smi", amsmi)
+    magmoms = [0 for _ in mol.atoms]
+    return magmoms
+end
+
 function get_initial_magmoms(sd::SpeciesData, sid)
     amsmi = atom_map_smiles(sd.xyz[sid], sd.toStr[sid])
     return get_initial_magmoms(amsmi)
