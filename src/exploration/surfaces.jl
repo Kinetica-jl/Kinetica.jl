@@ -88,7 +88,15 @@ function Surface(name::String, frame::Dict{String, Any}, sitedict::Dict{String, 
     return Surface(name, atoms, elements, kinetica_sites, kinetica_siteids, sitecoords)
 end
 
+"""
+    get_surfsite_coordination(atoms::Py, sitename[, height=1.5])
 
+Determines expected coordination of adsorbate atoms on a given surface site.
+
+Adsorbs a hydrogen atom on the surface site of `atoms` with xy position
+specified by `sitename` and height by `height`. Reads the resulting
+geometry's adjacency matrix to determine coordination at this site.
+"""
 function get_surfsite_coordination(atoms::Py, sitename, height=1.5)
     slab = atoms.copy()
     asebuild.add_adsorbate(slab, "H", height, sitename)
