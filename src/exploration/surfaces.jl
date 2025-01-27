@@ -238,6 +238,60 @@ get_surf_siteids(::GasSpecies, smi::String) = nothing
 
 
 """
+    get_surf_site_atomids(amsmi::String)
+"""
+get_surf_site_atomids(amsmi::String) = get_surf_site_atomids(SpeciesStyle(amsmi), amsmi)
+function get_surf_site_atomids(::SurfaceSpecies, amsmi::String)
+    surfid = get_surfid(amsmi)
+    siteids = get_surf_siteids(amsmi)
+    pt = rdChem.GetPeriodicTable()
+
+    # Substitute out bonding to surface sites.
+    site_replacements = []
+    re = r"(?<=[#=])(\[X\d_\d\])" # Search for #/= before site tags
+    m = match(re, amsmi)
+    while !isnothing(m)
+        push!(site_replacements, Pair(amsmi[m.offset-1]*m.match, m.match))
+        m = match(re, amsmi, m.offset+length(m.match))
+    end
+    re = r"(\[X\d_\d\])(?=[#=])" # Search for #/= after site tags
+    m = match(re, amsmi)
+    while !isnothing(m)
+        push!(site_replacements, Pair(m.match*amsmi[m.offset+length(m.match)], m.match))
+        m = match(re, amsmi, m.offset+length(m.match)+1)
+    end
+    amsmi_subbed = replace(amsmi, site_replacements...)
+
+    # Substitute surface site tags with unique elements.
+    site_atomic_number = 100
+    elem_replacements = []
+    elems_used = []
+    for siteid in siteids
+        elem = pyconvert(String, pt.GetElementSymbol(site_atomic_number))
+        push!(elem_replacements, Pair("X$(surfid)_$(siteid)", elem))
+        push!(elems_used, elem)
+        site_atomic_number += 1
+    end
+    amsmi_replaced = replace(amsmi_subbed, elem_replacements...)
+
+    mol = rdChem.MolFromSmiles(amsmi_replaced)
+    elem_bonded_atomids = Dict{String, Int}()
+    for atom in mol.GetAtoms()
+        elem = pyconvert(String, atom.GetSymbol())
+        if elem in elems_used
+            neighbour = atom.GetNeighbors()[0]
+            elem_bonded_atomids[elem] = pyconvert(Int, neighbour.GetAtomMapNum())
+        end
+    end
+
+    elem_replacement_flipped_dict = Dict(e[2] => e[1] for e in elem_replacements)
+    surftag_atomids = Dict(elem_replacement_flipped_dict[elem] => elem_bonded_atomids[elem] for elem in keys(elem_bonded_atomids))
+
+    return surftag_atomids
+end
+get_surf_site_atomids(::GasSpecies, amsmi::String) = nothing
+
+"""
     remove_surface_atoms!(frame::Dict{String, Any}, surfdata::SurfaceData, surfid::Int)
 
 Removes the atoms corresponding to the `Surface` in `surfdata.surfaces[surfid]` from `frame`.
@@ -256,4 +310,54 @@ function remove_surface_atoms!(frame::Dict{String, Any}, surfdata::SurfaceData, 
     end
     frame["N_atoms"] -= length(remove_idxs)
     return
+end
+
+
+"""
+    adsorb_frame(frame::Dict{String, Any}, surfdata::SurfaceData, smi::String[, heights=nothing])
+
+Places the adsorbate `frame` with matching surface SMILES `smi` on its correct surface site.
+
+Reads the desired surface and site from a surface tag in `smi`,
+then creates a new frame with the adsorbate on top of the surface
+in the correct position.
+
+Defaults to placing an adsorbed atom at a height above the surface
+given by the sum of its covalent radius and the mean covalent radius
+of the surface elements. Alternatively this can be specified by passing
+a vector to `heights` (one element per site).
+
+Currently only suports singly-bound adsorbates, as multiply-bound
+adsorbates will need a custom optimisation procedure.
+"""
+function adsorb_frame(frame::Dict{String, Any}, surfdata::SurfaceData, smi::String, heights=nothing)
+    surfid = get_surfid(smi)
+    siteids = get_surf_siteids(smi)
+    if !isnothing(heights) && length(heights) != length(siteids)
+        throw(ErrorException("Adsorption heights passed do not match number of adsorbed atoms."))
+    end
+
+    surf = surfdata.surfaces[surfid]
+    atoms = surf.atoms.copy()
+    surf_covradius = mean(
+        [pyconvert(Float64, Kinetica.ase.data.covalent_radii[Kinetica.ase.data.atomic_numbers[elem]]) for elem in surf.elements]
+    )
+    amsmi = atom_map_smiles(frame, smi)
+    site_atomids = get_surf_site_atomids(amsmi)
+
+    if length(siteids) == 1
+        # Place adsorbate on surface.
+        ads_atomid = site_atomids["X$(surfid)_$(siteids[1])"]-1
+        ads_atoms = frame_to_atoms(frame)
+        ads_atomtype = frame["arrays"]["species"][ads_atomid+1]
+        ads_atom_covradius = Kinetica.ase.data.covalent_radii[Kinetica.ase.data.atomic_numbers[ads_atomtype]]
+        site_name = surf.sites[siteids[1]]
+        height = !isnothing(height) ? heights[1] : surf_covradius+ads_atom_covradius
+        asebuild.add_adsorbate(atoms, ads_atoms, height, site_name, mol_index=ads_atomid)
+    else
+        # Needs a rigid optimisation that pulls adsorbed atoms to correct sites.
+        throw(ErrorException("Adsorption of species at multiple sites is not currently supported."))
+    end
+
+    return atoms_to_frame(atoms)
 end
