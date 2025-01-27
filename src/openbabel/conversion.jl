@@ -69,7 +69,7 @@ function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=
             site_elem = pyconvert(String, pybel.ob.GetSymbol(site_atomic_number))
             site_atom = ads_pbmol.OBMol.NewAtom()
             site_atom.SetAtomicNum(site_atomic_number)
-            ads_pbmol.OBMol.AddBond(atom_idx+1, site_atom.GetIdx(), 1)
+            ads_pbmol.OBMol.AddBond(atom_idx+1, site_atom.GetIdx(), coord)
             
             push!(elem_replacements, Pair(site_elem, smi_label))
         end
