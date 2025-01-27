@@ -104,6 +104,9 @@ function atom_map_smiles(::GasSpecies, frame::Dict{String, Any}, smi::String; al
     end
 
     mol_sanitised = rdChem.MolFromSmiles(smi)
+    if pyconvert(Bool, mol_sanitised == pybuiltins.None)
+        throw(ErrorException("Unable to create an RDKit mol from provided SMILES."))
+    end
     mol_sanitised = rdChem.AddHs(mol_sanitised)
     atoms_in_mol_sani = Dict{String, Int}()
     for atom in mol_sanitised.GetAtoms()
@@ -137,10 +140,26 @@ function atom_map_smiles(::GasSpecies, frame::Dict{String, Any}, smi::String; al
 
     return pyconvert(String, rdChem.MolToSmiles(mol_sanitised))
 end
-function atom_map_smiles(::SurfaceSpecies, frame::Dict{String, Any}, smi::String)
+function atom_map_smiles(::SurfaceSpecies, frame::Dict{String, Any}, smi::String; resub_ads_bonding=false)
     surfid = get_surfid(smi)
     siteids = get_surf_siteids(smi)
     pt = rdChem.GetPeriodicTable()
+
+    # Substitute out bonding to surface sites.
+    site_replacements = []
+    re = r"(?<=[#=])(\[X\d_\d\])" # Search for #/= before site tags
+    m = match(re, smi)
+    while !isnothing(m)
+        push!(site_replacements, Pair(smi[m.offset-1]*m.match, m.match))
+        m = match(re, smi, m.offset+length(m.match))
+    end
+    re = r"(\[X\d_\d\])(?=[#=])" # Search for #/= after site tags
+    m = match(re, smi)
+    while !isnothing(m)
+        push!(site_replacements, Pair(m.match*smi[m.offset+length(m.match)], m.match))
+        m = match(re, smi, m.offset+length(m.match)+1)
+    end
+    smi_subbed = replace(smi, site_replacements...)
 
     # Substitute surface site tags with unique elements.
     site_atomic_number = 100
@@ -150,14 +169,22 @@ function atom_map_smiles(::SurfaceSpecies, frame::Dict{String, Any}, smi::String
         push!(elem_replacements, Pair("X$(surfid)_$(siteid)", elem))
         site_atomic_number += 1
     end
-    smi_replaced = replace(smi, elem_replacements...)
+    smi_replaced = replace(smi_subbed, elem_replacements...)
 
     # Generate atom mapped SMILES, ignoring substituted elements.
     amsmi = atom_map_smiles(GasSpecies(), frame, smi_replaced; allow_ads_mismatch=true)
 
     # Substitute site tags back into atom mapped SMILES.
     elem_replacements_flipped = [Pair(e[2], e[1]) for e in elem_replacements]
-    amsmi_final = replace(amsmi, elem_replacements_flipped...)
+    amsmi_replaced = replace(amsmi, elem_replacements_flipped...)
+
+    # Substitute bonding back onto surface sites.
+    if resub_ads_bonding
+        site_replacements_flipped = [Pair(e[2], e[1]) for e in site_replacements]
+        amsmi_final = replace(amsmi_replaced, site_replacements_flipped...)
+    else
+        amsmi_final = amsmi_replaced
+    end
 
     return amsmi_final
 end
