@@ -180,6 +180,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             sd.cache[:formal_charges] = Dict{iType, Vector{Int}}()
             sd.cache[:geometry] = Dict{iType, Int}()
             sd.cache[:initial_magmoms] = Dict{iType, Vector{Float64}}()
+            sd.cache[:ads_xyz] = Dict{iType, Dict{String, Any}}()
         end
     end
 
@@ -194,6 +195,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
     for i in active_species
         if !("energy_ASE" in keys(sd.xyz[i]["info"]))
             specoptdir = joinpath(specoptdir_head, "spec_$(lpad(i, 6, "0"))")
+            is_surf_species = SpeciesStyle(sd.toStr[i]) isa SurfaceSpecies
             opt_complete = false
             if isdir(specoptdir) 
                 optfile = joinpath(specoptdir, "opt_final.bson")
@@ -203,6 +205,9 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                     sd.xyz[i] = optgeom[:frame]
                     sd.cache[:symmetry][i] = optgeom[:sym]
                     sd.cache[:geometry][i] = optgeom[:geom]
+                    if is_surf_species
+                        sd.cache[:ads_xyz][i] = adsorb_frame(optgeom[:frame], sd.surfdata, sd.toStr[i], optgeom[:frame][:info][:ads_heights])
+                    end
                     get_mult!(sd, i)
                     get_charge!(sd, i) 
                     get_formal_charges!(sd, i)
@@ -218,7 +223,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                 cd(specoptdir)
                 get_mult!(sd, i)
                 get_charge!(sd, i) 
-                autode_conformer_search!(sd, i)
+                conformer_search!(sd, i)
                 get_formal_charges!(sd, i)
                 get_initial_magmoms!(sd, i)
                 conv = geomopt!(sd, i, calc.calc_builder; optimiser=calc.geom_optimiser, maxiters=calc.maxiters)
