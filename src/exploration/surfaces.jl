@@ -352,7 +352,7 @@ function adsorb_frame(frame::Dict{String, Any}, surfdata::SurfaceData, smi::Stri
         ads_atomtype = frame["arrays"]["species"][ads_atomid+1]
         ads_atom_covradius = Kinetica.ase.data.covalent_radii[Kinetica.ase.data.atomic_numbers[ads_atomtype]]
         site_name = surf.sites[siteids[1]]
-        height = !isnothing(height) ? heights[1] : surf_covradius+ads_atom_covradius
+        height = !isnothing(heights) ? heights[1] : surf_covradius+ads_atom_covradius
         asebuild.add_adsorbate(atoms, ads_atoms, height, site_name, mol_index=ads_atomid)
     else
         # Needs a rigid optimisation that pulls adsorbed atoms to correct sites.

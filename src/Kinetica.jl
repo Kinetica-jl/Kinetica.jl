@@ -32,6 +32,9 @@ using PythonCall
 using CDE_jll
 
 # Global Python package interfaces
+const pysys = PythonCall.pynew()
+const pyos = PythonCall.pynew()
+const py_PrintMuter = PythonCall.pynew()
 const pybel = PythonCall.pynew()
 const obcr = PythonCall.pynew()
 const pyextxyz = PythonCall.pynew()
@@ -53,6 +56,28 @@ const ade = PythonCall.pynew()
 const rmsd = PythonCall.pynew()
 const rdSmilesParamsWithH = PythonCall.pynew()
 function __init__()
+    PythonCall.pycopy!(pysys, pyimport("sys"))
+    PythonCall.pycopy!(pyos, pyimport("os"))
+    PythonCall.pycopy!(py_PrintMuter, pyexec(
+        @NamedTuple{f::Py},
+        """
+global sys; sys = _sys
+global os; os = _os
+
+class PrintMuter:
+    def mute(self):
+        self.stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+
+    def unmute(self):
+        sys.stdout.close()
+        sys.stdout = self.stdout
+
+f = PrintMuter""",
+        Kinetica,
+        (_sys=pysys, _os=pyos)
+    )[1])
+
     PythonCall.pycopy!(pybel, pyimport("openbabel.pybel"))
     PythonCall.pycopy!(obcr, pyimport("obcr"))
     PythonCall.pycopy!(pyextxyz, pyimport("extxyz"))
@@ -139,6 +164,7 @@ export register_direct_conditions, solve_variable_conditions!
 include("exploration/species_traits.jl")
 include("exploration/surfaces.jl")
 export Surface, SurfaceData
+export get_surfid, get_surf_siteids
 include("exploration/network.jl")
 export SpeciesData, push!, push_unique!
 export RxData, get_rhash, get_reverse_rhash
@@ -181,7 +207,7 @@ include("ase/io.jl")
 include("ase/optimise.jl")
 include("ase/vibrations.jl")
 include("ase/builders.jl")
-export EMTBuilder, NWChemDFTBuilder, FHIAimsBuilder
+export EMTBuilder, NWChemDFTBuilder, FHIAimsBuilder, TBLiteBuilder
 include("ase/asethermo_interface.jl")
 
 
