@@ -76,7 +76,7 @@ SMILES is calculated on-the-fly.
 For surfaces-bound species, this is currently undefined and returns
 a charge of 0 on each atom.
 """
-get_formal_charges(amsmi::String) = get_formal_charges(SpeciesStyle, amsmi)
+get_formal_charges(amsmi::String) = get_formal_charges(SpeciesStyle(amsmi), amsmi)
 function get_formal_charges(::GasSpecies, amsmi::String)
     mol = pybel.readstring("smi", amsmi)
     formal_charges = [pyconvert(Int, atom.formalcharge) for atom in mol.atoms]
@@ -114,7 +114,7 @@ SMILES is calculated on-the-fly.
 For surfaces-bound species, this is currently undefined and returns
 a magnetic moment of 0 on each atom.
 """
-get_initial_magmoms(amsmi::String) = get_initial_magmoms(SpeciesStyle, amsmi)
+get_initial_magmoms(amsmi::String) = get_initial_magmoms(SpeciesStyle(amsmi), amsmi)
 function get_initial_magmoms(::GasSpecies, amsmi::String)
     mol = rdChem.MolFromSmiles(amsmi, rdSmilesParamsWithH)
     magmoms = zeros(Float64, pyconvert(Int, mol.GetNumAtoms()))
