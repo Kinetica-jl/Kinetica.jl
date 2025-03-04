@@ -3,6 +3,7 @@ obcanonicalradicals = "==0.1.1"
 rdkit = "==2024.09.6"
 xtb = "==6.7.1"
 libgfortran = "==14.2.0"
+asesurfacefinder = ">=1.0.3"
 matplotlib = ""
 ase = "<3.23"
 graphviz = "==11.0.0"
@@ -14,5 +15,4 @@ scipy = "<=1.5.4"
 python = ">=3.7,<3.11"
 
 [pip.deps]
-asesurfacefinder = ">=1.0.2"
 extxyz = "~=0.1.3"

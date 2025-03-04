@@ -24,3 +24,26 @@ function SpeciesStyle(smi::String)
         return GasSpecies()
     end
 end
+ 
+
+
+abstract type AbstractXYZ end
+
+struct FreeXYZ <: AbstractXYZ end
+struct OnSurfaceXYZ <: AbstractXYZ end
+
+"""
+    XYZStyle(frame::Dict{String, Any})
+
+Trait returning correct subtype of `AbstractXYZ` for a given ExtXYZ `frame`.
+
+Detects if a frame has any periodic boundaries enabled, in which case
+it is assumed to represent one or more species, on or above a surface.
+"""
+function XYZStyle(frame::Dict{String, Any})
+    if any(frame["pbc"])
+        return OnSurfaceXYZ()
+    else
+        return FreeXYZ()
+    end
+end
