@@ -235,18 +235,98 @@ end
 """
     geomopt!(sd::SpeciesData, i, calc_builder[, calcdir::String="./", optimiser="LBFGSLineSearch", 
              fmax=0.01, maxiters=nothing, check_isomorphic=true, kwargs...])
+
+Runs an ASE-driven geometry optimisation of the species `i` in `sd`.
+
+This is a wrapper around the lower-level `geomopt!(frame, ...)` method
+which can dispatch on methods for gas-phase and surface-phase species.
+It detects many of the properties needed by the geometry optimisation
+from `sd`, and adds extra post-processing of adsorption heights for
+the surface-phase case.
+
+`calc_builder` should be a struct with a functor that returns
+a correctly constructed ASE calculator for the system at hand.
+While ASE can handle many system-specific calculator details
+from an `Atoms` object, quantities such as spin multiplicity
+and sometimes charge must be input separately. For this reason,
+the `calc_builder` functor must take `mult::Int` and `charge::Int`
+as its first two arguments. Any other arguments can be passed
+via this method's `kwargs`.
+
+This optimisation always uses one of ASE's optimisers out of
+"BFGSLineSearch", "fire", "bfgs" or "lbfgs". The maximum force
+`fmax` and maximum number of iterations `maxiters` that this
+optimiser converges with can also be controlled.
+
+Directly modifies the atomic positions and energy of the
+passed in `frame` - for gas-phase species this updates
+`sd.xyz[i]`. For surface-phase species, their surface-bound
+form gets saved to `sd.cache[:ads_xyz][i]`, while isolated
+adsorbates are also updated to `sd.xyz[i]`.
+
+Energies returned are in eV. Returns a boolean for whether the
+optimisation converged.
+"""
+function geomopt!(sd::SpeciesData, i, calc_builder; calcdir::String="./", 
+                  optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, 
+                  check_isomorphic=true, kwargs...)
+    return geomopt!(SpeciesStyle(sd.toStr[i]), sd, i, calc_builder, calcdir, optimiser, fmax, maxiters,
+                    check_isomorphic, kwargs...)
+end
+
+function geomopt!(::GasSpecies, sd::SpeciesData, i, calc_builder, calcdir::String, 
+                  optimiser, fmax, maxiters, check_isomorphic, kwargs...)
+    frame = sd.xyz[i]
+    conv = geomopt!(frame, calc_builder; calcdir=calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
+                    formal_charges=sd.cache[:formal_charges][i], initial_magmoms=sd.cache[:initial_magmoms][i],
+                    optimiser=optimiser, fmax=fmax, maxiters=maxiters, check_isomorphic=check_isomorphic, kwargs...)
+    sd.xyz[i] = frame
+    return conv
+end
+
+function geomopt!(::SurfaceSpecies, sd::SpeciesData, i, calc_builder, calcdir::String, 
+                  optimiser, fmax, maxiters, check_isomorphic, kwargs...)
+    if isnothing(get(sd.cache, :ads_xyz, nothing))
+        throw(ErrorException("Missing cache keys, SpeciesData has not been set up for geometry optimisations."))
+    elseif isnothing(get(sd.cache[:ads_xyz], i, nothing))
+        throw(ErrorException("Surface species at SID $i is missing an initial conformation, try running `conformer_search!`."))
+    end
+    frame = sd.cache[:ads_xyz][i]
+    copy_frame = deepcopy(frame)
+    conv = geomopt!(frame, calc_builder; calcdir=calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
+                    formal_charges=sd.cache[:formal_charges][i], initial_magmoms=sd.cache[:initial_magmoms][i],
+                    optimiser=optimiser, fmax=fmax, maxiters=maxiters, check_isomorphic=false, kwargs...)
+    
+    # frame with surface goes to cache - (non)convergence had already been sorted.
+    sd.cache[:ads_xyz][i] = frame
+
+    # frame without surface gets information copied over and height tagged, then goes to sd.xyz
+    if conv
+        atoms = frame_to_atoms(frame, sd.cache[:formal_charges][i], sd.cache[:initial_magmoms][i])
+    else
+        atoms = frame_to_atoms(copy_frame, sd.cache[:formal_charges][i], sd.cache[:initial_magmoms][i])
+    end
+    _, mol, label = sd.surfdata.finder.predict(atoms)
+    if pylen(mol) > 1
+        throw(ErrorException("Multiple adsorbates returned from a single-molecule optimisation."))
+    end
+
+    adsorbate_frame = atoms_to_frame(mol[0], frame["info"]["energy_ASE"], pyconvert(Vector{Float64}, mol[0].get_moments_of_inertia()))
+    n_sites = pylen(label[0])
+    adsorbate_frame[:info][:ads_heights] = [pyconvert(Float64, label[0][i]["height"]) for i in 0:n_sites-1]
+
+    sd.xyz[i] = adsorbate_frame
+
+    return conv
+end
+
+"""
     geomopt!(frame::Dict{String, Any}, calc_builder[, calcdir::String="./", mult::Int=1, 
              chg::Int=0, formal_charges=nothing, initial_magmoms=nothing, 
              optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, check_isomorphic=true, 
-             kwargs...])   
+             kwargs...]) 
 
 Runs an ASE-driven geometry optimisation of the species in `frame`.
-
-Can be run directly from a `frame`, or a `frame` can be extracted
-from `sd.xyz[i]` in theh case of the second method. With this method,
-formal charges, total charge and spin multiplicity are assumed
-to have been calculated and cached in `sd.cache`. When running
-directly from a `frame`, this information must be passed manually.
 
 `calc_builder` should be a struct with a functor that returns
 a correctly constructed ASE calculator for the system at hand.
@@ -272,26 +352,30 @@ This optimisation always uses one of ASE's optimisers out of
 `fmax` and maximum number of iterations `maxiters` that this
 optimiser converges with can also be controlled.
 
+Additional graph isomorphism checks will be run through autodE
+if `check_isomorphic=true`. If a surface-phase system is
+optimised, this checks adosrption sites remain unchanged, and
+that each adsorbate maintains its own graph.
+
 Directly modifies the atomic positions and energy of the
 passed in `frame`. Energies returned are in eV. Returns a
-boolean for whether the optimisation was a conv.
+boolean for whether the optimisation converged.
 """
-function geomopt!(sd::SpeciesData, i, calc_builder; calcdir::String="./", 
-                  optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, 
-                  check_isomorphic=true, kwargs...)
-    frame = sd.xyz[i]
-    conv = geomopt!(frame, calc_builder; calcdir=calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
-                    formal_charges=sd.cache[:formal_charges][i], initial_magmoms=sd.cache[:initial_magmoms][i],
-                    optimiser=optimiser, fmax=fmax, maxiters=maxiters, check_isomorphic=check_isomorphic, kwargs...)
-    sd.xyz[i] = frame
-    return conv
-end
-
 function geomopt!(frame::Dict{String, Any}, calc_builder; 
                   calcdir::String="./", mult::Int=1, chg::Int=0, 
                   formal_charges=nothing, initial_magmoms=nothing,
                   optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, 
                   check_isomorphic=true, kwargs...)
+    return geomopt!(XYZStyle(frame), frame, calc_builder; calcdir=calcdir, mult=mult,
+                    chg=chg, formal_charges=formal_charges, initial_magmoms=initial_magmoms,
+                    optimiser=optimiser, fmax=fmax, maxiters=maxiters, 
+                    check_isomorphic=check_isomorphic, kwargs...)
+end
+
+function geomopt!(::FreeXYZ, frame::Dict{String, Any}, calc_builder; 
+                  calcdir::String, mult::Int, chg::Int, formal_charges,
+                  initial_magmoms, optimiser, fmax, maxiters, 
+                  check_isomorphic, kwargs...)
     @debug "Starting geometry optimisation."
     atoms = frame_to_atoms(frame, formal_charges, initial_magmoms)
     atoms.calc = calc_builder(calcdir, mult, chg, kwargs...)
@@ -343,6 +427,104 @@ function geomopt!(frame::Dict{String, Any}, calc_builder;
         frame["arrays"]["pos"] = pyconvert(Matrix, atoms.get_positions().T)
         frame["info"]["energy_ASE"] = pyconvert(Float64, atoms.get_potential_energy())
         frame["arrays"]["inertias"] = pyconvert(Vector{Float64}, atoms.get_moments_of_inertia())
+    else
+        @debug "Geometry optimisation failed."
+        frame["info"]["energy_ASE"] = init_energy
+        frame["arrays"]["inertias"] = init_inertias
+    end
+    return conv
+end
+
+function geomopt!(::OnSurfaceXYZ, frame::Dict{String, Any}, calc_builder; 
+                  calcdir::String, mult::Int, chg::Int, formal_charges, 
+                  initial_magmoms, optimiser, fmax, maxiters, 
+                  check_isomorphic, kwargs...)
+    @debug "Starting geometry optimisation."
+    atoms = frame_to_atoms(frame, formal_charges, initial_magmoms)
+    _, mols_preopt, labels_preopt = sd.surfdata.finder.predict(atoms)
+    atoms.calc = calc_builder(calcdir, mult, chg, kwargs...)
+    init_energy = pyconvert(Float64, atoms.get_potential_energy())
+    init_inertias = pyconvert(Vector{Float64}, atoms.get_moments_of_inertia())
+
+    if optimiser == "BFGSLineSearch"
+        opt = aseopt.QuasiNewton(atoms)
+    elseif optimiser == "fire"    
+        opt = aseopt.FIRE(atoms)
+    elseif optimiser == "bfgs"
+        opt = aseopt.BFGS(atoms)
+    elseif optimiser == "lbfgs"
+        opt = aseopt.LBFGS(atoms)
+    else
+        throw(ArgumentError("Unknown optimiser, must be one of [\"BFGSLineSearch\", \"fire\", \"bfgs\", \"lbfgs\"]"))
+    end
+
+    # Optimise with Python exception catching.
+    # Also check forces when 10% of the way in to ensure
+    # system has not exploded beyond repair.
+    conv = false; checkiters = Int(floor(maxiters/10))
+    try
+        conv = opt.run(fmax=fmax, steps=checkiters)
+        conv = pyconvert(Bool, pybuiltins.bool(conv))
+        if !conv
+            if pyconvert(Float64, opt.get_residual()) > 1e5
+                @debug "Optimisation has exploded."
+            else
+                conv = opt.run(fmax=fmax, steps=maxiters-checkiters)
+                conv = pyconvert(Bool, pybuiltins.bool(conv))
+            end
+        end
+    catch err
+        conv = false
+    end
+
+    mols_opt = nothing; labels_opt = nothing
+    if conv 
+        _, mols_opt, labels_opt = sd.surfdata.finder.predict(atoms)
+    end
+
+    if conv && check_isomorphic
+        # Check that number of molecules is the same.
+        # For each molecule, check number of sites is the same.
+        # For each site, check its corresponding site in the preopt is the same.
+        sites_match = pylen(labels_opt) == pylen(labels_preopt)
+        mol_index = 0
+        while sites_match && mol_index < pylen(labels_opt)
+            sites_match = (pylen(labels_opt[mol_index]) == pylen(labels_preopt[mol_index]))
+            if sites_match && pylen(labels_opt[mol_index]) > 0
+                sites_match = all([
+                    pyconvert(Bool, labels_opt[mol_index][site_index]["site"] == labels_preopt[mol_index][site_index]["site"]) 
+                    for site_index in 0:pylen(labels_opt[mol_index])-1
+                ])
+            end
+            mol_index += 1
+        end
+
+        if sites_match
+            # Use extracted molecules for autodE conformer check.
+            for (mol_preopt, mol_opt) in zip(mols_preopt, mols_opt)
+                graph_preopt = frame_to_autode(atoms_to_frame(mol_preopt); mult=1, chg=1).graph
+                graph_opt = frame_to_autode(atoms_to_frame(mol_opt); mult=1, chg=1).graph
+                if !autode_is_isomorphic(graph_preopt, graph_opt)
+                    conv = false
+                    @debug "Geometry optimisation breaks molecular graph for one or more adsorbates."
+                    break
+                end
+            end
+        else
+            conv = false
+            @debug "Geometry optimisation has moved adsorbate(s) to a different surface site."
+        end
+    end
+
+    if conv
+        @debug "Geometry optimisation complete."
+        frame["arrays"]["pos"] = pyconvert(Matrix, atoms.get_positions().T)
+        frame["info"]["energy_ASE"] = pyconvert(Float64, atoms.get_potential_energy())
+        frame["arrays"]["inertias"] = pyconvert(Vector{Float64}, atoms.get_moments_of_inertia())
+        if pylen(mols_opt) == 1
+            n_ads = pylen(labels_opt[0])
+            frame[:info][:ads_heights] = [pyconvert(Float64, labels_opt[0][i]["height"]) for i in 0:n_ads-1]
+        end
     else
         @debug "Geometry optimisation failed."
         frame["info"]["energy_ASE"] = init_energy

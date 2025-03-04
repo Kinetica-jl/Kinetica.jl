@@ -3,10 +3,16 @@
 
 Performs a conformer search for the species at `sd.xyz[sid]`, updating its geometry.
 
-Constructs an initial guess of species geometry from its SMILES,
+**Gas Phase:** Constructs an initial guess of species geometry from its SMILES,
 then runs an autodE conformer search with xTB as the energetic
 driver. Finds the lowest energy conformer and writes it back
 to `sd.xyz[sid]`.
+
+**Surface Phase:** Uses the starting geometry of an adsorbed species
+from `sd.xyz[sid]`, places it on its surface and performs an xTB-based
+search of rotamers around the z-axis of the adsorbed atom. Currently
+does not support multiply-bound species. Saves the resulting adsorbed
+geometry to `sd.cache[:ads_xyz][sid]`.
 
 Requires spin multiplicity and charge for the given species to be
 cached in `sd.cache[:mult][sid]` and `sd.cache[:charge][sid]` 

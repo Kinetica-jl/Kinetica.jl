@@ -1,5 +1,6 @@
 [deps]
 obcanonicalradicals = "==0.1.1"
+asesurfacefinder = ">=1.0.3"
 rdkit = ""
 xtb = ""
 matplotlib = ""
@@ -13,5 +14,4 @@ scipy = "<=1.5.4"
 python = ">=3.7,<3.11"
 
 [pip.deps]
-asesurfacefinder = ">=1.0.2"
 extxyz = "~=0.1.3"
