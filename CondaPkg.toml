@@ -12,6 +12,7 @@ rmsd = ""
 tblite-python = ""
 numpy = "<2"
 scipy = "<=1.5.4"
+scikit-learn = "<=1.5.2"
 python = ">=3.7,<3.11"
 
 [pip.deps]
