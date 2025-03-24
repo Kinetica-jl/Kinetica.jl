@@ -277,9 +277,9 @@ end
 function geomopt!(::GasSpecies, sd::SpeciesData, i, calc_builder, calcdir::String, 
                   optimiser, fmax, maxiters, check_isomorphic, kwargs...)
     frame = sd.xyz[i]
-    conv = geomopt!(frame, calc_builder; calcdir=calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
+    conv = geomopt!(frame, calc_builder; calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
                     formal_charges=sd.cache[:formal_charges][i], initial_magmoms=sd.cache[:initial_magmoms][i],
-                    optimiser=optimiser, fmax=fmax, maxiters=maxiters, check_isomorphic=check_isomorphic, kwargs...)
+                    optimiser, fmax, maxiters, check_isomorphic, kwargs...)
     sd.xyz[i] = frame
     return conv
 end
@@ -293,10 +293,10 @@ function geomopt!(::SurfaceSpecies, sd::SpeciesData, i, calc_builder, calcdir::S
     end
     frame = sd.cache[:ads_xyz][i]
     copy_frame = deepcopy(frame)
-    conv = geomopt!(frame, calc_builder; calcdir=calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
+    conv = geomopt!(frame, calc_builder, sd.surfdata; calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
                     formal_charges=sd.cache[:formal_charges][i], initial_magmoms=sd.cache[:initial_magmoms][i],
-                    optimiser=optimiser, fmax=fmax, maxiters=maxiters, check_isomorphic=false, kwargs...)
-    
+                    optimiser, fmax, maxiters, check_isomorphic, kwargs...)
+
     # frame with surface goes to cache - (non)convergence had already been sorted.
     sd.cache[:ads_xyz][i] = frame
 
@@ -325,6 +325,10 @@ end
              chg::Int=0, formal_charges=nothing, initial_magmoms=nothing, 
              optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, check_isomorphic=true, 
              kwargs...]) 
+    geomopt!(frame::Dict{String, Any}, calc_builder, surfdata::SurfaceData[, calcdir::String="./",
+             mult::Int=1, chg::Int=0, formal_charges=nothing, initial_magmoms=nothing, 
+             optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, check_isomorphic=true, 
+             kwargs...]) 
 
 Runs an ASE-driven geometry optimisation of the species in `frame`.
 
@@ -336,6 +340,10 @@ and sometimes charge must be input separately. For this reason,
 the `calc_builder` functor must take `mult::Int` and `charge::Int`
 as its first two arguments. Any other arguments can be passed
 via this method's `kwargs`.
+
+If `surfdata` is provided, this assumes that the system in `frame`
+contains molecules on/above a surface and will dispatch a method with
+different isomorphism checks.
 
 Some ASE calculators handle charged species at the `Atoms` level.
 These require an array of formal charges on each atom to be
@@ -366,16 +374,6 @@ function geomopt!(frame::Dict{String, Any}, calc_builder;
                   formal_charges=nothing, initial_magmoms=nothing,
                   optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, 
                   check_isomorphic=true, kwargs...)
-    return geomopt!(XYZStyle(frame), frame, calc_builder; calcdir=calcdir, mult=mult,
-                    chg=chg, formal_charges=formal_charges, initial_magmoms=initial_magmoms,
-                    optimiser=optimiser, fmax=fmax, maxiters=maxiters, 
-                    check_isomorphic=check_isomorphic, kwargs...)
-end
-
-function geomopt!(::FreeXYZ, frame::Dict{String, Any}, calc_builder; 
-                  calcdir::String, mult::Int, chg::Int, formal_charges,
-                  initial_magmoms, optimiser, fmax, maxiters, 
-                  check_isomorphic, kwargs...)
     @debug "Starting geometry optimisation."
     atoms = frame_to_atoms(frame, formal_charges, initial_magmoms)
     atoms.calc = calc_builder(calcdir, mult, chg, kwargs...)
@@ -435,13 +433,14 @@ function geomopt!(::FreeXYZ, frame::Dict{String, Any}, calc_builder;
     return conv
 end
 
-function geomopt!(::OnSurfaceXYZ, frame::Dict{String, Any}, calc_builder; 
-                  calcdir::String, mult::Int, chg::Int, formal_charges, 
-                  initial_magmoms, optimiser, fmax, maxiters, 
-                  check_isomorphic, kwargs...)
+function geomopt!(frame::Dict{String, Any}, calc_builder, surfdata::SurfaceData; 
+                  calcdir::String="./", mult::Int=1, chg::Int=0, 
+                  formal_charges=nothing, initial_magmoms=nothing,
+                  optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, 
+                  check_isomorphic=true, kwargs...)
     @debug "Starting geometry optimisation."
     atoms = frame_to_atoms(frame, formal_charges, initial_magmoms)
-    _, mols_preopt, labels_preopt = sd.surfdata.finder.predict(atoms)
+    _, mols_preopt, labels_preopt = surfdata.finder.predict(atoms)
     atoms.calc = calc_builder(calcdir, mult, chg, kwargs...)
     init_energy = pyconvert(Float64, atoms.get_potential_energy())
     init_inertias = pyconvert(Vector{Float64}, atoms.get_moments_of_inertia())
@@ -479,7 +478,7 @@ function geomopt!(::OnSurfaceXYZ, frame::Dict{String, Any}, calc_builder;
 
     mols_opt = nothing; labels_opt = nothing
     if conv 
-        _, mols_opt, labels_opt = sd.surfdata.finder.predict(atoms)
+        _, mols_opt, labels_opt = surfdata.finder.predict(atoms)
     end
 
     if conv && check_isomorphic
