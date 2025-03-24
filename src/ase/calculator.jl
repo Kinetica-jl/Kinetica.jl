@@ -563,13 +563,22 @@ function Base.splice!(calc::ASENEBCalculator, rids::Vector{Int})
     splice!(calc.cached_rhashes, rids)
 end
 
+# TODO: Entropy and enthalpy calculations currently do not account for:
+# a) Surface reaction endpoints where molecules are not adsorbed to the surface
+# b) Surface reaction endpoints with 2 or more adsorbates
+# These will need to be added once there is a better idea of how surface energies
+# are being tracked.
 
 """
     get_entropy(sd, sid, T, P)
 
 Returns the entropy of a given species in `sd`, indexed by species ID `sid`, at temperature `T` and pressure `P`.
+
+Dispatches to an ideal gas TST method or a harmonic limit method depending
+on whether a species is gas-phase or surface-phase.
 """
-function get_entropy(sd::SpeciesData, sid, T, P)
+get_entropy(sd::SpeciesData, sid, T, P) = get_entropy(SpeciesStyle(sd.toStr[sid]), sid, T, P)
+function get_entropy(::GasSpecies, sd::SpeciesData, sid, T, P)
     return get_entropy(
         sd.cache[:weights][sid],
         sd.xyz[sid]["arrays"]["inertias"],
@@ -580,15 +589,23 @@ function get_entropy(sd::SpeciesData, sid, T, P)
         T, P
     )
 end
+function get_entropy(::SurfaceSpecies, sd::SpeciesData, sid, T, P)
+    throw(ErrorException("Surface species rate calculation is currently unfinished."))
+    return get_entropy(sd.cache[:vib_energies][sid], T)
+end
 
 """
     get_entropy(ts_cache, rid, mass, T, P)
 
 Returns the entropy of the given transition state of reaction ID `rid` at temperature `T` and pressure `P`.
 
+Dispatches to an ideal gas TST method or a harmonic limit method depending
+on whether the transition state is gas-phase or surface-phase.
+
 `mass` is usually provided as a result of accumulating reactant masses.
 """
-function get_entropy(ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
+get_entropy(ts_cache::Dict{Symbol, Any}, rid, mass, T, P) = get_entropy(XYZStyle(ts_cache[:xyz][rid]), ts_cache, rid, mass, T, P)
+function get_entropy(::FreeXYZ, ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
     return get_entropy(
         mass,
         ts_cache[:xyz][rid]["arrays"]["inertias"],
@@ -599,11 +616,15 @@ function get_entropy(ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
         T, P
     )
 end
+function get_entropy(::OnSurfaceXYZ, ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
+    throw(ErrorException("Surface species rate calculation is currently unfinished."))
+    return get_entropy(ts_cache[:vib_energies][rid], T)
+end
 
 """
     get_entropy(mass, inertias, geometry, symmetry, mult, vib_energies, T, P)
 
-Returns the entropy of a given system at temperature `T` and pressure `P`.
+Returns the ideal gas TST entropy of a given system at temperature `T` and pressure `P`.
 
 Used as the generic backend for species-specific and TS-specific
 methods.
@@ -656,27 +677,64 @@ function get_entropy(mass, inertias, geometry, symmetry, mult, vib_energies, T, 
 end
 
 """
+    get_entropy(vib_energies, T)
+
+Returns the harmonic limit entropy of a given system at temperature `T` and pressure `P`.
+
+Used as the generic backend for species-specific and TS-specific
+methods.
+"""
+function get_entropy(vib_energies, T)
+    kT = Constants.kB * T
+    S = 0.0
+    for e in vib_energies
+        x = e/kT
+        S += x / (exp(x) - 1.0) - log(1.0 - exp(-x))
+    end
+    S *= Constants.kB
+
+    return S
+end
+
+
+"""
     get_enthalpy(sd, sid, T)
 
 Returns the enthalpy of a given species in `sd`, indexed by species ID `sid`, at temperature `T`.
+
+Dispatches to an ideal gas TST method or a harmonic limit method depending
+on whether a species is gas-phase or surface-phase.
 """
-function get_enthalpy(sd::SpeciesData, sid, T)
+get_enthalpy(sd::SpeciesData, sid, T) = get_enthalpy(SpeciesStyle(sd.toStr[sid]), sd, sid, T)
+function get_enthalpy(::GasSpecies, sd::SpeciesData, sid, T)
     return get_enthalpy(sd.xyz[sid]["info"]["energy_ASE"], sd.cache[:vib_energies][sid], sd.cache[:geometry][sid], T)
+end
+function get_enthalpy(::SurfaceSpecies, sd::SpeciesData, sid, T)
+    throw(ErrorException("Surface species rate calculation is currently unfinished."))
+    return get_enthalpy(sd.xyz[sid]["info"]["energy_ASE"], sd.cache[:vib_energies][sid], T)
 end
 
 """
     get_enthalpy(ts_cache, rid, T)
 
 Returns the enthalpy of the given transition state of reaction ID `rid` at temperature `T`.
+
+Dispatches to an ideal gas TST method or a harmonic limit method depending
+on whether the transition state is gas-phase or surface-phase.
 """
-function get_enthalpy(ts_cache::Dict{Symbol, Any}, rid, T)
+get_enthalpy(ts_cache::Dict{Symbol, Any}, rid, T) = get_enthalpy(XYZStyle(ts_cache[:xyz][rid]), ts_cache, rid, T)
+function get_enthalpy(::FreeXYZ, ts_cache::Dict{Symbol, Any}, rid, T)
     return get_enthalpy(ts_cache[:xyz][rid]["info"]["energy_ASE"], ts_cache[:vib_energies][rid], ts_cache[:geometry][rid], T)
+end
+function get_enthalpy(::OnSurfaceXYZ, ts_cache::Dict{Symbol, Any}, rid, T)
+    throw(ErrorException("Surface species rate calculation is currently unfinished."))
+    return get_enthalpy(ts_cache[:xyz][rid]["info"]["energy_ASE"], ts_cache[:vib_energies][rid], T)
 end
 
 """
     get_enthalpy(energy, vib_energies, geometry, T)
 
-Returns the enthalpy of a given system at temperature `T`.
+Returns the ideal gas TST enthalpy of a given system at temperature `T`.
 
 Used as the generic backend for species-specific and TS-specific
 methods.
@@ -698,6 +756,33 @@ function get_enthalpy(energy, vib_energies, geometry, T)
         H += Constants.kB * T
     elseif geometry == 2
         H += Constants.kB * 1.5 * T
+    end
+
+    # Vibrational heat capacity
+    kT = Constants.kB * T
+    for e in vib_energies
+        H += e / (exp(e/kT) - 1)
+    end
+
+    H += Constants.kB * T
+    return H
+end
+
+"""
+    get_enthalpy(energy, vib_energies, T)
+
+Returns the harmonic limit enthalpy of a given system at temperature `T`.
+
+Used as the generic backend for species-specific and TS-specific
+methods.
+"""
+function get_enthalpy(energy, vib_energies, T)
+    H = 0.0
+    H += energy
+
+    # Add ZPE correction.
+    for e in vib_energies
+        H += 0.5 * e
     end
 
     # Vibrational heat capacity
