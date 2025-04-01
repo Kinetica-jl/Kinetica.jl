@@ -94,8 +94,7 @@ to only add unique reactions to `RxData`.
 function import_mechanism!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, rcount;
         max_molecularity=2, duplicate_reverse=true, unique_rxns=true)
     rdir = pathof(loc)
-    rsmis, rxyzs, rsys, psmis, pxyzs, psys, dHs = ingest_cde_run(rdir, rcount; 
-                                                                 duplicate_reverse=duplicate_reverse)
+    rsmis, rxyzs, rsys, psmis, pxyzs, psys, dHs = ingest_cde_run(rdir, rcount, sd.surfdata; duplicate_reverse)
     all_smis = vcat(reduce(vcat, rsmis), reduce(vcat, psmis))
     all_xyzs = vcat(reduce(vcat, rxyzs), reduce(vcat, pxyzs))
     push_unique!(sd, all_smis, all_xyzs, loc.level)
