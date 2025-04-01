@@ -30,6 +30,7 @@ end
 abstract type AbstractXYZ end
 
 struct FreeXYZ <: AbstractXYZ end
+struct AdsorbateXYZ <: AbstractXYZ end
 struct OnSurfaceXYZ <: AbstractXYZ end
 
 """
@@ -41,8 +42,10 @@ Detects if a frame has any periodic boundaries enabled, in which case
 it is assumed to represent one or more species, on or above a surface.
 """
 function XYZStyle(frame::Dict{String, Any})
-    if any(frame["pbc"])
+    if haskey(frame, "pbc") && any(frame["pbc"])
         return OnSurfaceXYZ()
+    elseif haskey(frame["info"], "adsorbate") && frame["info"]["adsorbate"] == "true"
+        return AdsorbateXYZ()
     else
         return FreeXYZ()
     end
