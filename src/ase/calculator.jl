@@ -616,7 +616,7 @@ function get_entropy(::FreeXYZ, ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
         T, P
     )
 end
-function get_entropy(::OnSurfaceXYZ, ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
+function get_entropy(::AdsorbateXYZ, ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
     throw(ErrorException("Surface species rate calculation is currently unfinished."))
     return get_entropy(ts_cache[:vib_energies][rid], T)
 end
@@ -726,7 +726,7 @@ get_enthalpy(ts_cache::Dict{Symbol, Any}, rid, T) = get_enthalpy(XYZStyle(ts_cac
 function get_enthalpy(::FreeXYZ, ts_cache::Dict{Symbol, Any}, rid, T)
     return get_enthalpy(ts_cache[:xyz][rid]["info"]["energy_ASE"], ts_cache[:vib_energies][rid], ts_cache[:geometry][rid], T)
 end
-function get_enthalpy(::OnSurfaceXYZ, ts_cache::Dict{Symbol, Any}, rid, T)
+function get_enthalpy(::AdsorbateXYZ, ts_cache::Dict{Symbol, Any}, rid, T)
     throw(ErrorException("Surface species rate calculation is currently unfinished."))
     return get_enthalpy(ts_cache[:xyz][rid]["info"]["energy_ASE"], ts_cache[:vib_energies][rid], T)
 end
