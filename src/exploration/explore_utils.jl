@@ -83,7 +83,7 @@ and bimolecular reactions.
 function import_mechanism!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, rcount;
         max_molecularity=2)
     rdir = pathof(loc)
-    rsmis, rxyzs, rsys, psmis, pxyzs, psys, dHs = ingest_cde_run(rdir, rcount)
+    rsmis, rxyzs, rsys, psmis, pxyzs, psys, dHs = ingest_cde_run(rdir, rcount, sd.surfdata)
     all_smis = vcat(reduce(vcat, rsmis), reduce(vcat, psmis))
     all_xyzs = vcat(reduce(vcat, rxyzs), reduce(vcat, pxyzs))
     push_unique!(sd, all_smis, all_xyzs, loc.level)

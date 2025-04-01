@@ -584,8 +584,12 @@ end
 
 """
     init_network([iType=Int64, fType=Float64])
+    init_network(surfdata::SurfaceData[, iType=Int64, fType=Float64])
 
 Initialises an empty reaction network.
+
+If initialised with `surfdata`, the resulting CRN will implicitly
+support surfaces.
 
 Returns an empty `SpeciesData{iType}` and RxData{iType, fType}.
 """
@@ -603,7 +607,22 @@ function init_network(; iType=Int64, fType=Float64)
         Vector{iType}[], Vector{iType}[], 
         fType[], Vector{UInt8}[], Vector{Int}[]
     )
-
+    return sd, rd
+end
+function init_network(surfdata::SurfaceData; iType=Int64, fType=Float64)
+    sd = SpeciesData{iType}(
+        Dict{String, iType}(), Dict{iType, String}(),
+        0, 
+        Dict{iType, Dict{String, Any}}(), 
+        surfdata,
+        Dict{iType, Int}(), Dict()
+    )
+    rd = RxData{iType, fType}(
+        0, String[],
+        Vector{iType}[], Vector{iType}[], 
+        Vector{iType}[], Vector{iType}[], 
+        fType[], Vector{UInt8}[], Vector{Int}[]
+    )
     return sd, rd
 end
 
