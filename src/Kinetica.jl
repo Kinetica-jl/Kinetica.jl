@@ -196,6 +196,8 @@ include("exploration/explore_utils.jl")
 export import_mechanism, import_mechanism!, import_network
 include("exploration/molecule_system.jl")
 export system_from_smiles, system_from_mols
+include("exploration/surface_utils.jl")
+export adsorb_frame, adsorb_two_frames
 
 include("solving/calculator.jl")
 export DummyKineticCalculator, PrecalculatedArrheniusCalculator, PrecalculatedLindemannCalculator
