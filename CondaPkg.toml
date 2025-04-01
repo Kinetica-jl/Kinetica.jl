@@ -1,6 +1,6 @@
 [deps]
 obcanonicalradicals = "==0.1.1"
-asesurfacefinder = ">=1.0.3"
+asesurfacefinder = ">=1.0.5"
 rdkit = ""
 xtb = ""
 matplotlib = ""
