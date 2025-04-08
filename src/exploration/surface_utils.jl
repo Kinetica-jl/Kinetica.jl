@@ -23,7 +23,7 @@ function adsorb_frame(sd::SpeciesData, sid::Int, heights=nothing)
     return adsorb_frame(frame, surfdata, smi, heights)
     
 end
-function adsorb_frame(frame::Dict{String, Any}, surfdata::SurfaceData, smi::String, heights=nothing)
+function adsorb_frame(frame::Dict{String, Any}, surfdata::SurfaceData, smi::String, heights=nothing; max_attempts=10)
     surfid = get_surfid(smi)
     siteids = get_surf_siteids(smi)
     if !isnothing(heights) && length(heights) != length(siteids)
@@ -33,7 +33,7 @@ function adsorb_frame(frame::Dict{String, Any}, surfdata::SurfaceData, smi::Stri
     surf = surfdata.surfaces[surfid]
     atoms = pycopy.deepcopy(surf.atoms)
     surf_covradius = mean(
-        [pyconvert(Float64, Kinetica.ase.data.covalent_radii[Kinetica.ase.data.atomic_numbers[elem]]) for elem in surf.elements]
+        [pyconvert(Float64, ase.data.covalent_radii[ase.data.atomic_numbers[elem]]) for elem in surf.elements]
     )
     amsmi = atom_map_smiles(frame, smi)
     site_atomids = get_surf_site_atomids(amsmi)
@@ -43,10 +43,39 @@ function adsorb_frame(frame::Dict{String, Any}, surfdata::SurfaceData, smi::Stri
         ads_atomid = site_atomids["X$(surfid)_$(siteids[1])"]-1
         ads_atoms = frame_to_atoms(frame)
         ads_atomtype = frame["arrays"]["species"][ads_atomid+1]
-        ads_atom_covradius = Kinetica.ase.data.covalent_radii[Kinetica.ase.data.atomic_numbers[ads_atomtype]]
+        ads_atom_covradius = ase.data.covalent_radii[ase.data.atomic_numbers[ads_atomtype]]
         site_name = surf.sites[siteids[1]]
         height = !isnothing(heights) ? heights[1] : surf_covradius+ads_atom_covradius
-        asebuild.add_adsorbate(atoms, ads_atoms, height, site_name, mol_index=ads_atomid)
+
+        attempts = 0
+        uc_mult = 1
+        while attempts < max_attempts
+            attempts += 1
+            surf_na = pylen(atoms)
+            asebuild.add_adsorbate(atoms, ads_atoms, height, site_name, mol_index=ads_atomid)
+
+            # Expand surface to check overlaps of periodic adsorbate copies.
+            atoms_rep = atoms.repeat((2, 2, 1))
+            ads1_idxs = [i+1 for i in surf_na:pylen(atoms)-1]
+            ads2_idxs = ads1_idxs .+ pylen(atoms)
+            ads3_idxs = ads1_idxs .+ 2*pylen(atoms)
+            ads4_idxs = ads1_idxs .+ 3*pylen(atoms)
+            if !adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads2_idxs, 5.0) &&
+               !adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads3_idxs, 5.0) &&
+               !adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads4_idxs, 5.0) &&
+               !adsorbed_system_has_overlap(atoms_rep, ads2_idxs, ads3_idxs, 5.0)
+                break
+            end
+
+            # If overlaps are detected, repeat the surface and try again.
+            uc_mult += 1
+            atoms = pycopy.deepcopy(surf.atoms).repeat((uc_mult, uc_mult, 1))
+            @debug "Overlaps detected during single-molecule adsorption, extending surface (unit cell multiplier: x$(uc_mult))."
+        end
+
+        if attempts >= max_attempts
+            throw(ErrorException("Maximum number of attempts reached, adsorption failed."))
+        end
     else
         # Needs a rigid optimisation that pulls adsorbed atoms to correct sites.
         throw(ErrorException("Adsorption of species at multiple sites is not currently supported."))
@@ -133,29 +162,62 @@ function adsorb_two_frames(::FreeXYZ, ::AdsorbateXYZ, ads1::Dict{String, Any}, a
 
         # Combine adsorbate with the surface
         surf_ads_atoms = surf_atoms + ads_atoms
+        ads1_idxs = [i+1 for i in pylen(surf_atoms):pylen(surf_ads_atoms)-1]
 
         # Move gas species to centre of unit cell.
         uc_mid_vector = np.sum(surf_atoms.get_cell()[pyslice(0,2), pyslice(0,2)], axis=0) / 2.0
         gas_positions_centred = gas_positions + np.array([uc_mid_vector[0], uc_mid_vector[1], 0.0])
 
         # Move bottom of gas species 5 Ang above highest atoms.
-        surf_max_z = maximum(combined_atoms.get_positions()[0:pylen(combined_atoms)-1, 2])
+        surf_max_z = maximum(surf_ads_atoms.get_positions()[0:pylen(surf_ads_atoms)-1, 2])
         gas_min_z = minimum(gas_positions[0:pylen(gas_atoms)-1, 2])
         zdiff = surf_max_z - gas_min_z
         gas_atoms.set_positions(gas_positions_centred + np.array([0.0, 0.0, zdiff + 5.0 + z_additional]))
         combined_atoms = surf_ads_atoms + gas_atoms
+        gas1_idxs = [i+1 for i in pylen(surf_ads_atoms):pylen(combined_atoms)-1]
 
-        if has_overlap(combined_atoms)
-            # Extend z height of gas species.
+        # Extend z height of gas species if it collides with adsorbate.
+        if adsorbed_system_has_overlap(combined_atoms, ads1_idxs, gas1_idxs, 3.0)
             z_additional += 1.0
-        elseif !within_unit_cell(combined_atoms)
+            @debug "Gas species overlaps with adsorbate in gas-surface system, raising gas molecule by 1 Ang."
+            continue
+        end
+
+        # Repeat unit cell and check adsorbate and gas species against periodic images.
+        atoms_rep = combined_atoms.repeat((2, 2, 1))
+        ads2_idxs = ads1_idxs .+ pylen(combined_atoms)
+        gas2_idxs = gas1_idxs .+ pylen(combined_atoms)
+        ads3_idxs = ads1_idxs .+ 2*pylen(combined_atoms)
+        gas3_idxs = gas1_idxs .+ 2*pylen(combined_atoms)
+        ads4_idxs = ads1_idxs .+ 3*pylen(combined_atoms)
+        gas4_idxs = gas1_idxs .+ 3*pylen(combined_atoms)
+        if adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads2_idxs, 5.0) || # Ads/ads checks
+           adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads3_idxs, 5.0) ||
+           adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads4_idxs, 5.0) ||
+           adsorbed_system_has_overlap(atoms_rep, ads2_idxs, ads3_idxs, 5.0) ||
+           adsorbed_system_has_overlap(atoms_rep, gas1_idxs, gas2_idxs, 5.0) || # Gas/gas checks
+           adsorbed_system_has_overlap(atoms_rep, gas1_idxs, gas3_idxs, 5.0) ||
+           adsorbed_system_has_overlap(atoms_rep, gas1_idxs, gas4_idxs, 5.0) ||
+           adsorbed_system_has_overlap(atoms_rep, gas2_idxs, gas3_idxs, 5.0) ||
+           adsorbed_system_has_overlap(atoms_rep, ads1_idxs, gas2_idxs, 5.0) || # Ads/gas checks
+           adsorbed_system_has_overlap(atoms_rep, ads1_idxs, gas3_idxs, 5.0) ||
+           adsorbed_system_has_overlap(atoms_rep, ads1_idxs, gas4_idxs, 5.0) ||
+           adsorbed_system_has_overlap(atoms_rep, ads2_idxs, gas1_idxs, 5.0) ||
+           adsorbed_system_has_overlap(atoms_rep, ads2_idxs, gas3_idxs, 5.0) ||
+           adsorbed_system_has_overlap(atoms_rep, ads3_idxs, gas1_idxs, 5.0) ||
+           adsorbed_system_has_overlap(atoms_rep, ads3_idxs, gas2_idxs, 5.0) ||
+           adsorbed_system_has_overlap(atoms_rep, ads4_idxs, gas1_idxs, 5.0)
             # Extend the surface if overlap is detected
             uc_mult += 1
             surf_atoms = pycopy.deepcopy(surf.atoms).repeat((uc_mult, uc_mult, 1))
-            ads_frame = atoms_to_frame(combined_atoms)
-            ads_frame["info"]["unit_cell_mult"] = uc_mult
-            return ads_frame
+            @debug "Overlaps detected during gas-surface adsorption, extending surface (unit cell multiplier: x$(uc_mult))."
+            continue
         end
+
+        # If no overlaps are detected, use this configuration.
+        ads_frame = atoms_to_frame(combined_atoms)
+        ads_frame["info"]["unit_cell_mult"] = uc_mult
+        return ads_frame
     end
 
     throw(ErrorException("Maximum number of attempts reached, adsorption failed."))
@@ -182,34 +244,83 @@ function adsorb_two_frames(::AdsorbateXYZ, ::AdsorbateXYZ, ads1::Dict{String, An
 
         # Combine adsorbates with the surface
         combined_atoms = surf_atoms + ads1_atoms + ads2_atoms
+        ads1_idxs = [i+1 for i in pylen(surf_atoms):pylen(surf_atoms)+pylen(ads1_atoms)-1]
+        ads2_idxs = [i+1 for i in pylen(surf_atoms)+pylen(ads1_atoms):pylen(combined_atoms)-1]
 
-        if !has_overlap(combined_atoms)
-            ads_frame = atoms_to_frame(combined_atoms)
-            ads_frame["info"]["unit_cell_mult"] = uc_mult
-            return ads_frame
+        # First check that adsorbates in the base cell do not overlap.
+        if adsorbed_system_has_overlap(combined_atoms, ads1_idxs, ads2_idxs)
+            # Extend the surface if overlap is detected, moving ads2 to match.
+            uc_mult += 1
+            surf_atoms = pycopy.deepcopy(surf.atoms).repeat((uc_mult, uc_mult, 1))
+            uc_vector = np.sum(surf_atoms.get_cell()[pyslice(0,2), pyslice(0,2)], axis=0)/2
+            ads2_atoms.set_positions(ads2_pos + np.array([uc_vector[0], uc_vector[1], 0.0]))
+            @debug "Overlaps detected during double-adsorbate adsorption, extending surface and moving second adsorbate (unit cell multiplier: x$(uc_mult))."
+            continue
         end
 
-        # Extend the surface if overlap is detected
-        uc_mult += 1
-        println(uc_mult)
-        surf_atoms = surf.atoms.copy().repeat((uc_mult, uc_mult, 1))
-        uc_vector = np.sum(surf_atoms.get_cell()[pyslice(0,2), pyslice(0,2)], axis=0)
-        ads2_atoms.set_positions(ads2_pos + np.array([uc_vector[0], uc_vector[1], 0.0]))
+        atoms_rep = combined_atoms.repeat((2, 2, 1))
+        ads3_idxs = ads1_idxs .+ pylen(combined_atoms)
+        ads4_idxs = ads2_idxs .+ pylen(combined_atoms)
+        ads5_idxs = ads1_idxs .+ 2*pylen(combined_atoms)
+        ads6_idxs = ads2_idxs .+ 2*pylen(combined_atoms)
+        ads7_idxs = ads1_idxs .+ 3*pylen(combined_atoms)
+        ads8_idxs = ads2_idxs .+ 3*pylen(combined_atoms)
+
+        # Check for overlaps of periodic adsorbate copies.
+        if adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads3_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads4_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads5_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads6_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads7_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads8_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads2_idxs, ads3_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads2_idxs, ads4_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads2_idxs, ads5_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads2_idxs, ads6_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads2_idxs, ads7_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads2_idxs, ads8_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads3_idxs, ads5_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads3_idxs, ads6_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads4_idxs, ads5_idxs) ||
+           adsorbed_system_has_overlap(atoms_rep, ads4_idxs, ads6_idxs)
+            # Extend the surface if overlap is detected, without moving ads2.
+            uc_mult += 1
+            surf_atoms = pycopy.deepcopy(surf.atoms).repeat((uc_mult, uc_mult, 1))
+            @debug "Overlaps detected during double-adsorbate adsorption, extending surface (unit cell multiplier: x$(uc_mult))."
+            continue
+        end
+           
+        # If no overlaps are detected, use this configuration.
+        ads_frame = atoms_to_frame(combined_atoms)
+        ads_frame["info"]["unit_cell_mult"] = uc_mult
+        return ads_frame
     end
 
     throw(ErrorException("Maximum number of attempts reached. Adsorption failed due to overlapping atoms."))
 end
 
 """
-    has_overlap(atoms::Py)
+    adsorbed_system_has_overlap(atoms::Py, ads1_idxs::Vector{Int}, ads2_idxs::Vector{Int}, min_distance::Float64=2.0)
 
-Checks if there is any overlap between atoms in the given ASE atoms object.
+Checks if there is any overlap between adsorbate atoms in the given ASE atoms object.
+
+Identifies positions of the atoms of each adsorbate and checks
+distances between every pair. If any distances are less than
+the sum of `min_distance` and the covalent radii of the two atoms,
+an overlap is detected.
 """
-function has_overlap(atoms::Py)
+function adsorbed_system_has_overlap(atoms::Py, ads1_idxs::Vector{Int}, ads2_idxs::Vector{Int}, min_distance::Float64=2.0)
     positions = pyconvert(Matrix{Float64}, atoms.get_positions())
-    for i in axes(positions, 1)[begin:end-1]
-        for j in i+1:size(positions, 1)
-            if norm(positions[i, :] - positions[j, :]) < 1.0  # Threshold distance for overlap
+    ads1_pos = positions[ads1_idxs, :]
+    ads2_pos = positions[ads2_idxs, :]
+    # Get covalent radii of atoms in adsorbates
+    ads1_radii = [pyconvert(Float64, Kinetica.ase.data.covalent_radii[Kinetica.ase.data.atomic_numbers[atoms.get_chemical_symbols()[i]]]) for i in ads1_idxs .- 1]
+    ads2_radii = [pyconvert(Float64, Kinetica.ase.data.covalent_radii[Kinetica.ase.data.atomic_numbers[atoms.get_chemical_symbols()[i]]]) for i in ads2_idxs .- 1]
+
+    # Check for overlap of atoms across adsorbates, including covalent radii
+    for i in axes(ads1_pos, 1)
+        for j in axes(ads2_pos, 1)
+            if norm(ads1_pos[i, :] - ads2_pos[j, :]) < (ads1_radii[i] + ads2_radii[j] + min_distance)
                 return true
             end
         end

@@ -39,8 +39,12 @@ function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=
     for (ads_molecule, sf_labels) in zip(ads_molecules, sf_labels_per_molecule)
         ads_atom_idxs = pyconvert(Vector{Int}, sf_labels.keys())
         ads_frame = atoms_to_frame(ads_molecule)
+        if length(ads_atom_idxs) > 0
+            ads_frame["info"]["adsorbate"] = "true"
+        end
         push!(xyz_list, ads_frame)
         ads_pbmol = pybel.readstring("xyz", frame_to_xyz(ads_frame))
+        ads_pbmol.title = ""
         ads_smi = String(strip(pyconvert(String, ads_pbmol.write("can")), ['\n', '\t']))
 
         if fix_radicals && pyconvert(Bool, obcr.is_radical(ads_smi))
@@ -89,6 +93,10 @@ function ingest_xyz_system(xyz_str::String; fix_radicals=true)
     pbmol = pybel.readstring("xyz", xyz_str)
     fragments = [pybel.Molecule(obmol) for obmol in pbmol.OBMol.Separate()]
     n = length(fragments)
+    # Remove extra info that OB assumes is important.
+    for i in 1:n
+        fragments[i].title = ""
+    end
     smi_list = String[String(strip(pyconvert(String, frag.write("can")), ['\n', '\t'])) for frag in fragments]
 
     # Fix radical structures if requested.
@@ -197,7 +205,18 @@ the `write_frames` function of ExtXYZ.
 function frame_to_xyz(frame::Dict{String, Any})
     na = frame["N_atoms"]
     s = "$na\n"
-    comment = join(["$key=$value" for (key, value) in frame["info"]], " ")
+
+    comment_parts = []
+    if haskey(frame, "cell")
+        push!(comment_parts, "Lattice=\"$(join(reduce(vcat, frame["cell"]'), " "))\"")
+    end
+    if haskey(frame, "pbc")
+        push!(comment_parts, "pbc=\"$(join([i ? "T" : "F" for i in frame["pbc"]], " "))\"")
+    end
+    for (key, value) in frame["info"]
+        push!(comment_parts, "$key=$value")
+    end
+    comment = join(comment_parts, " ")
     s *= "$comment\n"
     for i in 1:na
         s *= "$(frame["arrays"]["species"][i]) $(frame["arrays"]["pos"][1, i]) $(frame["arrays"]["pos"][2, i]) $(frame["arrays"]["pos"][3, i])\n"
