@@ -31,7 +31,7 @@ function adsorb_frame(frame::Dict{String, Any}, surfdata::SurfaceData, smi::Stri
     end
 
     surf = surfdata.surfaces[surfid]
-    atoms = surf.atoms.copy()
+    atoms = pycopy.deepcopy(surf.atoms)
     surf_covradius = mean(
         [pyconvert(Float64, Kinetica.ase.data.covalent_radii[Kinetica.ase.data.atomic_numbers[elem]]) for elem in surf.elements]
     )
@@ -116,7 +116,7 @@ function adsorb_two_frames(::FreeXYZ, ::AdsorbateXYZ, ads1::Dict{String, Any}, a
         throw(ErrorException("Adsorption heights not found in adsorbate frame. Please optimise with geomopt! first."))
     end
 
-    surf_atoms = surf.atoms.copy()
+    surf_atoms = pycopy.deepcopy(surf.atoms)
     gas_atoms = frame_to_atoms(ads1)
     ads_atoms = frame_to_atoms(ads2)
 
@@ -151,8 +151,7 @@ function adsorb_two_frames(::FreeXYZ, ::AdsorbateXYZ, ads1::Dict{String, Any}, a
         elseif !within_unit_cell(combined_atoms)
             # Extend the surface if overlap is detected
             uc_mult += 1
-            surf_atoms = surf.atoms.copy().repeat((uc_mult, uc_mult, 1))
-        else
+            surf_atoms = pycopy.deepcopy(surf.atoms).repeat((uc_mult, uc_mult, 1))
             ads_frame = atoms_to_frame(combined_atoms)
             ads_frame["info"]["unit_cell_mult"] = uc_mult
             return ads_frame
@@ -171,7 +170,7 @@ function adsorb_two_frames(::AdsorbateXYZ, ::AdsorbateXYZ, ads1::Dict{String, An
         throw(ErrorException("Adsorption heights not found in adsorbate frames. Please optimise with geomopt! first."))
     end
 
-    surf_atoms = surf.atoms.copy()
+    surf_atoms = pycopy.deepcopy(surf.atoms)
     ads1_atoms = frame_to_atoms(ads1)
     ads2_atoms = frame_to_atoms(ads2)
     ads2_pos = ads2_atoms.get_positions()

@@ -34,6 +34,7 @@ using CDE_jll
 # Global Python package interfaces
 const pysys = PythonCall.pynew()
 const pyos = PythonCall.pynew()
+const pycopy = PythonCall.pynew()
 const py_PrintMuter = PythonCall.pynew()
 const pybel = PythonCall.pynew()
 const obcr = PythonCall.pynew()
@@ -58,6 +59,7 @@ const rdSmilesParamsWithH = PythonCall.pynew()
 function __init__()
     PythonCall.pycopy!(pysys, pyimport("sys"))
     PythonCall.pycopy!(pyos, pyimport("os"))
+    PythonCall.pycopy!(pycopy, pyimport("copy"))
     PythonCall.pycopy!(py_PrintMuter, pyexec(
         @NamedTuple{f::Py},
         """

@@ -98,7 +98,7 @@ specified by `sitename` and height by `height`. Reads the resulting
 geometry's adjacency matrix to determine coordination at this site.
 """
 function get_surfsite_coordination(atoms::Py, sitename, height=1.5)
-    slab = atoms.copy()
+    slab = pycopy.deepcopy(atoms)
     asebuild.add_adsorbate(slab, "H", height, sitename)
     
     ana = aseanalysis.Analysis(slab)
