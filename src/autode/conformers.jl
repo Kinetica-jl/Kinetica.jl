@@ -92,7 +92,6 @@ function conformer_search!(::SurfaceSpecies, sd::SpeciesData, sid; n_samples=12)
             print_muter.mute()
             rot_energy = pyconvert(Float64, rot_atoms.get_potential_energy())
             print_muter.unmute()
-            println(a, " ", rot_energy)
 
             if rot_energy < best_energy
                 best_frame["arrays"]["pos"][:] = rot_frame["arrays"]["pos"][:]

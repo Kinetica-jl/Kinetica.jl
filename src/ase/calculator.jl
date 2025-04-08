@@ -206,7 +206,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                     sd.cache[:symmetry][i] = optgeom[:sym]
                     sd.cache[:geometry][i] = optgeom[:geom]
                     if is_surf_species
-                        sd.cache[:ads_xyz][i] = adsorb_frame(optgeom[:frame], sd.surfdata, sd.toStr[i], optgeom[:frame][:info][:ads_heights])
+                        sd.cache[:ads_xyz][i] = adsorb_frame(optgeom[:frame], sd.surfdata, sd.toStr[i], optgeom[:frame]["info"]["ads_heights"])
                     end
                     get_mult!(sd, i)
                     get_charge!(sd, i) 
@@ -577,7 +577,7 @@ Returns the entropy of a given species in `sd`, indexed by species ID `sid`, at 
 Dispatches to an ideal gas TST method or a harmonic limit method depending
 on whether a species is gas-phase or surface-phase.
 """
-get_entropy(sd::SpeciesData, sid, T, P) = get_entropy(SpeciesStyle(sd.toStr[sid]), sid, T, P)
+get_entropy(sd::SpeciesData, sid, T, P) = get_entropy(SpeciesStyle(sd.toStr[sid]), sd, sid, T, P)
 function get_entropy(::GasSpecies, sd::SpeciesData, sid, T, P)
     return get_entropy(
         sd.cache[:weights][sid],

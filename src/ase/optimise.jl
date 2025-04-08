@@ -83,8 +83,10 @@ function get_formal_charges(::GasSpecies, amsmi::String)
     return formal_charges
 end
 function get_formal_charges(::SurfaceSpecies, amsmi::String)
-    mol = pybel.readstring("smi", amsmi)
-    formal_charges = [0 for _ in mol.atoms]
+    amsmi_replaced = replace(amsmi, r"X\d_\d" => "Fm")
+    mol = pybel.readstring("smi", amsmi_replaced)
+    n_sites = count(x->x=="Fm", [pyconvert(String, atom.type) for atom in mol.atoms])
+    formal_charges = [0 for _ in 1:pylen(mol.atoms)-n_sites]
     return formal_charges
 end
 
@@ -124,8 +126,10 @@ function get_initial_magmoms(::GasSpecies, amsmi::String)
     return magmoms
 end 
 function get_initial_magmoms(::SurfaceSpecies, amsmi::String)
-    mol = pybel.readstring("smi", amsmi)
-    magmoms = [0 for _ in mol.atoms]
+    amsmi_replaced = replace(amsmi, r"X\d_\d" => "Fm")
+    mol = pybel.readstring("smi", amsmi_replaced)
+    n_sites = count(x->x=="Fm", [pyconvert(String, atom.type) for atom in mol.atoms])
+    magmoms = [0 for _ in 1:pylen(mol.atoms)-n_sites]
     return magmoms
 end
 
@@ -293,8 +297,11 @@ function geomopt!(::SurfaceSpecies, sd::SpeciesData, i, calc_builder, calcdir::S
     end
     frame = sd.cache[:ads_xyz][i]
     copy_frame = deepcopy(frame)
+    # Zero these until we have a proper way of defining them for surfaces.
+    formal_charges = [0 for _ in 1:frame["N_atoms"]]
+    initial_magmoms = [0 for _ in 1:frame["N_atoms"]]
     conv = geomopt!(frame, calc_builder, sd.surfdata; calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
-                    formal_charges=sd.cache[:formal_charges][i], initial_magmoms=sd.cache[:initial_magmoms][i],
+                    formal_charges=formal_charges, initial_magmoms=initial_magmoms,
                     optimiser, fmax, maxiters, check_isomorphic, kwargs...)
 
     # frame with surface goes to cache - (non)convergence had already been sorted.
@@ -302,9 +309,9 @@ function geomopt!(::SurfaceSpecies, sd::SpeciesData, i, calc_builder, calcdir::S
 
     # frame without surface gets information copied over and height tagged, then goes to sd.xyz
     if conv
-        atoms = frame_to_atoms(frame, sd.cache[:formal_charges][i], sd.cache[:initial_magmoms][i])
+        atoms = frame_to_atoms(frame)
     else
-        atoms = frame_to_atoms(copy_frame, sd.cache[:formal_charges][i], sd.cache[:initial_magmoms][i])
+        atoms = frame_to_atoms(copy_frame)
     end
     _, mol, label = sd.surfdata.finder.predict(atoms)
     if pylen(mol) > 1
@@ -313,7 +320,8 @@ function geomopt!(::SurfaceSpecies, sd::SpeciesData, i, calc_builder, calcdir::S
 
     adsorbate_frame = atoms_to_frame(mol[0], frame["info"]["energy_ASE"], pyconvert(Vector{Float64}, mol[0].get_moments_of_inertia()))
     n_sites = pylen(label[0])
-    adsorbate_frame[:info][:ads_heights] = [pyconvert(Float64, label[0][i]["height"]) for i in 0:n_sites-1]
+    adsorbate_frame["info"]["ads_heights"] = [pyconvert(Float64, label[0][i]["height"]) for i in 0:n_sites-1]
+    adsorbate_frame["info"]["adsorbate"] = "true"
 
     sd.xyz[i] = adsorbate_frame
 
@@ -522,7 +530,7 @@ function geomopt!(frame::Dict{String, Any}, calc_builder, surfdata::SurfaceData;
         frame["arrays"]["inertias"] = pyconvert(Vector{Float64}, atoms.get_moments_of_inertia())
         if pylen(mols_opt) == 1
             n_ads = pylen(labels_opt[0])
-            frame[:info][:ads_heights] = [pyconvert(Float64, labels_opt[0][i]["height"]) for i in 0:n_ads-1]
+            frame["info"]["ads_heights"] = [pyconvert(Float64, labels_opt[0][i]["height"]) for i in 0:n_ads-1]
         end
     else
         @debug "Geometry optimisation failed."
