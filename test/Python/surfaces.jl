@@ -71,3 +71,65 @@ end
     @test pyconvert(String, pred_labels_per_mol[1][0]["site"]) == "Au_fcc111_fcc"
     @test pyconvert(String, pred_labels_per_mol[2][0]["site"]) == "Au_fcc111_bridge"
 end
+
+@testset "Surface Ingest" begin
+    surfdata = SurfaceData([Surface("Au_fcc111", Kinetica.asebuild.fcc111("Au", (3,3,3)))])
+    sd, rd = init_network(surfdata)
+    loc = Kinetica.ExploreLoc("Python/data/surface_crn", 1, 1)
+    import_mechanism!(sd, rd, loc, 1)
+
+    @test sd.n == 2
+    @test sd.toStr[1] == "O=C=O"
+    @test sd.toStr[2] == "[X1_1][O]=C=O"
+    @test sd.xyz[2]["N_atoms"] == 3
+    @test rd.nr == 2
+    @test rd.mapped_rxns[1] == "[C:1](=[O:2])=[O:3]>>[X1_1]<-[O:2]=[C:1]=[O:3]"
+    @test rd.mapped_rxns[2] == "[X1_1]<-[O:2]=[C:1]=[O:3]>>[C:1](=[O:2])=[O:3]"
+end
+
+@testset "Surface Adsorption" begin
+    surfdata = SurfaceData([Surface("Au_fcc111", Kinetica.asebuild.fcc111("Au", (1,1,3)))])
+    sd, rd = init_network(surfdata)
+    sd.cache[:symmetry] = Dict{Int, Int}()
+    sd.cache[:mult] = Dict{Int, Int}()
+    sd.cache[:charge] = Dict{Int, Int}()
+    sd.cache[:formal_charges] = Dict{Int, Vector{Int}}()
+    sd.cache[:geometry] = Dict{Int, Int}()
+    sd.cache[:initial_magmoms] = Dict{Int, Vector{Float64}}()
+    sd.cache[:ads_xyz] = Dict{Int, Dict{String, Any}}()
+
+    smis, xyzs = ingest_xyz_system(xyz_file_to_str("Python/data/CO+H2O+NHCH3_Au_fcc111_opt.xyz"), sd.surfdata)
+    push_unique!(sd, smis, xyzs)
+
+    # Single molecule, default height.
+    frame1 = adsorb_frame(sd, 1)
+    @test frame1["N_atoms"] == 29
+    @test frame1["arrays"]["pos"][3, 28] - frame1["arrays"]["pos"][3, 3] ≈ 2.12
+    # Single molecule, custom height.
+    frame2 = adsorb_frame(sd, 1, [1.8])
+    @test frame2["arrays"]["pos"][3, 28] - frame2["arrays"]["pos"][3, 3] ≈ 1.8
+    # Single molecule, exceeds bounds of unit cell.
+    frame3 = adsorb_frame(sd, 3)
+    @test frame3["N_atoms"] == 33
+
+    # Two molecules, surface/surface.
+    # Adsorbates need to be optimised or placement on surface will be wrong.
+    Kinetica.get_mult!(sd, 1); Kinetica.get_charge!(sd, 1)
+    Kinetica.get_mult!(sd, 3); Kinetica.get_charge!(sd, 3)
+    Kinetica.conformer_search!(sd, 1); Kinetica.conformer_search!(sd, 3)
+    Kinetica.get_formal_charges!(sd, 1); Kinetica.get_formal_charges!(sd, 3)
+    Kinetica.get_initial_magmoms!(sd, 1); Kinetica.get_initial_magmoms!(sd, 3)
+    builder = TBLiteBuilder(; method="GFN1-xTB")
+    Kinetica.geomopt!(sd, 1, builder; fmax=1.0); Kinetica.geomopt!(sd, 3, builder; fmax=1.0)
+    frame4 = adsorb_two_frames(sd, 1, 3)
+
+    # Two molecules, surface/gas.
+    smis, xyzs = ingest_xyz_system(xyz_file_to_str("Python/data/C4H10.xyz"), sd.surfdata)
+    push_unique!(sd, smis, xyzs)
+    Kinetica.get_mult!(sd, 4); Kinetica.get_charge!(sd, 4)
+    Kinetica.conformer_search!(sd, 4); rm("conformers", recursive=true)
+    Kinetica.get_formal_charges!(sd, 4); Kinetica.get_initial_magmoms!(sd, 4)
+    Kinetica.geomopt!(sd, 4, builder; fmax=1.0)
+    frame5 = adsorb_two_frames(sd, 1, 4)
+    @test frame5["N_atoms"] == 64
+end
