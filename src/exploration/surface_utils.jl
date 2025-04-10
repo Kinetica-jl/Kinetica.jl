@@ -81,6 +81,7 @@ function adsorb_frame(frame::Dict{String, Any}, surfdata::SurfaceData, smi::Stri
         throw(ErrorException("Adsorption of species at multiple sites is not currently supported."))
     end
 
+    atoms.info["unit_cell_mult"] = uc_mult
     return atoms_to_frame(atoms)
 end
 
@@ -368,4 +369,92 @@ function center_surface_frame!(frame::Dict{String, Any}, vacuum::Float64=10.0)
     frame["cell"][3, 3] = z_diff + 2*vacuum
     frame["arrays"]["pos"][3, :] .+= vacuum - z_min
     return
+end
+
+
+"""
+    add_surface_beneath!(frame::Dict{String, Any}, surf::Surface, uc_mult::Int, height=7.5)
+
+Adds a surface beneath the given frame.
+
+The surface is repeated by the given unit cell multiplier `uc_mult` and
+placed at the specified height above the frame. The frame is then
+centered vertically with a vacuum of 10 Angstroms above and below.
+"""
+function add_surface_beneath!(frame::Dict{String, Any}, surf::Surface, uc_mult::Int, height=7.5)
+    return add_surface_beneath!(XYZStyle(frame), frame, surf, uc_mult, height)
+end
+function add_surface_beneath!(::AdsorbateXYZ, frame::Dict{String, Any}, surf::Surface, uc_mult::Int, height=7.5)
+    throw(ErrorException("Cannot add surface beneath an adsorbate frame. Use adsorb_frame instead."))
+end
+function add_surface_beneath!(::OnSurfaceXYZ, frame::Dict{String, Any}, surf::Surface, uc_mult::Int, height=7.5)
+    throw(ErrorException("Cannot add surface beneath a frame that already contains a surface"))
+end
+function add_surface_beneath!(::FreeXYZ, frame::Dict{String, Any}, surf::Surface, uc_mult::Int, height=7.5)
+    surf_atoms = pycopy.deepcopy(surf.atoms).repeat((uc_mult, uc_mult, 1))
+    gas_atoms = frame_to_atoms(frame)
+
+    gas_positions = gas_atoms.get_positions()
+    com = gas_atoms.get_center_of_mass()
+    gas_positions -= com
+    gas_positions[2, :] .+= height
+    gas_atoms.set_positions(gas_positions)
+    combined_atoms = surf_atoms + gas_atoms
+    combined_atoms.center(vacuum=10.0, axis=2)
+
+    combined_frame = atoms_to_frame(combined_atoms)
+    frame["N_atoms"] = combined_frame["N_atoms"]
+    frame["arrays"] = combined_frame["arrays"]
+    frame["cell"] = combined_frame["cell"]
+    frame["pbc"] = combined_frame["pbc"]
+    frame["info"] = combined_frame["info"]
+    frame["info"]["unit_cell_mult"] = uc_mult
+    return
+end
+
+
+"""
+    scale_surface_to_match!(mod_frame::Dict{String, Any}, ref_frame::Dict{String, Any}, surf::Surface)
+
+Repeats the surface in `mod_frame` to match the size of `ref_frame`.
+
+Determines the unit cell multiplier of the reference frame `ref_frame` using the
+base surface in `surf`, then replaces the surface in `mod_frame` with one repeated
+by this multiplier. Adsorbates are ignored and left in their original positions.
+
+This is designed to scale surfaces with multipliers greater than 1 - in other words,
+`mod_frame` will be extended and not shrunk to match `ref_frame`. If the reference
+frame is smaller than the modified frame, the function will throw an error.
+"""
+function scale_surface_to_match!(mod_frame::Dict{String, Any}, ref_frame::Dict{String, Any}, surf::Surface)
+    if ref_frame["N_atoms"] < mod_frame["N_atoms"]
+        throw(ErrorException("Reference frame is smaller than modified frame. Cannot scale down."))
+    end
+
+    base_atoms = surf.atoms
+    
+    # Get the unit cell multiplier of the reference frame
+    if haskey(ref_frame["info"], "unit_cell_mult")
+        ref_uc_mult = ref_frame["info"]["unit_cell_mult"]
+    else
+        base_cell_xy = pyconvert(Matrix, base_atoms.get_cell())[1:2, 1:2]
+        ref_atoms = frame_to_atoms(ref_frame)
+        ref_cell_xy = pyconvert(Matrix, ref_atoms.get_cell())[1:2, 1:2]
+        ref_uc_mult = round(Int, norm(ref_cell_xy) / norm(base_cell_xy))
+    end
+
+    mod_atoms = frame_to_atoms(mod_frame)
+    mod_adsatoms = mod_atoms[mod_frame["arrays"]["tags"] .== 0]
+    mod_adsatoms.set_cell([0.0, 0.0, 0.0]); mod_adsatoms.set_pbc(false)
+    mod_newsurf = pycopy.deepcopy(base_atoms).repeat((ref_uc_mult, ref_uc_mult, 1))
+    mod_newatoms = mod_newsurf + mod_adsatoms
+    
+    mod_newframe = atoms_to_frame(mod_newatoms)
+    center_surface_frame!(mod_newframe)
+    mod_frame["N_atoms"] = mod_newframe["N_atoms"]
+    mod_frame["arrays"] = mod_newframe["arrays"]
+    mod_frame["cell"] = mod_newframe["cell"]
+    mod_frame["info"] = mod_newframe["info"]
+    mod_frame["info"]["unit_cell_mult"] = ref_uc_mult
+    return    
 end
