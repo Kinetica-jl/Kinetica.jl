@@ -364,43 +364,87 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             rmult = get_rxn_mult(n_reacs, initial_reacsys_mult, n_prods, initial_prodsys_mult)
             @debug "Assuming best overall reaction multiplicity of $rmult."
 
-            if n_reacs > 1
-                reacsys = autode_NCI_conformer_search(sd, reac_sids; name="reacsys")
+            # Two reactants requires either NCI complex search or specialised surface
+            # adsorption, depending on whether a surface species is present.
+            if n_reacs == 2
+                if any(SpeciesStyle(sd.toStr[sid]) isa SurfaceSpecies for sid in reac_sids)
+                    reacsys = adsorb_two_frames(sd, reac_sids[1], reac_sids[2])
+                    reacsys["info"]["surfid"] = get_surfid(sd.toStr[reac_sids[1]])
+                else
+                    reacsys = autode_NCI_conformer_search(sd, reac_sids; name="reacsys")
+                end
                 reacsys["info"]["n_species"] = length(reac_sids)
                 reacsys_smi = join([sd.toStr[sid] for sid in reac_sids], ".")
-            else
+
+            # Single reactants can be loaded from saved geometries. 
+            elseif n_reacs == 1
                 sid = rd.id_reacs[i][1]
-                reacsys = sd.xyz[sid]
+                if SpeciesStyle(sd.toStr[sid]) isa SurfaceSpecies
+                    reacsys = deepcopy(sd.cache[:ads_xyz][sid])
+                else
+                    reacsys = deepcopy(sd.xyz[sid])
+                end
                 reacsys_smi = sd.toStr[sid]
                 reacsys["info"]["chg"] = sd.cache[:charge][sid]
                 reacsys["info"]["n_species"] = 1
+            else
+                throw(ErrorException("Cannot handle more than 2 reactants in a reaction."))
             end
             reacsys["info"]["mult"] = rmult
             reacsys_amsmi = atom_map_smiles(reacsys, reacsys_smi)
             reacsys_formal_charges = get_formal_charges(reacsys_amsmi)
             reacsys_initial_magmoms = get_initial_magmoms(reacsys_amsmi)
 
-            if n_prods > 1
-                prodsys = autode_NCI_conformer_search(sd, prod_sids; name="prodsys")
+            # Same as above for products.
+            if n_prods == 2
+                if any(SpeciesStyle(sd.toStr[sid]) isa SurfaceSpecies for sid in prod_sids)
+                    prodsys = adsorb_two_frames(sd, prod_sids[1], prod_sids[2])
+                    prodsys["info"]["surfid"] = get_surfid(sd.toStr[prod_sids[1]])
+                else
+                    prodsys = autode_NCI_conformer_search(sd, prod_sids; name="prodsys")
+                end
                 if prodsys["info"]["chg"] != reacsys["info"]["chg"]
                     throw(ErrorException("Charge not conserved in reaction $i: chg(R) = $(reacsys["info"]["chg"]), chg(P) = $(prodsys["info"]["chg"])"))
                 end
                 prodsys["info"]["n_species"] = length(prod_sids)
                 prodsys_smi = join([sd.toStr[sid] for sid in prod_sids], ".")
-            else
+
+            elseif n_prods == 1
                 sid = rd.id_prods[i][1]
+                if SpeciesStyle(sd.toStr[sid]) isa SurfaceSpecies
+                    prodsys = deepcopy(sd.cache[:ads_xyz][sid])
+                else
+                    prodsys = deepcopy(sd.xyz[sid])
+                end
                 if sd.cache[:charge][sid] != reacsys["info"]["chg"]
                     throw(ErrorException("Charge not conserved in reaction $i: chg(R) = $(reacsys["info"]["chg"]), chg(P) = $(sd.cache[:charge][sid])"))
                 end
-                prodsys = sd.xyz[sid]
                 prodsys_smi = sd.toStr[sid]
                 prodsys["info"]["chg"] = sd.cache[:charge][sid]
                 prodsys["info"]["n_species"] = 1
+            else
+                throw(ErrorException("Cannot handle more than 2 products in a reaction."))
             end
             prodsys["info"]["mult"] = rmult
             prodsys_amsmi = atom_map_smiles(prodsys, prodsys_smi)
             prodsys_formal_charges = get_formal_charges(prodsys_amsmi)
             prodsys_initial_magmoms = get_initial_magmoms(prodsys_amsmi)
+
+            # Check that any surfaces are consistent across reactants and products.
+            if XYZStyle(reacsys) isa OnSurfaceXYZ && !(XYZStyle(prodsys) isa OnSurfaceXYZ)
+                add_surface_beneath!(prodsys, sd.surfdata.surfaces[reacsys["info"]["surfid"]], reacsys["info"]["unit_cell_mult"])
+            elseif XYZStyle(prodsys) isa OnSurfaceXYZ && !(XYZStyle(reacsys) isa OnSurfaceXYZ)
+                add_surface_beneath!(reacsys, sd.surfdata.surfaces[prodsys["info"]["surfid"]], prodsys["info"]["unit_cell_mult"])
+            elseif XYZStyle(reacsys) isa OnSurfaceXYZ && XYZStyle(prodsys) isa OnSurfaceXYZ
+                if reacsys["info"]["surfid"] != prodsys["info"]["surfid"]
+                    throw(ErrorException("Reactant and product systems in reaction $i are not bound to the same surface."))
+                end
+                if reacsys["N_atoms"] > prodsys["N_atoms"]
+                    scale_surface_to_match!(prodsys, reacsys, sd.surfdata.surfaces[reacsys["info"]["surfid"]])
+                elseif reacsys["N_atoms"] < prodsys["N_atoms"]
+                    scale_surface_to_match!(reacsys, prodsys, sd.surfdata.surfaces[reacsys["info"]["surfid"]])
+                end
+            end
 
             correct_magmoms_for_mult!(reacsys_initial_magmoms, prodsys_initial_magmoms, rmult)
 
@@ -417,8 +461,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             @info "Assembled product system."
 
             # Atom map endpoints.
-            # Also obtain new formal charge arrays for remapped
-            # endpoints. 
+            # Also obtain new formal charge arrays for remapped endpoints. 
             reac_map, prod_map = split(rd.mapped_rxns[i], ">>")
             reac_map, prod_map = string(reac_map), string(prod_map)
             reacsys_mapped = atom_map_frame(reac_map, reacsys)
