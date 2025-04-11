@@ -78,13 +78,15 @@ end
     loc = Kinetica.ExploreLoc("Python/data/surface_crn", 1, 1)
     import_mechanism!(sd, rd, loc, 1)
 
-    @test sd.n == 2
+    @test sd.n == 4
     @test sd.toStr[1] == "O=C=O"
-    @test sd.toStr[2] == "[X1_1][O]=C=O"
-    @test sd.xyz[2]["N_atoms"] == 3
-    @test rd.nr == 2
+    @test sd.toStr[2] == "[X1_1][H]"
+    @test sd.toStr[3] == "[X1_1][O]=C=O"
+    @test sd.toStr[4] == "[H]"
+    @test sd.xyz[3]["N_atoms"] == 3
+    @test rd.nr == 4
     @test rd.mapped_rxns[1] == "[C:1](=[O:2])=[O:3]>>[X1_1]<-[O:2]=[C:1]=[O:3]"
-    @test rd.mapped_rxns[2] == "[X1_1]<-[O:2]=[C:1]=[O:3]>>[C:1](=[O:2])=[O:3]"
+    @test rd.mapped_rxns[2] == "[X1_1][H:1]>>[H:1]"
 end
 
 @testset "Surface Adsorption" begin

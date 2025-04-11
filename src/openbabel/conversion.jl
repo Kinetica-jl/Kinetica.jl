@@ -53,36 +53,64 @@ function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=
             ads_smi = String(strip(pyconvert(String, ads_pbmol.write("can")), ['\n', '\t']))
         end
 
-        elem_replacements = []
-        site_atomic_number = 100
-        for atom_idx in ads_atom_idxs
-            # Determine SMILES label for surface site that adsorbed atom is on.
-            label = pyconvert(String, sf_labels[atom_idx]["site"])
-            coord = pyconvert(Int, sf_labels[atom_idx]["coordination"])
+        println(ads_atom_idxs)
+
+        # Isolated hydrogen atoms like to behave wierdly and return eg. [X1_1H] instead of [X1_1][H].
+        # They need special handling, but can shortcut all the replacement logic.
+        if ads_smi == "[H]" && length(ads_atom_idxs) > 0
+            if length(ads_atom_idxs) > 1
+                throw(ErrorException("Single hydrogen atom cannot be bound to multiple surface sites."))
+            end
+
+            label = pyconvert(String, sf_labels[0]["site"])
+            coord = pyconvert(Int, sf_labels[0]["coordination"])
             split_labels = split(label, '_')
             surf_label = join(split_labels[begin:end-1], '_')
             site_label = String(split_labels[end])
             surf_idx = surfdata.nameToInt[surf_label]
             site_idx = surfdata.surfaces[surf_idx].siteids[site_label]
+
             if surfdata.surfaces[surf_idx].sitecoords[site_label] != coord
                 throw(ErrorException("Unable to match expected coordination of surface site to input coordination."))
             end
+
             smi_label = "X$(surf_idx)_$(site_idx)"
+            ads_smi = "[$(smi_label)][H]"
+            push!(smi_list, ads_smi)
 
-            # Attach unique atoms of atomic number 100+ in OB to adsorbed atom
-            site_elem = pyconvert(String, pybel.ob.GetSymbol(site_atomic_number))
-            site_atom = ads_pbmol.OBMol.NewAtom()
-            site_atom.SetAtomicNum(site_atomic_number)
-            ads_pbmol.OBMol.AddBond(atom_idx+1, site_atom.GetIdx(), coord)
-            
-            push!(elem_replacements, Pair(site_elem, smi_label))
+        else
+            elem_replacements = []
+            site_atomic_number = 100
+            for atom_idx in ads_atom_idxs
+                # Determine SMILES label for surface site that adsorbed atom is on.
+                label = pyconvert(String, sf_labels[atom_idx]["site"])
+                coord = pyconvert(Int, sf_labels[atom_idx]["coordination"])
+                split_labels = split(label, '_')
+                surf_label = join(split_labels[begin:end-1], '_')
+                site_label = String(split_labels[end])
+                surf_idx = surfdata.nameToInt[surf_label]
+                site_idx = surfdata.surfaces[surf_idx].siteids[site_label]
+                
+                if surfdata.surfaces[surf_idx].sitecoords[site_label] != coord
+                    throw(ErrorException("Unable to match expected coordination of surface site to input coordination."))
+                end
+                smi_label = "X$(surf_idx)_$(site_idx)"
+
+                # Attach unique atoms of atomic number 100+ in OB to adsorbed atom
+                site_elem = pyconvert(String, pybel.ob.GetSymbol(site_atomic_number))
+                site_atom = ads_pbmol.OBMol.NewAtom()
+                site_atom.SetAtomicNum(site_atomic_number)
+                ads_pbmol.OBMol.AddBond(atom_idx+1, site_atom.GetIdx(), coord)
+                
+                push!(elem_replacements, Pair(site_elem, smi_label))
+            end
+
+            # Generate new SMILES, replace dummy atoms with ads labels.
+            ads_smi = String(strip(pyconvert(String, ads_pbmol.write("can")), ['\n', '\t']))
+            ads_smi_replaced = replace(ads_smi, elem_replacements...)
+
+            push!(smi_list, ads_smi_replaced)
         end
-
-        # Generate new SMILES, replace dummy atoms with ads labels.
-        ads_smi = String(strip(pyconvert(String, ads_pbmol.write("can")), ['\n', '\t']))
-        ads_smi_replaced = replace(ads_smi, elem_replacements...)
-
-        push!(smi_list, ads_smi_replaced)
     end
 
     return smi_list, xyz_list
