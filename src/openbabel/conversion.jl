@@ -53,8 +53,6 @@ function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=
             ads_smi = String(strip(pyconvert(String, ads_pbmol.write("can")), ['\n', '\t']))
         end
 
-        println(ads_atom_idxs)
-
         # Isolated hydrogen atoms like to behave wierdly and return eg. [X1_1H] instead of [X1_1][H].
         # They need special handling, but can shortcut all the replacement logic.
         if ads_smi == "[H]" && length(ads_atom_idxs) > 0
@@ -90,7 +88,7 @@ function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=
                 site_label = String(split_labels[end])
                 surf_idx = surfdata.nameToInt[surf_label]
                 site_idx = surfdata.surfaces[surf_idx].siteids[site_label]
-                
+
                 if surfdata.surfaces[surf_idx].sitecoords[site_label] != coord
                     throw(ErrorException("Unable to match expected coordination of surface site to input coordination."))
                 end

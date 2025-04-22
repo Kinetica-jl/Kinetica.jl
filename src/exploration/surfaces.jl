@@ -278,6 +278,11 @@ function get_surf_site_atomids(::SurfaceSpecies, amsmi::String)
     end
     amsmi_replaced = replace(amsmi_subbed, elem_replacements...)
 
+    # Handle isolated hydrogen atoms manually since they cause RDKit problems.
+    if amsmi_replaced == "[Fm][H:1]"
+        return Dict(first(elem_replacements[1]) => 1)
+    end
+
     mol = rdChem.MolFromSmiles(amsmi_replaced)
     elem_bonded_atomids = Dict{String, Int}()
     for atom in mol.GetAtoms()

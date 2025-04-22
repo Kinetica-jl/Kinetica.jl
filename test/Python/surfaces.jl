@@ -92,13 +92,7 @@ end
 @testset "Surface Adsorption" begin
     surfdata = SurfaceData([Surface("Au_fcc111", Kinetica.asebuild.fcc111("Au", (1,1,3)))])
     sd, rd = init_network(surfdata)
-    sd.cache[:symmetry] = Dict{Int, Int}()
-    sd.cache[:mult] = Dict{Int, Int}()
-    sd.cache[:charge] = Dict{Int, Int}()
-    sd.cache[:formal_charges] = Dict{Int, Vector{Int}}()
-    sd.cache[:geometry] = Dict{Int, Int}()
-    sd.cache[:initial_magmoms] = Dict{Int, Vector{Float64}}()
-    sd.cache[:ads_xyz] = Dict{Int, Dict{String, Any}}()
+    Kinetica.populate_sd_cache!(sd)
 
     smis, xyzs = ingest_xyz_system(xyz_file_to_str("Python/data/CO+H2O+NHCH3_Au_fcc111_opt.xyz"), sd.surfdata)
     push_unique!(sd, smis, xyzs)
@@ -134,4 +128,46 @@ end
     Kinetica.geomopt!(sd, 4, builder; fmax=1.0)
     frame5 = adsorb_two_frames(sd, 1, 4)
     @test frame5["N_atoms"] == 64
+end
+
+@testset "Surface Reaction Endpoint Matching" begin
+    surfdata = SurfaceData([Surface("Pt_fcc100", Kinetica.asebuild.fcc100("Pt", (1,1,3)))])
+    sd, rd = init_network(surfdata)
+    Kinetica.populate_sd_cache!(sd)
+    smis, xyzs = ingest_xyz_system(xyz_file_to_str("Python/data/CH3CH2NH2.xyz"), sd.surfdata)
+    push_unique!(sd, smis, xyzs)
+    smis, xyzs = ingest_xyz_system(xyz_file_to_str("Python/data/CH3CH2NH+H_PtFCC100.xyz"), sd.surfdata)
+    push_unique!(sd, smis, xyzs)
+    smis, xyzs = ingest_xyz_system(xyz_file_to_str("Python/data/Hgas_PtFCC100.xyz"), sd.surfdata)
+    push_unique!(sd, smis, xyzs)
+
+    builder = TBLiteBuilder(; method="GFN1-xTB")
+    for i in 1:sd.n
+        Kinetica.get_mult!(sd, i)
+        Kinetica.get_charge!(sd, i)
+        Kinetica.conformer_search!(sd, i)
+        Kinetica.get_formal_charges!(sd, i)
+        Kinetica.get_initial_magmoms!(sd, i)
+        Kinetica.geomopt!(sd, i, builder; fmax=1.0)
+    end
+
+    # Expansion of ads/gas surface to match larger ads/ads surface
+    prod1 = adsorb_two_frames(sd, 2, 3)
+    reac1 = adsorb_two_frames(sd, 2, 4)
+    @test reac1["N_atoms"] < prod1["N_atoms"]
+    Kinetica.scale_surface_to_match!(reac1, prod1, sd.surfdata.surfaces[get_surfid(sd.toStr[2])])
+    @test reac1["N_atoms"] == prod1["N_atoms"]
+
+    # Placement of expanded surface under gas reactant to match ads/ads surface
+    reac2 = deepcopy(sd.xyz[1])
+    Kinetica.add_surface_beneath!(reac2, sd.surfdata.surfaces[get_surfid(sd.toStr[2])], 3)
+    @test_throws "already contains a surface" Kinetica.add_surface_beneath!(reac2, sd.surfdata.surfaces[get_surfid(sd.toStr[2])], 3)
+    @test reac2["N_atoms"] < prod1["N_atoms"]
+    Kinetica.scale_surface_to_match!(reac2, prod1, sd.surfdata.surfaces[get_surfid(sd.toStr[2])])
+    @test reac2["N_atoms"] == prod1["N_atoms"]
+
+    # Correct surface matching from creation of gas reactant on surface
+    reac3 = deepcopy(sd.xyz[1])
+    Kinetica.add_surface_beneath!(reac3, sd.surfdata.surfaces[get_surfid(sd.toStr[2])], prod1["info"]["unit_cell_mult"])
+    @test reac2["N_atoms"] == prod1["N_atoms"]
 end

@@ -389,21 +389,24 @@ function add_surface_beneath!(::AdsorbateXYZ, frame::Dict{String, Any}, surf::Su
     throw(ErrorException("Cannot add surface beneath an adsorbate frame. Use adsorb_frame instead."))
 end
 function add_surface_beneath!(::OnSurfaceXYZ, frame::Dict{String, Any}, surf::Surface, uc_mult::Int, height=7.5)
-    throw(ErrorException("Cannot add surface beneath a frame that already contains a surface"))
+    throw(ErrorException("Cannot add surface beneath a frame that already contains a surface."))
 end
 function add_surface_beneath!(::FreeXYZ, frame::Dict{String, Any}, surf::Surface, uc_mult::Int, height=7.5)
     surf_atoms = pycopy.deepcopy(surf.atoms).repeat((uc_mult, uc_mult, 1))
-    gas_atoms = frame_to_atoms(frame)
+    surf_max_z = np.max(surf_atoms.get_positions()[0:pylen(surf_atoms)-1, 2])
 
+    gas_atoms = frame_to_atoms(frame)
     gas_positions = gas_atoms.get_positions()
     com = gas_atoms.get_center_of_mass()
     gas_positions -= com
-    gas_positions[2, :] .+= height
+    gas_min_z = np.min(gas_positions[0:pylen(gas_atoms)-1, 2])
+    gas_positions[0:pylen(gas_atoms)-1, 2] += surf_max_z + height - gas_min_z
     gas_atoms.set_positions(gas_positions)
+
     combined_atoms = surf_atoms + gas_atoms
     combined_atoms.center(vacuum=10.0, axis=2)
-
     combined_frame = atoms_to_frame(combined_atoms)
+
     frame["N_atoms"] = combined_frame["N_atoms"]
     frame["arrays"] = combined_frame["arrays"]
     frame["cell"] = combined_frame["cell"]
