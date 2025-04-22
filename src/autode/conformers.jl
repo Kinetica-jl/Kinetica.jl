@@ -68,7 +68,8 @@ function conformer_search!(::SurfaceSpecies, sd::SpeciesData, sid; n_samples=12)
     # Multiply-bound adsorbates can't undergo rotation.
     if length(siteids) == 1
         rotmask = iszero.(ads_frame["arrays"]["tags"]) 
-        adsatom_idx = findall(x->x==1, rotmask)[argmin(ads_frame["arrays"]["pos"][3, rotmask])]
+        adsatom_idx = haskey(ads_frame["info"], "ads_atomid") ? ads_frame["info"]["ads_atomid"] :
+                      findall(x->x==1, rotmask)[argmin(ads_frame["arrays"]["pos"][3, rotmask])]
         rot_centre = ads_frame["arrays"]["pos"][:, adsatom_idx]
         centre_vecs = [rot_centre for _ in 1:count(rotmask)]
 
