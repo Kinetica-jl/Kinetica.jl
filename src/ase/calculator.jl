@@ -173,14 +173,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             end
         else
             @debug "Creating empty species caches"
-            sd.cache[:vib_energies] = Dict{iType, Vector{Float64}}()
-            sd.cache[:symmetry] = Dict{iType, Int}()
-            sd.cache[:mult] = Dict{iType, Int}()
-            sd.cache[:charge] = Dict{iType, Int}()
-            sd.cache[:formal_charges] = Dict{iType, Vector{Int}}()
-            sd.cache[:geometry] = Dict{iType, Int}()
-            sd.cache[:initial_magmoms] = Dict{iType, Vector{Float64}}()
-            sd.cache[:ads_xyz] = Dict{iType, Dict{String, Any}}()
+            populate_sd_cache!(sd)
         end
     end
 
