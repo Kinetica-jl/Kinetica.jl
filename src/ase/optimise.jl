@@ -319,8 +319,7 @@ function geomopt!(::SurfaceSpecies, sd::SpeciesData, i, calc_builder, calcdir::S
     end
 
     adsorbate_frame = atoms_to_frame(mol[0], frame["info"]["energy_ASE"], pyconvert(Vector{Float64}, mol[0].get_moments_of_inertia()))
-    n_sites = pylen(label[0])
-    adsorbate_frame["info"]["ads_heights"] = [pyconvert(Float64, label[0][i]["height"]) for i in 0:n_sites-1]
+    adsorbate_frame["info"]["ads_heights"] = [pyconvert(Float64, label[0][i]["height"]) for i in label[0].keys()]
     adsorbate_frame["info"]["adsorbate"] = "true"
 
     sd.xyz[i] = adsorbate_frame
@@ -500,7 +499,7 @@ function geomopt!(frame::Dict{String, Any}, calc_builder, surfdata::SurfaceData;
             if sites_match && pylen(labels_opt[mol_index]) > 0
                 sites_match = all([
                     pyconvert(Bool, labels_opt[mol_index][site_index]["site"] == labels_preopt[mol_index][site_index]["site"]) 
-                    for site_index in 0:pylen(labels_opt[mol_index])-1
+                    for site_index in labels_opt[mol_index].keys()
                 ])
             end
             mol_index += 1
@@ -529,8 +528,7 @@ function geomopt!(frame::Dict{String, Any}, calc_builder, surfdata::SurfaceData;
         frame["info"]["energy_ASE"] = pyconvert(Float64, atoms.get_potential_energy())
         frame["arrays"]["inertias"] = pyconvert(Vector{Float64}, atoms.get_moments_of_inertia())
         if pylen(mols_opt) == 1
-            n_ads = pylen(labels_opt[0])
-            frame["info"]["ads_heights"] = [pyconvert(Float64, labels_opt[0][i]["height"]) for i in 0:n_ads-1]
+            frame["info"]["ads_heights"] = [pyconvert(Float64, labels_opt[0][i]["height"]) for i in labels_opt[0].keys()]
         end
     else
         @debug "Geometry optimisation failed."
