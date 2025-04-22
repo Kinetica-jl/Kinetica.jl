@@ -257,6 +257,27 @@ function add_surface!(sd::SpeciesData, surface::Surface)
 end
 
 
+"""
+    populate_sd_cache!(sd::SpeciesData)
+
+Creates empty Dicts for species properties in `sd.cache`.
+
+Shortcut for creating the cache Dicts required by most of the
+ASENEBCalculator infrastructure.
+"""
+function populate_sd_cache!(sd::SpeciesData{iType}) where {iType}
+    sd.cache[:vib_energies] = Dict{iType, Vector{Float64}}()
+    sd.cache[:symmetry] = Dict{iType, Int}()
+    sd.cache[:mult] = Dict{iType, Int}()
+    sd.cache[:charge] = Dict{iType, Int}()
+    sd.cache[:formal_charges] = Dict{iType, Vector{Int}}()
+    sd.cache[:geometry] = Dict{iType, Int}()
+    sd.cache[:initial_magmoms] = Dict{iType, Vector{Float64}}()
+    sd.cache[:ads_xyz] = Dict{iType, Dict{String, Any}}()
+    return
+end
+
+
 mutable struct RxData{iType, fType}
     nr::iType
     mapped_rxns::Vector{String}
