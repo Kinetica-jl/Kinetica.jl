@@ -208,6 +208,9 @@ function load_output(outfile::String)
         Vector{UInt8}[hash for hash in savedict[:rd][:rhash]],
         rd_levels
     )
+    if get_rhash(sd, rd, 1) != rd.rhash[1]
+        @warn "Reaction hash mismatch, loaded output may not be fully compatible. Consider reassigning reaction hashes."
+    end
 
     pars_fields = fieldnames(ODESimulationParams)
     pars_dict = savedict[:pars]

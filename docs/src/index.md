@@ -68,6 +68,18 @@ The Graphviz executables are similarly not added to your system's PATH but are a
 !!! note "Why not Graphviz_jll?"
     Some readers may note that Graphviz is also distributed as a JLL package through the Julia package manager, and installing it this way may be simpler than treating it as a Python dependency. However, [Graphviz_jll.jl](https://github.com/JuliaBinaryWrappers/Graphviz_jll.jl) is currently compiled without some optional dependencies such as GTS, making it much less useful for graphing large CRNs. We therefore fall back to the Conda package for the time being.
 
+## Compatability with Previous Versions
+
+Kinetica v0.7 updates many dependencies, including [StableHashTraits](https://github.com/beacon-biosignals/StableHashTraits.jl), which it uses for ensuring the uniqueness of reactions in a CRN. CRNs saved in BSON format under previous Kinetica versions may become unusable without re-hashing all their reactions, which can be achieved with the [`get_rhash`](@ref) function:
+
+```julia
+for i in 1:rd.nr
+    rd.rhash[i] = get_rhash(sd, rd, i)
+end
+```
+
+Raw CRNs still in directory tree format (usually imported with [`import_network`](@ref)) are unaffected, as hashing occurs after this stage.
+
 ## Citing Kinetica
 
 If you use any of the Kinetica packages in your work, please cite the following:

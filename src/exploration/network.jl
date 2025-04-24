@@ -281,7 +281,7 @@ function RxData(sd::SpeciesData{iType},
         # Obtain reaction hash.
         all_reacs = sort(reduce(vcat, [[key for _ in 1:reac_counter[key]] for key in keys(reac_counter)]))
         all_prods = sort(reduce(vcat, [[key for _ in 1:prod_counter[key]] for key in keys(prod_counter)]))
-        rhash = stable_hash(vcat(all_reacs, all_prods))
+        rhash = stable_hash(vcat(all_reacs, all_prods); version=4)
 
         # Add reaction to arrays if it is unique.
         if !unique_rxns || !(rhash in hashes_final)
@@ -382,7 +382,7 @@ function Base.push!(rd::RxData{iType, fType}, sd::SpeciesData,
         # Obtain reaction hash.
         all_reacs = sort(reduce(vcat, [[key for _ in 1:reac_counter[key]] for key in keys(reac_counter)]))
         all_prods = sort(reduce(vcat, [[key for _ in 1:prod_counter[key]] for key in keys(prod_counter)]))
-        rhash = stable_hash(vcat(all_reacs, all_prods))
+        rhash = stable_hash(vcat(all_reacs, all_prods); version=4)
 
         # Add reaction to arrays if it is unique.
         if !unique_rxns || !(rhash in rd.rhash)
@@ -425,9 +425,32 @@ function Base.push!(rd::RxData{iType, fType}, sd::SpeciesData,
     return
 end
 
+"""
+    get_rhash(sd::SpeciesData, rd::RxData, rid)
+
+Returns the reaction hash for the reaction at `rid` in `rd`.
+"""
+function get_rhash(sd::SpeciesData, rd::RxData, rid)
+    reacs = String[]
+    for (i, sid) in enumerate(rd.id_reacs[rid])
+        for _ in 1:rd.stoic_reacs[rid][i] 
+            push!(reacs, sd.toStr[sid])
+        end
+    end
+    sort!(reacs)
+    prods = String[]
+    for (i, sid) in enumerate(rd.id_prods[rid])
+        for _ in 1:rd.stoic_prods[rid][i] 
+            push!(prods, sd.toStr[sid])
+        end
+    end
+    sort!(prods)
+
+    return stable_hash(vcat(reacs, prods); version=4)
+end
 
 """
-    get_reverse_rhash(sd, rd, rid)
+    get_reverse_rhash(sd::SpeciesData, rd::RxData, rid)
 
 Returns the reverse reaction hash for the reaction at `rid` in `rd`.
 
@@ -436,14 +459,14 @@ is already in a CRN without having to look through many
 species permutations.
 """
 function get_reverse_rhash(sd::SpeciesData, rd::RxData, rid)
-    reacs = []
+    reacs = String[]
     for (i, sid) in enumerate(rd.id_reacs[rid])
         for _ in 1:rd.stoic_reacs[rid][i] 
             push!(reacs, sd.toStr[sid])
         end
     end
     sort!(reacs)
-    prods = []
+    prods = String[]
     for (i, sid) in enumerate(rd.id_prods[rid])
         for _ in 1:rd.stoic_prods[rid][i] 
             push!(prods, sd.toStr[sid])
@@ -451,9 +474,9 @@ function get_reverse_rhash(sd::SpeciesData, rd::RxData, rid)
     end
     sort!(prods)
 
-    forw_rhash = stable_hash(vcat(reacs, prods))
-    @assert rd.rhash[rid] == forw_rhash
-    rev_rhash = stable_hash(vcat(prods, reacs))
+    forw_rhash = stable_hash(vcat(reacs, prods); version=4)
+    @assert rd.rhash[rid] == forw_rhash # Checks StableHashTraits hasn't broken anything.
+    rev_rhash = stable_hash(vcat(prods, reacs); version=4)
     return rev_rhash
 end
 

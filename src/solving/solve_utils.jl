@@ -161,7 +161,7 @@ function insert_inert!(rd::RxData, sd::SpeciesData, inert_species::Vector{String
 
                 all_reacs = sort(reduce(vcat, [[sd.toStr[sid] for _ in 1:new_stoic_reacs[spos]] for (spos, sid) in enumerate(rd.id_reacs[rid])]))
                 all_prods = sort(reduce(vcat, [[sd.toStr[sid] for _ in 1:new_stoic_prods[spos]] for (spos, sid) in enumerate(rd.id_prods[rid])]))
-                new_rhash = stable_hash(vcat(all_reacs, all_prods))
+                new_rhash = stable_hash(vcat(all_reacs, all_prods); version=4)
 
                 # Doesn't make sense to update the atom maps with inert species since they don't really exist...
                 push!(rd.mapped_rxns, rd.mapped_rxns[rid])
@@ -184,7 +184,7 @@ function insert_inert!(rd::RxData, sd::SpeciesData, inert_species::Vector{String
                 # Update reaction hash for new reactants.
                 all_reacs = sort(reduce(vcat, [[sd.toStr[sid] for _ in 1:rd.stoic_reacs[rid][spos]] for (spos, sid) in enumerate(rd.id_reacs[rid])]))
                 all_prods = sort(reduce(vcat, [[sd.toStr[sid] for _ in 1:rd.stoic_prods[rid][spos]] for (spos, sid) in enumerate(rd.id_prods[rid])]))
-                rhash = stable_hash(vcat(all_reacs, all_prods))
+                rhash = stable_hash(vcat(all_reacs, all_prods); version=4)
                 rd.rhash[rid] = rhash
             end
         end
