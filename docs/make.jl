@@ -7,7 +7,8 @@ makedocs(
         size_threshold = 307200,
         size_threshold_warn = 204800,
         assets = ["assets/favicon.ico"],
-        description = "Documentation for the Kinetica.jl package and its modular kinetic calculators."
+        description = "Documentation for the Kinetica.jl package and its modular kinetic calculators.",
+        edit_link = nothing
     ),
     pages = [
         "Home" => "index.md",

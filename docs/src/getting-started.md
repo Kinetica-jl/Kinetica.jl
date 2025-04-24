@@ -199,7 +199,7 @@ savefig("assets/getting-started/kinetics_plot.svg"); nothing # hide
 
 ![](assets/getting-started/kinetics_plot.svg)
 
-This CRN presents some interesting results! Accoding to the kinetics enforced by the calculator we have used, methane will not start breaking down into any of the free radical species discovered within this CRN until ``t \approx 5 \text{ s}``. We could check the temperature that this occurs at by referencing the temperature profile we plotted above but this is also accessible from `res` by running
+This CRN presents some interesting results! According to the kinetics enforced by the calculator we have used, methane will not start breaking down into any of the free radical species discovered within this CRN until ``t \approx 5 \text{ s}``. We could check the temperature that this occurs at by referencing the temperature profile we plotted above but this is also accessible from `res` by running
 
 ```@example getting_started
 conditionsplot(res, :T)

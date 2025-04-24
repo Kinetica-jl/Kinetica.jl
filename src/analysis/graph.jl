@@ -47,8 +47,10 @@ function Catalyst.Graph(sd::SpeciesData, rd::RxData;
     eattrs = isnothing(edge_attrs) ? Catalyst.edge_attrs : Catalyst.Attributes(edge_attrs...)
 
     @parameters k[1:rd.nr]
-    @variables t 
+    k = collect(k)
+    @independent_variables t 
     @species (spec(t))[1:sd.n]
+    spec = collect(spec)
     rs = make_rs(k, spec, t, rd)
 
     rxs = reactions(rs)

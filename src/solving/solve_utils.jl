@@ -432,8 +432,9 @@ Affect! function for discrete rate update callback in complete timescale simulat
 Calculates new rate constants from direct interpolation on
 `k_precalc::AbstractDiffEqArray`.
 """
-mutable struct CompleteRateUpdateAffect
+mutable struct CompleteRateUpdateAffect{idxType}
     k_precalc::SciMLBase.AbstractDiffEqArray
+    k_idx_map::Vector{idxType}
 end
 
 """
@@ -442,7 +443,10 @@ end
 Sets rate constants at `integrator.p` to those in `self.k_precalc` at time `integrator.t`.
 """
 function (self::CompleteRateUpdateAffect)(integrator)
-    integrator.p = self.k_precalc(integrator.t)
+    k_vals = self.k_precalc(integrator.t)
+    for i in 1:length(self.k_idx_map)
+        setindex!(integrator.p, k_vals[i], self.k_idx_map[i])
+    end
 end
 
 
@@ -481,10 +485,11 @@ global simulation time using `t_chunk` and `n_chunks`, then
 updates rate constants using conditions interpolated from their
 solutions on the global timescale.
 """
-mutable struct ChunkwiseRateUpdateAffect{tType}
+mutable struct ChunkwiseRateUpdateAffect{tType, idxType}
     t_chunk::tType
     n_chunks::Int
     k_precalc::AbstractDiffEqArray
+    k_idx_map::Vector{idxType}
 end
 
 """
@@ -497,5 +502,8 @@ chunk time and number of previous chunks.
 """
 function (self::ChunkwiseRateUpdateAffect)(integrator)
     t = integrator.t + (self.n_chunks*self.t_chunk)
-    integrator.p = self.k_precalc(t)
+    k_vals = self.k_precalc(t)
+    for i in 1:length(self.k_idx_map)
+        setindex!(integrator.p, k_vals[i], self.k_idx_map[i])
+    end
 end
