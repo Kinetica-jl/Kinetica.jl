@@ -1,5 +1,5 @@
 [deps]
-obcanonicalradicals = "0.1.1"
+obcanonicalradicals = "==0.1.1"
 rdkit = ""
 xtb = ""
 matplotlib = ""
