@@ -60,6 +60,8 @@ This calculator is theoretically compatible with any energy/force calculator imp
 * [`NWChemDFTBuilder`](@ref) implements DFT calculations through the [NWChem](https://nwchemgit.github.io/index.html) code, with any of its supported XC functionals and basis sets. It allows for passing a subset of input parameters to the ASE `Calculator`.
 * [`FHIAimsBuilder`](@ref) implements DFT calculations through the [FHI-aims](https://fhi-aims.org/) code, with any of its supported XC functionals and basis set options. It allows for passing a subset of input parameters to the ASE `Calculator`.
 
+[KineticaMACEBuilder.jl](https://github.com/Kinetica-jl/KineticaMACEBuilder) also provides an interface to the MACE machine learned interatomic potential through its `MACEBuilder` calculator builder. This is implemented as a separate package since MACE requires its own Python dependencies which are irrelevant to the rest of Kinetica's functionality.
+
 Other builders can be added with minimal effort, including those for packages which extend ASE. An example of this is shown in the page for [Creating ASE Calculator Builders](@ref).
 
 Of course, running CI-NEB calculations under DFT is a resource-intensive and costly task, especially over potentially thousands of reactions in a CRN. The [`ASENEBCalculator`](@ref) therefore implements a few precautions and quality of life features:
