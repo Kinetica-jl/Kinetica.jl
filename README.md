@@ -8,6 +8,9 @@ By building on packages within the Julia language's SciML organization (namely [
 
 Kinetica provides automated routines for guided CRN exploration, where chemical reactions are only explored if they are predicted to be relevant to the kinetics imposed by the simulation conditions. This requires repeated kinetic modelling of CRNs as they are built, which is facilitated by a discrete approximation to variable rate constant kinetics.
 
+> [!NOTE]
+> Kinetica v0.7 updates many dependencies, including [StableHashTraits](https://github.com/beacon-biosignals/StableHashTraits.jl), which it uses for ensuring the uniqueness of reactions in a CRN. CRNs saved in BSON format under previous Kinetica versions may become unusable without re-hashing all their reactions, which can be achieved with the `get_rhash` function. Raw CRNs still in directory tree format (usually imported with `import_network`) are unaffected, as hashing occurs after this stage.
+
 ## Documentation
 
 For information on installation, usage and development of Kinetica.jl, see the [documentation](https://kinetica-jl.github.io/Kinetica.jl/stable/).

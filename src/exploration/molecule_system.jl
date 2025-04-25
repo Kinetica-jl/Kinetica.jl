@@ -247,8 +247,8 @@ end
 
 
 """
-    system_from_smiles(smiles::String[, dmin::Float64=5.0, maxiters::Int=200])
-    system_from_smiles(smiles::String[, saveto::String, dmin::Float64=5.0, maxiters::Int=200])
+    system_from_smiles(smiles::Vector{String}[, dmin::Float64=5.0, maxiters::Int=200])
+    system_from_smiles(smiles::Vector{String}[, saveto::String, dmin::Float64=5.0, maxiters::Int=200])
 
 Forms a single XYZ system out of the molecules in `smiles`.
 
@@ -261,15 +261,15 @@ If the argument `saveto` is provided, outputs the optimised
 system to a file at this path. If not, returns the optimised
 system as a single ExtXYZ dict.
 """
-function system_from_smiles(smiles::Vector{String}, 
-        saveto::String; dmin::Float64=5.0, maxiters::Int=200)
+function system_from_smiles(smiles::Vector{String}, saveto::String; 
+                            dmin::Float64=5.0, maxiters::Int=200)
 
     mol = system_from_smiles(smiles; dmin=dmin, maxiters=maxiters)
     write_frame(saveto, mol)
 end
 
 function system_from_smiles(smiles::Vector{String}; 
-        dmin::Float64=5.0, maxiters::Int=200)
+                            dmin::Float64=5.0, maxiters::Int=200)
 
     mols = [frame_from_smiles(smi) for smi in smiles]
 
@@ -295,15 +295,15 @@ If the argument `saveto` is provided, outputs the optimised
 system to a file at this path. If not, returns the optimised
 system as a single ExtXYZ dict.
 """
-function system_from_mols(mols::Vector{Dict{String}{Any}}, saveto::String; 
-        dmin::Float64=5.0, maxiters::Int=200)
+function system_from_mols(mols::Vector{Dict{String, Any}}, saveto::String; 
+                          dmin::Float64=5.0, maxiters::Int=200)
 
     mol = system_from_mols(mols; dmin=dmin, maxiters=maxiters)
     write_frame(saveto, mol)
 end
 
-function system_from_mols(mols::Vector{Dict{String}{Any}}; 
-        dmin::Float64=5.0, maxiters::Int=200)
+function system_from_mols(mols::Vector{Dict{String, Any}}; 
+                          dmin::Float64=5.0, maxiters::Int=200)
 
     center_mols!(mols)
     tmols = molsys_opt(mols, dmin, maxiters)

@@ -16,6 +16,7 @@ using Catalyst
 using OrdinaryDiffEq
 using DiffEqCallbacks
 using RecursiveArrayTools
+using SymbolicIndexingInterface
 using LinearAlgebra
 using Statistics
 using DelimitedFiles
@@ -129,7 +130,7 @@ export register_direct_conditions, solve_variable_conditions!
 
 include("exploration/network.jl")
 export SpeciesData, push!, push_unique!
-export RxData, get_reverse_rhash
+export RxData, get_rhash, get_reverse_rhash
 export init_network
 export format_rxn, print_rxn
 

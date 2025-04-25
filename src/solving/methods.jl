@@ -138,20 +138,23 @@ function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData, ::Va
 
     @info " - Setting up ReactionSystem"; flush_log()
     @parameters k[1:rd.nr]
-    @variables t 
+    k = collect(k)
+    @independent_variables t 
     @species (spec(t))[1:sd.n]
+    spec = collect(spec)
 
     u0 = make_u0(sd, method.pars)
     u0map = Pair.(collect(spec), u0)
     pmap = Pair.(collect(k), rates)
 
     rs = make_rs(k, spec, t, rd)
+    osys = structural_simplify(convert(ODESystem, rs))
 
     @info " - Formulating ODEProblem"
     @info "   - Sparse? $(method.pars.sparse)"
     @info "   - Analytic Jacobian? $(method.pars.jac)"
     flush_log()
-    oprob = ODEProblem(rs, u0map, method.pars.tspan, pmap;
+    oprob = ODEProblem(osys, u0map, method.pars.tspan, pmap;
         jac=method.pars.jac, sparse=method.pars.sparse)
     solvecall_kwargs = Dict{Symbol, Any}(
         :progress => method.pars.progress,
@@ -188,14 +191,17 @@ function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData, ::Va
 
     @info " - Setting up ReactionSystem"; flush_log()
     @parameters k[1:rd.nr]
-    @variables t 
+    k = collect(k)
+    @independent_variables t 
     @species (spec(t))[1:sd.n]
+    spec = collect(spec)
 
     u0 = make_u0(sd, method.pars)
     u0map = Pair.(collect(spec), u0)
     pmap = Pair.(collect(k), rates)
 
     rs = make_rs(k, spec, t, rd)
+    osys = structural_simplify(convert(ODESystem, rs))
     @info " - Created ReactionSystem"
 
     @info " - Formulating ODEProblem"
@@ -205,7 +211,7 @@ function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData, ::Va
     tType = eltype(method.pars.tspan)
     uType = eltype(u0)
     local_tspan = (tType(0.0), tType(method.pars.solve_chunkstep))
-    oprob = ODEProblem(rs, u0map, local_tspan, pmap;
+    oprob = ODEProblem(osys, u0map, local_tspan, pmap;
         jac=method.pars.jac, sparse=method.pars.sparse)
 
     # Determine how many solution chunks will be required.
@@ -362,10 +368,13 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     variable_condition_symbols = [sym for sym in method.conditions.symbols if isvariable(method.conditions, sym)]
 
     @info " - Setting up ReactionSystem"; flush_log()
-    @variables t 
+    @independent_variables t 
     @species (spec(t))[1:sd.n]
+    spec = collect(spec)
     @variables (k(t))[1:rd.nr]
+    k = collect(k)
     @variables (vc(t))[1:n_variable_conditions]
+    vc = collect(vc)
 
     u0 = make_u0(sd, method.pars)
     u0map = Pair.(collect(spec), u0)
@@ -408,6 +417,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
 
     rs = make_rs(k, spec, t, rd; variable_k=true)
     @named rs_constrained = extend(rate_sys, rs)
+    rs_constrained = complete(rs_constrained)
     @info "   - Merged ReactionSystem with constraints."
     @info "   - Creating ODESystem."
     flush_log()
@@ -418,7 +428,8 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     @info "   - Analytic Jacobian? $(method.pars.jac)"
     flush_log()
     oprob = ODEProblem(osys, u0map, method.pars.tspan;
-        jac=method.pars.jac, sparse=method.pars.sparse)
+        jac=method.pars.jac, sparse=method.pars.sparse,
+        warn_initialize_determined=false)
     solvecall_kwargs = Dict{Symbol, Any}(
         :progress => method.pars.progress,
         :progress_steps => 10,
@@ -455,10 +466,13 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     variable_condition_symbols = [sym for sym in method.conditions.symbols if isvariable(method.conditions, sym)]
 
     @info " - Setting up ReactionSystem"; flush_log()
-    @variables t 
+    @independent_variables t 
     @species (spec(t))[1:sd.n]
+    spec = collect(spec)
     @variables (k(t))[1:rd.nr]
+    k = collect(k)
     @variables (vc(t))[1:n_variable_conditions]
+    vc = collect(vc)
     @parameters chunktime n_chunks
 
     u0 = make_u0(sd, method.pars)
@@ -503,10 +517,12 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
 
     rs = make_rs(k, spec, t, rd, [chunktime, n_chunks])
     @named rs_constrained = extend(rate_sys, rs)
+    rs_constrained = complete(rs_constrained)
     @info "   - Merged ReactionSystem with constraints."
     @info "   - Creating ODESystem."
     flush_log()
     osys = structural_simplify(convert(ODESystem, rs_constrained))
+    n_chunks_pidx = parameter_index(osys, n_chunks)
 
     @info " - Formulating ODEProblem"
     @info "   - Sparse? $(method.pars.sparse)"
@@ -517,7 +533,8 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     local_tspan = (0.0, method.pars.solve_chunkstep)
     global_tstops = get_tstops(method.conditions)
     oprob = ODEProblem(osys, u0map, local_tspan, pmap;
-        jac=method.pars.jac, sparse=method.pars.sparse)
+        jac=method.pars.jac, sparse=method.pars.sparse,
+        warn_initialize_determined=false)
 
     # Determine how many solution chunks will be required.
     n_chunks_reqd = Int(method.pars.tspan[2] / method.pars.solve_chunkstep)
@@ -571,7 +588,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
         end
 
         # Reinitialise the integrator at the current concentrations.
-        integ.p[end] = nc
+        setindex!(integ.p, nc, n_chunks_pidx)
         reinit!(integ, integ.sol.u[end]; tstops=tstops_local)
 
         adaptive_solve!(integ, method.pars, solvecall_kwargs)
@@ -631,20 +648,24 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
 
     @info " - Setting up ReactionSystem"; flush_log()
     @parameters k[1:rd.nr]
-    @variables t 
+    k = collect(k)
+    @independent_variables t 
     @species (spec(t))[1:sd.n]
+    spec = collect(spec)
 
     u0 = make_u0(sd, method.pars)
     u0map = Pair.(collect(spec), u0)
     pmap = Pair.(collect(k), method.calculator(; get_initial_conditions(method.conditions)...))
 
     rs = make_rs(k, spec, t, rd)
+    osys = structural_simplify(convert(ODESystem, rs))
     @info " - Created ReactionSystem"
 
     @info " - Pre-calculating rate constants at discrete time intervals."; flush_log()
     tstops = get_tstops(method.conditions)
     k_precalc = calculate_discrete_rates(method.conditions, method.calculator, rd.nr; uType=eltype(u0))
-    affect! = CompleteRateUpdateAffect(k_precalc)
+    k_idx_map = [parameter_index(osys, ki) for ki in k]
+    affect! = CompleteRateUpdateAffect(k_precalc, k_idx_map)
     cb = PresetTimeCallback(tstops, affect!; save_positions=(false, false))
     @info " - Created discrete rate constant update callback."
 
@@ -652,7 +673,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     @info "   - Sparse? $(method.pars.sparse)"
     @info "   - Analytic Jacobian? $(method.pars.jac)"
     flush_log()
-    oprob = ODEProblem(rs, u0map, method.pars.tspan, pmap;
+    oprob = ODEProblem(osys, u0map, method.pars.tspan, pmap;
         jac=method.pars.jac, sparse=method.pars.sparse)
     solvecall_kwargs = Dict{Symbol, Any}(
         :callback => cb,
@@ -689,22 +710,26 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
 
     @info " - Setting up ReactionSystem"; flush_log()
     @parameters k[1:rd.nr]
-    @variables t 
+    k = collect(k)
+    @independent_variables t 
     @species (spec(t))[1:sd.n]
+    spec = collect(spec)
 
     u0 = make_u0(sd, method.pars)
     u0map = Pair.(collect(spec), u0)
     pmap = Pair.(collect(k), method.calculator(; get_initial_conditions(method.conditions)...))
 
-    rs = make_rs(k, spec, t, rd)
+    rs = complete(make_rs(k, spec, t, rd))
+    osys = structural_simplify(convert(ODESystem, rs))
     @info " - Created ReactionSystem"
 
     tType = eltype(method.pars.tspan)
     uType = eltype(u0)
     @info " - Pre-calculating rate constants at discrete time intervals."; flush_log()
     k_precalc = calculate_discrete_rates(method.conditions, method.calculator, rd.nr; uType=uType)
+    k_idx_map = [parameter_index(osys, ki) for ki in k]
     condition = ChunkwiseRateUpdateCondition(tType[])
-    affect! = ChunkwiseRateUpdateAffect(method.pars.solve_chunkstep, 0, k_precalc)
+    affect! = ChunkwiseRateUpdateAffect(method.pars.solve_chunkstep, 0, k_precalc, k_idx_map)
     cb = DiscreteCallback(condition, affect!; save_positions=(false, false))
     @info " - Created callback for discrete rate constant updates."
 
@@ -714,7 +739,7 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     flush_log()
     local_tspan = (0.0, method.pars.solve_chunkstep)
     global_tstops = get_tstops(method.conditions)
-    oprob = ODEProblem(rs, u0map, local_tspan, pmap;
+    oprob = ODEProblem(osys, u0map, local_tspan, pmap;
         jac=method.pars.jac, sparse=method.pars.sparse)
 
     # Determine how many solution chunks will be required.

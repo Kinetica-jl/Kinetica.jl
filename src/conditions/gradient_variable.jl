@@ -35,7 +35,7 @@ solution result to that symbol in the underlying `ODESolution`.
 function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
     sym=nothing, reset=false, solver, solve_kwargs) where {pType <: AbstractGradientProfile}
     if isnothing(profile.sol) || reset
-        @variables t 
+        @independent_variables t 
         if isnothing(sym) 
             X_sym = only(@variables(X(t)))
         else
@@ -56,7 +56,8 @@ function solve_variable_condition!(profile::pType, pars::ODESimulationParams;
             profile_solve_kwargs[:saveat] = sort(vcat(create_savepoints(pars.tspan[1], pars.tspan[2], save_interval), profile.tstops))
         end
 
-        prob = ODEProblem(profile_sys, u0map, pars.tspan)
+        profile_sys_complete = structural_simplify(profile_sys)
+        prob = ODEProblem(profile_sys_complete, u0map, pars.tspan)
         profile.sol = solve(prob, solver; profile_solve_kwargs...)
     end
     return

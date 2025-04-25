@@ -11,7 +11,7 @@ Upon completion of a kinetic simulation run by [`solve_network`](@ref) (or throu
 We will demonstrate this analysis using the results of the CRN we generated and simulated in [Getting Started](@ref):
 
 ```@example results_analysis
-using Kinetica, Plots
+using Kinetica
 res = load_output("../my_CRN_out/direct_network_final.bson")
 nothing # hide
 ```
@@ -47,7 +47,7 @@ end
 nothing # hide
 ```
 
-Other fields of [`RxData`](@ref) can also be useful for analysis, such as `RxData.mapped_rxns`. This field contains the atom-mapped reaction SMILES of all reactions in a CRN, and can be used for constructing multi-species reactant and product geometries with consistent atom indeces (vital for any reaction path techniques):
+Other fields of [`RxData`](@ref) can also be useful for analysis, such as `RxData.mapped_rxns`. This field contains the atom-mapped reaction SMILES of all reactions in a CRN, and can be used for constructing multi-species reactant and product geometries with consistent atom indices (vital for any reaction path techniques):
 
 ```@example results_analysis
 println("Atom-mapped reaction SMILES: $(rd.mapped_rxns[1])\n")
@@ -61,7 +61,7 @@ reacsys = system_from_smiles(reac_species; dmin=3.0)
 prod_species = [sd.toStr[sid] for sid in rd.id_prods[1]]
 prodsys = system_from_smiles(prod_species; dmin=3.0)
 
-# Remap atom indeces using atom-mapped SMILES and RDKit substructure matching.
+# Remap atom indices using atom-mapped SMILES and RDKit substructure matching.
 mapped_reacs = atom_map_frame(am_reacs, reacsys)
 mapped_prods = atom_map_frame(am_prods, prodsys)
 
@@ -154,7 +154,16 @@ where
 
 For example, plotting the same results as in [Getting Started](@ref), but excluding the radical species from the plot is simple:
 
-```@example results_analysis
+```@setup results_analysis_2
+using Kinetica
+
+res = load_output("../my_CRN_out/direct_network_final.bson")
+sd, rd = res.sd, res.rd
+```
+
+```@example results_analysis_2
+using Plots
+
 is_radical(smi) = ('[' in smi) && !(smi == "[H][H]")
 radical_species = [spec for spec in [sd.toStr[i] for i in 1:sd.n] if is_radical(spec)]
 
@@ -177,7 +186,7 @@ conditionsplot(::Union{::ODESolveOutput, ConditionSet}, ::Symbol; tunit="s")
 
 This recipe can take either an [`ODESolveOutput`](@ref) or a [`ConditionSet`](@ref), but it has a second mandatory argument - a `Symbol` representing the condition profile to plot. For example, if a variable temperature profile is required (and it exists in the [`ConditionSet`](@ref) being plotted), then this is usually available under `:T`. Again, `tunit` is the unit of time to display on the x-axis.
 
-```@example results_analysis
+```@example results_analysis_2
 # Again, this is compatible with Plots.jl keyword arguments.
 conditionsplot(res, :T; linecolor=:red)
 savefig("../assets/tutorials/results_analysis/temperature_plot.svg"); nothing # hide
@@ -202,7 +211,7 @@ where
 * `ignore_species` accepts a `Vector` of SMILES strings for species to exclude from the plot. This can be useful when inert species are present with concentrations that are unimportant to the final state of the CRN (`nothing` if this is not desired);
 * `xscale` mimics Plots.jl's `xscale` option for setting the scaling of the x-axis. In this case, only `:identity` (default) and `:log10` are supported, as additional calculations are required to obtain the correct x-axis limits for correct bar chart rendering.
 
-```@example results_analysis
+```@example results_analysis_2
 finalconcplot(res; quantity=:percent, n_top=5, highlight_radicals=true)
 savefig("../assets/tutorials/results_analysis/concs_plot.svg"); nothing # hide
 ```

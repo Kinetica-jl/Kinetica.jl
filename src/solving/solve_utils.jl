@@ -161,7 +161,7 @@ function insert_inert!(rd::RxData, sd::SpeciesData, inert_species::Vector{String
 
                 all_reacs = sort(reduce(vcat, [[sd.toStr[sid] for _ in 1:new_stoic_reacs[spos]] for (spos, sid) in enumerate(rd.id_reacs[rid])]))
                 all_prods = sort(reduce(vcat, [[sd.toStr[sid] for _ in 1:new_stoic_prods[spos]] for (spos, sid) in enumerate(rd.id_prods[rid])]))
-                new_rhash = stable_hash(vcat(all_reacs, all_prods))
+                new_rhash = stable_hash(vcat(all_reacs, all_prods); version=4)
 
                 # Doesn't make sense to update the atom maps with inert species since they don't really exist...
                 push!(rd.mapped_rxns, rd.mapped_rxns[rid])
@@ -184,7 +184,7 @@ function insert_inert!(rd::RxData, sd::SpeciesData, inert_species::Vector{String
                 # Update reaction hash for new reactants.
                 all_reacs = sort(reduce(vcat, [[sd.toStr[sid] for _ in 1:rd.stoic_reacs[rid][spos]] for (spos, sid) in enumerate(rd.id_reacs[rid])]))
                 all_prods = sort(reduce(vcat, [[sd.toStr[sid] for _ in 1:rd.stoic_prods[rid][spos]] for (spos, sid) in enumerate(rd.id_prods[rid])]))
-                rhash = stable_hash(vcat(all_reacs, all_prods))
+                rhash = stable_hash(vcat(all_reacs, all_prods); version=4)
                 rd.rhash[rid] = rhash
             end
         end
@@ -432,8 +432,9 @@ Affect! function for discrete rate update callback in complete timescale simulat
 Calculates new rate constants from direct interpolation on
 `k_precalc::AbstractDiffEqArray`.
 """
-mutable struct CompleteRateUpdateAffect
+mutable struct CompleteRateUpdateAffect{idxType}
     k_precalc::SciMLBase.AbstractDiffEqArray
+    k_idx_map::Vector{idxType}
 end
 
 """
@@ -442,7 +443,10 @@ end
 Sets rate constants at `integrator.p` to those in `self.k_precalc` at time `integrator.t`.
 """
 function (self::CompleteRateUpdateAffect)(integrator)
-    integrator.p = self.k_precalc(integrator.t)
+    k_vals = self.k_precalc(integrator.t)
+    for i in 1:length(self.k_idx_map)
+        setindex!(integrator.p, k_vals[i], self.k_idx_map[i])
+    end
 end
 
 
@@ -481,10 +485,11 @@ global simulation time using `t_chunk` and `n_chunks`, then
 updates rate constants using conditions interpolated from their
 solutions on the global timescale.
 """
-mutable struct ChunkwiseRateUpdateAffect{tType}
+mutable struct ChunkwiseRateUpdateAffect{tType, idxType}
     t_chunk::tType
     n_chunks::Int
     k_precalc::AbstractDiffEqArray
+    k_idx_map::Vector{idxType}
 end
 
 """
@@ -497,5 +502,8 @@ chunk time and number of previous chunks.
 """
 function (self::ChunkwiseRateUpdateAffect)(integrator)
     t = integrator.t + (self.n_chunks*self.t_chunk)
-    integrator.p = self.k_precalc(t)
+    k_vals = self.k_precalc(t)
+    for i in 1:length(self.k_idx_map)
+        setindex!(integrator.p, k_vals[i], self.k_idx_map[i])
+    end
 end
