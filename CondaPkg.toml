@@ -1,6 +1,6 @@
 [deps]
 obcanonicalradicals = "==0.1.1"
-rdkit = ""
+rdkit = "==2024.09.6"
 xtb = ""
 matplotlib = ""
 ase = "<3.23"
