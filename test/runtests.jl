@@ -3,6 +3,7 @@ using Test
 using SafeTestsets
 using Random
 Random.seed!(12345)
+Kinetica.np.random.seed(12345)
 
 # Python tests - should come first, as they are most likely to have issues and
 # many other bits depend on them down the chain.

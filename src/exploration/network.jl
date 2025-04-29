@@ -386,8 +386,10 @@ function RxData(sd::SpeciesData{iType},
             end
             surfid = isnothing(reacs_surfid) ? prods_surfid : reacs_surfid
             if !isnothing(surfid)
-                remove_surface_atoms!(rsys[i], sd.surfdata, surfid)
-                remove_surface_atoms!(psys[i], sd.surfdata, surfid)
+                rsys_is_adsorbed = SpeciesStyle(join(all_reacs, ".")) isa SurfaceSpecies
+                remove_surface_atoms!(rsys[i], sd.surfdata, surfid, rsys_is_adsorbed)
+                psys_is_adsorbed = SpeciesStyle(join(all_prods, ".")) isa SurfaceSpecies
+                remove_surface_atoms!(psys[i], sd.surfdata, surfid, psys_is_adsorbed)
             end
 
             # Construct atom-mapped reaction SMILES from original geometries.

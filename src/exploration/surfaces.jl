@@ -301,11 +301,16 @@ end
 get_surf_site_atomids(::GasSpecies, amsmi::String) = nothing
 
 """
-    remove_surface_atoms!(frame::Dict{String, Any}, surfdata::SurfaceData, surfid::Int)
+    remove_surface_atoms!(frame::Dict{String, Any}, surfdata::SurfaceData, surfid::Int[, is_adsorbed::Bool=false])
 
 Removes the atoms corresponding to the `Surface` in `surfdata.surfaces[surfid]` from `frame`.
+
+Also removes the `cell` and `pbc` keys from `frame`. Adds
+and adsorbate tag to its `info` dict if `is_adsorbed==true`,
+making the resulting geometry an `AdsorbedXYZ` if this is the
+case or a `FreeXYZ` if not, rather than an `OnSurfaceXYZ`.
 """
-function remove_surface_atoms!(frame::Dict{String, Any}, surfdata::SurfaceData, surfid::Int)
+function remove_surface_atoms!(frame::Dict{String, Any}, surfdata::SurfaceData, surfid::Int, is_adsorbed::Bool=false)
     surface = surfdata.surfaces[surfid]
     elems = surface.elements
     remove_idxs = [i for (i, e) in enumerate(frame["arrays"]["species"]) if e in elems]
@@ -318,5 +323,10 @@ function remove_surface_atoms!(frame::Dict{String, Any}, surfdata::SurfaceData, 
         end
     end
     frame["N_atoms"] -= length(remove_idxs)
+    delete!(frame, "cell")
+    delete!(frame, "pbc")
+    if is_adsorbed
+        frame["info"]["adsorbate"] = "true"
+    end
     return
 end

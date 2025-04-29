@@ -171,3 +171,42 @@ end
     Kinetica.add_surface_beneath!(reac3, sd.surfdata.surfaces[get_surfid(sd.toStr[2])], prod1["info"]["unit_cell_mult"])
     @test reac2["N_atoms"] == prod1["N_atoms"]
 end
+
+@testset "Surface Atom Mapping" begin
+    surfdata = SurfaceData([Surface("Pt_fcc100", Kinetica.asebuild.fcc100("Pt", (1,1,3)))])
+    sd, rd = init_network(surfdata)
+    Kinetica.populate_sd_cache!(sd)
+    smis, xyzs = ingest_xyz_system(xyz_file_to_str("Python/data/CH3CH2NH+H_PtFCC100.xyz"), sd.surfdata)
+    push_unique!(sd, smis, xyzs)
+    smis, xyzs = ingest_xyz_system(xyz_file_to_str("Python/data/CH3CH2NH2.xyz"), sd.surfdata)
+    push_unique!(sd, smis, xyzs)
+
+    builder = TBLiteBuilder(; method="GFN1-xTB")
+    for i in 1:sd.n
+        Kinetica.get_mult!(sd, i)
+        Kinetica.get_charge!(sd, i)
+        Kinetica.conformer_search!(sd, i)
+        Kinetica.get_formal_charges!(sd, i)
+        Kinetica.get_initial_magmoms!(sd, i)
+        Kinetica.geomopt!(sd, i, builder; fmax=1.0)
+    end
+
+    amsmi = atom_map_smiles(sd.xyz[1], sd.toStr[1])
+    @test amsmi == "[X1_1][N:3]([C:2]([C:1]([H:4])([H:5])[H:6])([H:7])[H:8])[H:9]"
+    smi_no_surf = "CCN"
+    @test_throws "gas-phase SMILES from a surface-bound geometry" atom_map_smiles(sd.xyz[1], smi_no_surf)
+    @test_throws "gas-phase SMILES from a surface-bound geometry" atom_map_smiles(sd.cache[:ads_xyz][1], smi_no_surf)
+    @test_throws "mapped surface SMILES from a surface-bound species" atom_map_smiles(sd.cache[:ads_xyz][1], sd.toStr[1])
+
+    amsmi2 = "[X1_1][N:1]([C:3]([C:2]([H:9])([H:8])[H:7])([H:6])[H:5])[H:4]"
+    amsmi2_no_surf = "[N:1]([C:3]([C:2]([H:9])([H:8])[H:7])([H:6])[H:5])[H:4]"
+    amframe = atom_map_frame(amsmi2, sd.xyz[1])
+    @test amframe["N_atoms"] == 9
+    @test amframe["arrays"]["species"] == ["N", "C", "C", "H", "H", "H", "H", "H", "H"]
+    @test amframe["info"]["adsorbate"] == "true"
+    amframe_with_surf = atom_map_frame(amsmi2, sd.cache[:ads_xyz][1])
+    @test amframe_with_surf["N_atoms"] == 57
+    @test amframe_with_surf["arrays"]["species"] == vcat(["N", "C", "C", "H", "H", "H", "H", "H", "H"], ["Pt" for _ in 1:48])
+    @test_throws "surface-bound geometry from a gas-phase SMILES" atom_map_frame(amsmi2_no_surf, sd.xyz[1])
+    @test_throws "gas-phase geometry from a surface-bound SMILES" atom_map_frame(amsmi2, sd.xyz[3])
+end 
