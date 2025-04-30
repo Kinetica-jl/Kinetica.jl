@@ -64,7 +64,7 @@ function adsorb_frame(frame::Dict{String, Any}, surfdata::SurfaceData, smi::Stri
                !adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads3_idxs, 5.0) &&
                !adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads4_idxs, 5.0) &&
                !adsorbed_system_has_overlap(atoms_rep, ads2_idxs, ads3_idxs, 5.0)
-                atoms.info["ads_atomid"] = surf_na + ads_atomid
+                atoms.info["ads_atomid"] = surf_na + ads_atomid+1
                 break
             end
 
