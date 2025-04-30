@@ -118,6 +118,10 @@ end
     builder = TBLiteBuilder(; method="GFN1-xTB")
     Kinetica.geomopt!(sd, 1, builder; fmax=1.0); Kinetica.geomopt!(sd, 3, builder; fmax=1.0)
     frame4 = adsorb_two_frames(sd, 1, 3)
+    @test frame4["N_atoms"] == 56
+    @test frame4["info"]["unit_cell_mult"] == 4
+    @test frame4["arrays"]["pos"][:, 49] ≈ Float32[0.0, 0.0, 16.83118]
+    @test frame4["arrays"]["pos"][:, 51] ≈ Float32[5.76999, 2.49847, 16.781178]
 
     # Two molecules, surface/gas.
     smis, xyzs = ingest_xyz_system(xyz_file_to_str("Python/data/C4H10.xyz"), sd.surfdata)
@@ -128,6 +132,8 @@ end
     Kinetica.geomopt!(sd, 4, builder; fmax=1.0)
     frame5 = adsorb_two_frames(sd, 1, 4)
     @test frame5["N_atoms"] == 64
+    @test frame5["arrays"]["pos"][:, 49] ≈ Float32[0.0, 0.0, 16.83118]
+    @test frame5["arrays"]["pos"][:, 51] ≈ Float32[6.77843, 4.88418, 23.08689]
 end
 
 @testset "Surface Reaction Endpoint Matching" begin
