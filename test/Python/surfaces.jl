@@ -90,7 +90,10 @@ end
 end
 
 @testset "Surface Adsorption" begin
-    surfdata = SurfaceData([Surface("Au_fcc111", Kinetica.asebuild.fcc111("Au", (1,1,3)))])
+    surf_atoms = Kinetica.asebuild.fcc111("Au", (1,1,3))
+    c = Kinetica.aseconstraints.FixAtoms(indices=[0, 1])
+    surf_atoms.set_constraint(c)
+    surfdata = SurfaceData([Surface("Au_fcc111", surf_atoms)])
     sd, rd = init_network(surfdata)
     Kinetica.populate_sd_cache!(sd)
 
@@ -101,6 +104,7 @@ end
     frame1 = adsorb_frame(sd, 1)
     @test frame1["N_atoms"] == 29
     @test frame1["arrays"]["pos"][3, 28] - frame1["arrays"]["pos"][3, 3] ≈ 2.12
+    @test frame1["arrays"]["fixed_pos"] == vcat(repeat([1, 1, 0], 9), [0, 0])
     # Single molecule, custom height.
     frame2 = adsorb_frame(sd, 1, [1.8])
     @test frame2["arrays"]["pos"][3, 28] - frame2["arrays"]["pos"][3, 3] ≈ 1.8
@@ -122,6 +126,7 @@ end
     @test frame4["info"]["unit_cell_mult"] == 4
     @test frame4["arrays"]["pos"][:, 49] ≈ Float32[0.0, 0.0, 16.83118]
     @test frame4["arrays"]["pos"][:, 51] ≈ Float32[5.76999, 2.49847, 16.781178]
+    @test frame4["arrays"]["fixed_pos"] == vcat(repeat([1, 1, 0], 16), zeros(Int, 8))
 
     # Two molecules, surface/gas.
     smis, xyzs = ingest_xyz_system(xyz_file_to_str("Python/data/C4H10.xyz"), sd.surfdata)
@@ -134,10 +139,14 @@ end
     @test frame5["N_atoms"] == 64
     @test frame5["arrays"]["pos"][:, 49] ≈ Float32[0.0, 0.0, 16.83118]
     @test frame5["arrays"]["pos"][:, 51] ≈ Float32[6.77843, 4.88418, 23.08689]
+    @test frame5["arrays"]["fixed_pos"] == vcat(repeat([1, 1, 0], 16), zeros(Int, 16))
 end
 
 @testset "Surface Reaction Endpoint Matching" begin
-    surfdata = SurfaceData([Surface("Pt_fcc100", Kinetica.asebuild.fcc100("Pt", (1,1,3)))])
+    surf_atoms = Kinetica.asebuild.fcc100("Pt", (1,1,3))
+    c = Kinetica.aseconstraints.FixAtoms(indices=[0, 1])
+    surf_atoms.set_constraint(c)
+    surfdata = SurfaceData([Surface("Pt_fcc100", surf_atoms)])
     sd, rd = init_network(surfdata)
     Kinetica.populate_sd_cache!(sd)
     smis, xyzs = ingest_xyz_system(xyz_file_to_str("Python/data/CH3CH2NH2.xyz"), sd.surfdata)
@@ -158,7 +167,7 @@ end
     end
 
     # Expansion of ads/gas surface to match larger ads/ads surface
-    prod1 = adsorb_two_frames(sd, 2, 3)
+    prod1 = adsorb_two_frames(sd, 2, 3) # TODO: depending on geomopt, this may be a 3x3 and reac1 can be a 4x4
     reac1 = adsorb_two_frames(sd, 2, 4)
     @test reac1["N_atoms"] < prod1["N_atoms"]
     Kinetica.scale_surface_to_match!(reac1, prod1, sd.surfdata.surfaces[get_surfid(sd.toStr[2])])
