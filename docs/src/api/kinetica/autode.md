@@ -5,7 +5,7 @@
 ### Conformer Searching
 
 ```@docs
-Kinetica.autode_conformer_search!
+Kinetica.conformer_search!
 Kinetica.autode_NCI_conformer_search
 ```
 

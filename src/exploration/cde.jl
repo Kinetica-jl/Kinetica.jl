@@ -236,6 +236,7 @@ end
 
 """
     ingest_cde_run(rdir::String, rcount[, fix_radicals=true])
+    ingest_cde_run(rdir::String, rcount, surfdata::SurfaceData[, fix_radicals=true])
 
 Reads in the results from a CDE run.
 
@@ -303,4 +304,59 @@ function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
     @debug "Read in $(n_reacs*2) reactions."
 
     return reac_smis, reac_xyzs, reac_systems, prod_smis, prod_xyzs, prod_systems, dH
+end
+function ingest_cde_run(rdir::String, rcount, surfdata::SurfaceData; fix_radicals=true)
+    rxdir = joinpath(rdir, "reac_$(lpad(rcount, 5, "0"))")
+    @debug "Reading in mechanism step xyz files."
+
+    # Read in all reactions as 2-frame trajectories.
+    rxfiles = readdir(rxdir)
+    rxfiles = rxfiles[startswith.(rxfiles, "rxn_")]
+    n_reacs = length(rxfiles)
+    reacs = []
+    prods = []
+    dH = zeros(Float64, n_reacs)
+    for i in 1:n_reacs
+        reaction = read_frames(joinpath(rxdir, rxfiles[i]), 1:2)
+
+        # Separate out reacs and prods, calculate dH.
+        push!(reacs, reaction[1])
+        push!(prods, reaction[2])
+        dH[i] = reaction[2]["info"]["energy"] - reaction[1]["info"]["energy"]
+    end
+
+    @debug "Extracting fragment species from reactions."
+    reac_smis = Vector{String}[]
+    reac_xyzs = Vector{Dict{String, Any}}[]
+    reac_systems = Dict{String, Any}[]
+    for reac in reacs
+        if XYZStyle(reac) isa OnSurfaceXYZ center_surface_frame!(reac) end
+        smis, xyzs = ingest_xyz_system(frame_to_xyz(reac), surfdata; fix_radicals)
+        push!(reac_smis, smis)
+        push!(reac_xyzs, xyzs)
+        push!(reac_systems, reac)
+    end
+    prod_smis = Vector{String}[]
+    prod_xyzs = Vector{Dict{String, Any}}[]
+    prod_systems = Dict{String, Any}[]
+    for prod in prods
+        if XYZStyle(prod) isa OnSurfaceXYZ center_surface_frame!(prod) end
+        smis, xyzs = ingest_xyz_system(frame_to_xyz(prod), surfdata; fix_radicals)
+        push!(prod_smis, smis)
+        push!(prod_xyzs, xyzs)
+        push!(prod_systems, prod)
+    end
+
+    # Add in all reverse reactions.
+    reac_smis = vcat(reac_smis, prod_smis)
+    prod_smis = vcat(prod_smis, reac_smis)
+    dH = vcat(dH, -dH)
+    reac_systems = vcat(reac_systems, prod_systems)
+    prod_systems = vcat(prod_systems, reac_systems)
+    @debug "Read in $(n_reacs*2) reactions."
+
+    return reac_smis, reac_xyzs, reac_systems, prod_smis, prod_xyzs, prod_systems, dH
+end
+function ingest_cde_run(rdir::String, rcount, ::Nothing; fix_radicals=true)
+    return ingest_cde_run(rdir, rcount; fix_radicals)
 end
