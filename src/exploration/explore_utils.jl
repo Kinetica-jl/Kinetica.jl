@@ -47,7 +47,7 @@ end
 
 
 """
-    import_mechanism(loc::ExploreLoc, rcount[, max_molecularity=2])
+    import_mechanism(loc::ExploreLoc, rcount[, max_molecularity=2, duplicate_reverse=true, unique_rxns=true])
 
 Create a CRN's initial `SpeciesData` and `RxData` from a CDE generated mechanism(s).
 
@@ -57,19 +57,26 @@ containing the unique species and reactions within these results,
 provided these reactions do not exceed the maximum molecularity
 set by `max_molecularity`, which defaults to only accepting
 unimolecular and bimolecular reactions.
+
+`duplicate_reverse` specifies whether to add the reverse reactions
+of each of the imported reactions. `unique_rxns` specifies whether
+to only add unique reactions to `RxData`.
 """
-function import_mechanism(loc::ExploreLoc, rcount; max_molecularity=2)
+function import_mechanism(loc::ExploreLoc, rcount; 
+        max_molecularity=2, duplicate_reverse=true, unique_rxns=true)
     rdir = pathof(loc)
-    rsmis, rxyzs, rsys, psmis, pxyzs, psys, dHs = ingest_cde_run(rdir, rcount)
+    rsmis, rxyzs, rsys, psmis, pxyzs, psys, dHs = ingest_cde_run(rdir, rcount; 
+                                                                 duplicate_reverse=duplicate_reverse)
     all_smis = vcat(reduce(vcat, rsmis), reduce(vcat, psmis))
     all_xyzs = vcat(reduce(vcat, rxyzs), reduce(vcat, pxyzs))
     sd = SpeciesData(all_smis, all_xyzs, loc.level)
-    rd = RxData(sd, rsmis, psmis, rsys, psys, dHs, loc.level; max_molecularity=max_molecularity)
+    rd = RxData(sd, rsmis, psmis, rsys, psys, dHs, loc.level; 
+                max_molecularity=max_molecularity, unique_rxns=unique_rxns)
     return sd, rd
 end
 
 """
-    import_mechanism!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, rcount[, max_molecularity=2])
+    import_mechanism!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, rcount[, max_molecularity=2, duplicate_reverse=true, unique_rxns=true])
 
 Extend a CRN's `SpeciesData` and `RxData` from a CDE generated mechanism(s).
 
@@ -79,15 +86,21 @@ species and reactions within these results, provided these
 reactions do not exceed the maximum molecularity set by 
 `max_molecularity`, which defaults to only accepting unimolecular
 and bimolecular reactions.
+
+`duplicate_reverse` specifies whether to add the reverse reactions
+of each of the imported reactions. `unique_rxns` specifies whether
+to only add unique reactions to `RxData`.
 """
 function import_mechanism!(sd::SpeciesData, rd::RxData, loc::ExploreLoc, rcount;
-        max_molecularity=2)
+        max_molecularity=2, duplicate_reverse=true, unique_rxns=true)
     rdir = pathof(loc)
-    rsmis, rxyzs, rsys, psmis, pxyzs, psys, dHs = ingest_cde_run(rdir, rcount)
+    rsmis, rxyzs, rsys, psmis, pxyzs, psys, dHs = ingest_cde_run(rdir, rcount; 
+                                                                 duplicate_reverse=duplicate_reverse)
     all_smis = vcat(reduce(vcat, rsmis), reduce(vcat, psmis))
     all_xyzs = vcat(reduce(vcat, rxyzs), reduce(vcat, pxyzs))
     push_unique!(sd, all_smis, all_xyzs, loc.level)
-    push!(rd, sd, rsmis, psmis, rsys, psys, dHs, loc.level; max_molecularity=max_molecularity)
+    push!(rd, sd, rsmis, psmis, rsys, psys, dHs, loc.level;
+          max_molecularity=max_molecularity, unique_rxns=unique_rxns)
     return
 end
 
