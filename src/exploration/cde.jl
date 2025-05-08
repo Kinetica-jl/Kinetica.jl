@@ -235,7 +235,7 @@ end
 
 
 """
-    ingest_cde_run(rdir::String, rcount[, fix_radicals=true])
+    ingest_cde_run(rdir::String, rcount[, fix_radicals=true, duplicate_reverse=true])
 
 Reads in the results from a CDE run.
 
@@ -244,7 +244,8 @@ reactants and products, forming arrays of their SMILES strings
 and ExtXYZ geometries.
 
 OBCanonicalRadicals can be enabled to tidy up radical SMILES
-using the `fix_radicals` parameter.
+using the `fix_radicals` parameter. If `duplicate_reverse=true`,
+the reverse reactions are added to the output arrays.
 
 Returns `reac_smis, reac_xyzs, reac_systems, prod_smis, prod_xyzs, prod_systems, dH`,
 where:
@@ -254,7 +255,7 @@ where:
 * `reac_systems` and `prod_systems` are the ExtXYZ frames of the systems of molecules that came out of CDE;
 * `dH` is an array of reaction energies.
 """
-function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
+function ingest_cde_run(rdir::String, rcount; fix_radicals=true, duplicate_reverse=true)
     rxdir = joinpath(rdir, "reac_$(lpad(rcount, 5, "0"))")
     @debug "Reading in mechanism step xyz files."
 
@@ -294,13 +295,20 @@ function ingest_cde_run(rdir::String, rcount; fix_radicals=true)
         push!(prod_systems, prod)
     end
 
-    # Add in all reverse reactions.
-    reac_smis = vcat(reac_smis, prod_smis)
-    prod_smis = vcat(prod_smis, reac_smis)
-    dH = vcat(dH, -dH)
-    reac_systems = vcat(reac_systems, prod_systems)
-    prod_systems = vcat(prod_systems, reac_systems)
-    @debug "Read in $(n_reacs*2) reactions."
+    # Add in all reverse reactions if requested.
+    if duplicate_reverse
+        @debug "Duplicating reverse reactions."
+        reac_smis = vcat(copy(reac_smis), copy(prod_smis))
+        prod_smis = vcat(copy(prod_smis), copy(reac_smis))
+        dH = vcat(copy(dH), -copy(dH))
+        reac_xyzs = vcat(deepcopy(reac_xyzs), deepcopy(prod_xyzs))
+        prod_xyzs = vcat(deepcopy(prod_xyzs), deepcopy(reac_xyzs))
+        reac_systems = vcat(deepcopy(reac_systems), deepcopy(prod_systems))
+        prod_systems = vcat(deepcopy(prod_systems), deepcopy(reac_systems))
+        @debug "Read in $(n_reacs*2) reactions."
+    else
+        @debug "Read in $(n_reacs) reactions."
+    end
 
     return reac_smis, reac_xyzs, reac_systems, prod_smis, prod_xyzs, prod_systems, dH
 end
