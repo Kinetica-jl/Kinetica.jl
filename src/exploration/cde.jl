@@ -298,13 +298,15 @@ function ingest_cde_run(rdir::String, rcount; fix_radicals=true, duplicate_rever
     # Add in all reverse reactions if requested.
     if duplicate_reverse
         @debug "Duplicating reverse reactions."
-        reac_smis = vcat(copy(reac_smis), copy(prod_smis))
-        prod_smis = vcat(copy(prod_smis), copy(reac_smis))
+        reac_smis_orig, reac_xyzs_orig, reac_systems_orig = deepcopy(reac_smis), deepcopy(reac_xyzs), deepcopy(reac_systems)
+        prod_smis_orig, prod_xyzs_orig, prod_systems_orig = deepcopy(prod_smis), deepcopy(prod_xyzs), deepcopy(prod_systems)
+        reac_smis = vcat(copy(reac_smis_orig), copy(prod_smis_orig))
+        prod_smis = vcat(copy(prod_smis_orig), copy(reac_smis_orig))
         dH = vcat(copy(dH), -copy(dH))
-        reac_xyzs = vcat(deepcopy(reac_xyzs), deepcopy(prod_xyzs))
-        prod_xyzs = vcat(deepcopy(prod_xyzs), deepcopy(reac_xyzs))
-        reac_systems = vcat(deepcopy(reac_systems), deepcopy(prod_systems))
-        prod_systems = vcat(deepcopy(prod_systems), deepcopy(reac_systems))
+        reac_xyzs = vcat(deepcopy(reac_xyzs_orig), deepcopy(prod_xyzs_orig))
+        prod_xyzs = vcat(deepcopy(prod_xyzs_orig), deepcopy(reac_xyzs_orig))
+        reac_systems = vcat(deepcopy(reac_systems_orig), deepcopy(prod_systems_orig))
+        prod_systems = vcat(deepcopy(prod_systems_orig), deepcopy(reac_systems_orig))
         @debug "Read in $(n_reacs*2) reactions."
     else
         @debug "Read in $(n_reacs) reactions."
