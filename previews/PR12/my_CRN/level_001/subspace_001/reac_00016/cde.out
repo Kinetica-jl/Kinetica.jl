@@ -1,0 +1,87 @@
+nmol:   2
+ Optimising molecule            1 /           2
+ Finished optimisation.
+ Optimising molecule            2 /           2
+ Finished optimisation.
+ MOLEN VALUES:            1  -4.1733985107900002     
+ MOLEN VALUES:            2  -4.1733985107900002     
+ C    13.219265841030845       -12.012759449111385       -8.5832197136552502     
+ H    12.545677839959216       -12.852086450446690       -8.8526267140838542     
+ H    12.788491840345518       -11.059591447594967       -8.9529147142434056     
+ H    13.328766841205052       -11.965881449036806       -7.4802317119004780     
+ H    14.214126842613593       -12.173478449367076       -9.0471057143932541     
+ C    9.0418373143848729       -12.315737179593398        13.229454611047053     
+ H    8.3682493133132478       -13.155064180928704        12.960047610618448     
+ H    8.6110633136995443       -11.362569178076981        12.859759610458896     
+ H    9.1513383145590819       -12.268859179518818        14.332442612801822     
+ H    10.036698315967621       -12.476456179849091        12.765568610309048     
+ keep_cx1:  T F
+ keep_cx2:  T F
+nmol:   1
+ Optimising molecule            1 /           1
+ Finished optimisation.
+ MOLEN VALUES:            1  -4.1733985107900002     
+nmol:   2
+ Optimising molecule            1 /           2
+ Finished optimisation.
+ Optimising molecule            2 /           2
+ Finished optimisation.
+ MOLEN VALUES:            1  -2.9675318556080001     
+ MOLEN VALUES:            2 -0.98268616741600001     
+           3           3
+ keep_cx1:  T F T
+ keep_cx2:  T F T
+nmol:   2
+ Optimising molecule            1 /           2
+ Finished optimisation.
+ Optimising molecule            2 /           2
+ Finished optimisation.
+ MOLEN VALUES:            1  -2.9674803198739998     
+ MOLEN VALUES:            2  -4.1733985107900002     
+nmol:   1
+ Optimising molecule            1 /           1
+ Finished optimisation.
+ MOLEN VALUES:            1  -7.3363706571579996     
+           2           2
+ keep_cx1:  T F
+ keep_cx2:  T F
+nmol:   1
+ Optimising molecule            1 /           1
+ Finished optimisation.
+ MOLEN VALUES:            1  -7.3363706571870004     
+nmol:   2
+ Optimising molecule            1 /           2
+ Finished optimisation.
+ Optimising molecule            2 /           2
+ Finished optimisation.
+ MOLEN VALUES:            1  -6.7353417654259999     
+ MOLEN VALUES:            2 -0.39348276393600001     
+           3           3
+ keep_cx1:  T F F
+ keep_cx2:  T F F
+nmol:   1
+ Optimising molecule            1 /           1
+ Finished optimisation.
+ MOLEN VALUES:            1  -6.7353417655829997     
+nmol:   2
+ Optimising molecule            1 /           2
+ Finished optimisation.
+ Optimising molecule            2 /           2
+ Finished optimisation.
+ MOLEN VALUES:            1  -5.6624759364160004     
+ MOLEN VALUES:            2 -0.98268616741199999     
+           4           4
+ keep_cx1:  F F T F
+ keep_cx2:  F F T F
+nmol:   1
+ Optimising molecule            1 /           1
+ Finished optimisation.
+ MOLEN VALUES:            1 -0.98268616740400005     
+nmol:   2
+ Optimising molecule            1 /           2
+ Finished optimisation.
+ Optimising molecule            2 /           2
+ Finished optimisation.
+ MOLEN VALUES:            1 -0.39348276393600001     
+ MOLEN VALUES:            2 -0.39348276393600001     
+           5           5
