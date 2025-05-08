@@ -1,7 +1,8 @@
 [deps]
 obcanonicalradicals = "==0.1.1"
 rdkit = "==2024.09.6"
-xtb = ""
+xtb = "==6.7.1"
+libgfortran = "==14.2.0"
 matplotlib = ""
 ase = "<3.23"
 graphviz = "==11.0.0"
