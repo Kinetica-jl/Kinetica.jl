@@ -147,7 +147,7 @@ function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData, ::Va
     u0map = Pair.(collect(spec), u0)
     pmap = Pair.(collect(k), rates)
 
-    rs = make_rs(k, spec, t, rd)
+    rs = complete(make_rs(k, spec, t, rd))
     osys = structural_simplify(convert(ODESystem, rs))
 
     @info " - Formulating ODEProblem"
@@ -200,7 +200,7 @@ function solve_network(method::StaticODESolve, sd::SpeciesData, rd::RxData, ::Va
     u0map = Pair.(collect(spec), u0)
     pmap = Pair.(collect(k), rates)
 
-    rs = make_rs(k, spec, t, rd)
+    rs = complete(make_rs(k, spec, t, rd))
     osys = structural_simplify(convert(ODESystem, rs))
     @info " - Created ReactionSystem"
 
