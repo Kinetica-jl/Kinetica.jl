@@ -1,11 +1,12 @@
-struct ODESolutionVC{T, N, uType, uType2, DType, tType, rateType, P, A, IType, S,
-        AC <: Union{Nothing, Vector{Int}}} <: SciMLBase.AbstractODESolution{T, N, uType}
+struct ODESolutionVC{T, N, uType, uType2, DType, tType, rateType, discType, P, A, IType, S,
+        AC <: Union{Nothing, Vector{Int}}, R, O, V} <: SciMLBase.AbstractODESolution{T, N, uType}
     u::uType
     u_analytic::uType2
     vcs::Dict{Symbol, Vector{T}}
     errors::DType
     t::tType
     k::rateType
+    discretes::discType
     prob::P
     alg::A
     interp::IType
@@ -14,15 +15,18 @@ struct ODESolutionVC{T, N, uType, uType2, DType, tType, rateType, P, A, IType, S
     stats::S
     alg_choice::AC
     retcode::ReturnCode.T
+    resid::R
+    original::O
+    saved_subsystem::V
 end
 
-function ODESolutionVC{T, N}(u, u_analytic, vcs, errors, t, k, prob, alg, interp, dense,
-    tslocation, stats, alg_choice, retcode) where {T, N}
+function ODESolutionVC{T, N}(u, u_analytic, vcs, errors, t, k, discretes, prob, alg, interp, dense,
+    tslocation, stats, alg_choice, retcode, resid, original, saved_subsystem) where {T, N}
     return ODESolutionVC{T, N, typeof(u), typeof(u_analytic), typeof(errors), typeof(t),
-        typeof(k), typeof(prob), typeof(alg), typeof(interp),
-        typeof(stats),
-        typeof(alg_choice)}(u, u_analytic, vcs, errors, t, k, prob, alg, interp,
-        dense, tslocation, stats, alg_choice, retcode)
+                         typeof(k), typeof(discretes), typeof(prob), typeof(alg), typeof(interp),
+                         typeof(stats), typeof(alg_choice), typeof(resid), typeof(original), typeof(saved_subsystem)}(
+        u, u_analytic, vcs, errors, t, k, discretes, prob, alg, interp,
+        dense, tslocation, stats, alg_choice, retcode, resid, original, saved_subsystem)
 end
 
 
@@ -59,11 +63,13 @@ function build_vc_solution(prob::SciMLBase.AbstractODEProblem,
         Base.depwarn(msg, :build_solution)
     end
 
-    return ODESolutionVC{T, N}(u,
+    return ODESolutionVC{T, N}(
+        u,
         nothing,
         vcs,
         nothing,
         t, k,
+        nothing,
         prob,
         alg,
         interp,
@@ -71,25 +77,21 @@ function build_vc_solution(prob::SciMLBase.AbstractODEProblem,
         0,
         stats,
         alg_choice,
-        retcode)
+        retcode,
+        nothing, 
+        nothing, 
+        nothing)
 end
 
 
-function rebuild_vc_solution(sol::ODESolution, vc_symbols::Vector{Symbol})
+function rebuild_vc_solution(sol::ODESolution, vc_symmap::Dict{Symbol, Num})
     sol_params = typeof(sol).parameters
     T = sol_params[1]
     N = sol_params[2]
 
-    sym_counter = 0
-    vc_dict = Dict{Symbol, Vector{T}}()
-    for sym in sol.prob.f.syms
-        s = string(sym)
-        if occursin("vc", s)
-            sym_counter += 1
-            vc_dict[vc_symbols[sym_counter]] = sol[sym]
-        end
-    end
-    umat = reduce(vcat, sol.u')[:, begin:end-sym_counter]
+    vc_dict = Dict{Symbol, Vector{T}}(sym => sol[vc] for (sym, vc) in vc_symmap)
+
+    umat = reduce(vcat, sol.u')[:, begin:end-length(vc_symmap)]
     u = [umat[i, :] for i in axes(umat)[1]]
 
     return ODESolutionVC{T, N}(
@@ -99,6 +101,7 @@ function rebuild_vc_solution(sol::ODESolution, vc_symbols::Vector{Symbol})
         sol.errors,
         sol.t,
         sol.k,
+        sol.discretes,
         sol.prob,
         sol.alg,
         sol.interp,
@@ -106,17 +109,22 @@ function rebuild_vc_solution(sol::ODESolution, vc_symbols::Vector{Symbol})
         sol.tslocation,
         sol.stats,
         sol.alg_choice,
-        sol.retcode
+        sol.retcode,
+        sol.resid,
+        sol.original,
+        sol.saved_subsystem
     )
 end
 
 
 function build_discrete_rate_solution(sol::ODESolution{T, N}, k::ODESolution{T, N}) where {T, N}
-    ODESolution{T, N}(sol.u,
+    ODESolution{T, N}(
+        sol.u,
         sol.u_analytic,
         sol.errors,
         sol.t,
         k,
+        sol.discretes,
         sol.prob,
         sol.alg,
         sol.interp,
@@ -124,5 +132,29 @@ function build_discrete_rate_solution(sol::ODESolution{T, N}, k::ODESolution{T, 
         sol.tslocation,
         sol.stats,
         sol.alg_choice,
-        sol.retcode)
+        sol.retcode,
+        sol.resid,
+        sol.original,
+        sol.saved_subsystem)
+end
+
+function build_discrete_rate_solution(sol::ODESolution{T, N}, k::DiffEqArray{T, N}) where {T, N}
+    ODESolution{T, N}(
+        sol.u,
+        sol.u_analytic,
+        sol.errors,
+        sol.t,
+        k,
+        sol.discretes,
+        sol.prob,
+        sol.alg,
+        sol.interp,
+        sol.dense,
+        sol.tslocation,
+        sol.stats,
+        sol.alg_choice,
+        sol.retcode,
+        sol.resid,
+        sol.original,
+        sol.saved_subsystem)
 end
