@@ -41,7 +41,11 @@ through the `mult` and `chg` keyword arguments respectively.
 """
 function frame_to_autode(frame::Dict{String, Any}; mult::Int=1, chg::Int=0)
     f = joinpath(tempdir(), "frame.xyz")
-    write_frame(f, frame)
+    # Handle cases where frames have Dict-valued info fields.
+    frame_copy = deepcopy(frame)
+    delete!(frame_copy["info"], "adsorbate_info")
+    delete!(frame_copy["info"], "ads_atomid")
+    write_frame(f, frame_copy)
     mol = ade.Molecule(f, charge=chg, mult=mult)
     rm(f)
     return mol
