@@ -588,11 +588,15 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
         chunk_tf = method.pars.solve_chunkstep
         if nc == n_chunks_reqd-1
             # Handle floating point inaccuracies in final timestep.
-            last_global_time = tstops_local[end] + nc*method.pars.solve_chunkstep
-            if last_global_time == method.pars.tspan[2]
-                chunk_tf = tstops_local[end]
-            else
+            if length(tstops_local) == 0
                 push!(tstops_local, method.pars.solve_chunkstep)
+            else
+                last_global_time = tstops_local[end] + nc*method.pars.solve_chunkstep
+                if last_global_time == method.pars.tspan[2]
+                    chunk_tf = tstops_local[end]
+                else
+                    push!(tstops_local, method.pars.solve_chunkstep)
+                end
             end
         end
         reinit!(integ, integ.sol.u[end]; tstops=tstops_local, tf=chunk_tf)
@@ -801,11 +805,15 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
         chunk_tf = method.pars.solve_chunkstep
         if nc == n_chunks_reqd-1
             # Handle floating point inaccuracies in final timestep.
-            last_global_time = tstops_local[end] + nc*method.pars.solve_chunkstep
-            if last_global_time == method.pars.tspan[2]
-                chunk_tf = tstops_local[end]
-            else
+            if length(tstops_local) == 0
                 push!(tstops_local, method.pars.solve_chunkstep)
+            else
+                last_global_time = tstops_local[end] + nc*method.pars.solve_chunkstep
+                if last_global_time == method.pars.tspan[2]
+                    chunk_tf = tstops_local[end]
+                else
+                    push!(tstops_local, method.pars.solve_chunkstep)
+                end
             end
         end
         reinit!(integ, integ.sol.u[end]; tstops=tstops_local, tf=chunk_tf)
