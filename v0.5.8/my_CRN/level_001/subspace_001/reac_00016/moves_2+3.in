@@ -1,0 +1,132 @@
+# Curated movelist for polyethylene.
+
+# Bond breaking: A-B -> A / B
+move 
+natom 2
+-
+0 1
+1 0
+-
+0 0
+0 0
+-
+labels * * 
+prob 0.1
+
+# Bond making: A / B -> A-B
+move
+natom 2
+-
+0 0
+0 0
+-
+0 1
+1 0
+-
+labels * * 
+prob 0.3
+
+# H2 dissociation from a single carbon: H-C-H -> H-H / C
+move
+natom 3
+-
+0 0 1
+0 0 1
+1 1 0
+-
+0 1 0
+1 0 0
+0 0 0
+-
+labels H H C 
+prob 0.1
+
+# H2 Association to a single carbon: H-H / C -> H-C-H
+move
+natom 3
+-
+0 1 0
+1 0 0
+0 0 0
+-
+0 0 1
+0 0 1
+1 1 0
+-
+labels H H C
+prob 0.3
+
+# A-C-B -> A-B / C
+move
+natom 3
+-
+0 0 1
+0 0 1
+1 1 0
+-
+0 1 0
+1 0 0
+0 0 0
+-
+labels * * * 
+prob 0.1
+
+# A-B / C -> A-C-B
+move
+natom 3
+-
+0 1 0
+1 0 0
+0 0 0
+-
+0 0 1
+0 0 1
+1 1 0
+-
+labels * * * 
+prob 0.3
+
+# A-C / B -> A-B / C
+move
+natom 3
+-
+0 0 1
+0 0 0
+1 0 0
+-
+0 1 0
+1 0 0
+0 0 0
+-
+labels * * * 
+prob 0.2
+
+# A-B / C -> A-C / B
+move
+natom 3
+-
+0 1 0
+1 0 0
+0 0 0
+-
+0 0 1
+0 0 0
+1 0 0
+-
+labels * * * 
+prob 0.2
+
+# A-B-C -> C-A-B
+move
+natom 3
+-
+0 1 0
+1 0 1
+0 1 0
+-
+0 1 1
+1 0 0
+1 0 0
+-
+labels * * *
+prob 0.2

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Condition Profiles · Kinetica.jl</title><meta name="title" content="Condition Profiles · Kinetica.jl"/><meta property="og:title" content="Condition Profiles · Kinetica.jl"/><meta property="twitter:title" content="Condition Profiles · Kinetica.jl"/><meta name="description" content="Documentation for the Kinetica.jl package and its modular kinetic calculators."/><meta property="og:description" content="Documentation for the Kinetica.jl package and its modular kinetic calculators."/><meta property="twitter:description" content="Documentation for the Kinetica.jl package and its modular kinetic calculators."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/favicon.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="Kinetica.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Kinetica.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../getting-started/">Getting Started</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../tutorials/arbitrary-conditions/">Arbitrary Simulation Conditions</a></li><li><a class="tocitem" href="../../tutorials/ode-solution/">ODE Solution</a></li><li><a class="tocitem" href="../../tutorials/kinetic-calculators/">Kinetic Calculators</a></li><li><a class="tocitem" href="../../tutorials/iterative-exploration/">Iterative CRN Exploration</a></li><li><a class="tocitem" href="../../tutorials/results-analysis/">Results Analysis</a></li><li><a class="tocitem" href="../../tutorials/filtering-crns/">Filtering CRNs</a></li><li><a class="tocitem" href="../../tutorials/saving-loading/">Saving &amp; Loading</a></li><li><a class="tocitem" href="../../tutorials/logging/">Logging</a></li></ul></li><li><span class="tocitem">Developing with Kinetica</span><ul><li><a class="tocitem" href="../crn-representation/">CRN Representation</a></li><li class="is-active"><a class="tocitem" href>Condition Profiles</a><ul class="internal"><li><a class="tocitem" href="#Directly-Variable-Profile-Implementation"><span>Directly Variable Profile Implementation</span></a></li><li><a class="tocitem" href="#Gradient-Variable-Profile-Implementation"><span>Gradient-Variable Profile Implementation</span></a></li></ul></li><li><a class="tocitem" href="../calculator-interface/">Calculator Interface</a></li><li><a class="tocitem" href="../implementation-details/">Implementation Details</a></li></ul></li><li><span class="tocitem">API</span><ul><li><input class="collapse-toggle" id="menuitem-5-1" type="checkbox"/><label class="tocitem" for="menuitem-5-1"><span class="docs-label">Kinetica.jl</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../api/kinetica/exploration/">Exploration</a></li><li><a class="tocitem" href="../../api/kinetica/solving/">Solving</a></li><li><a class="tocitem" href="../../api/kinetica/conditions/">Conditions</a></li><li><a class="tocitem" href="../../api/kinetica/analysis/">Analysis</a></li><li><a class="tocitem" href="../../api/kinetica/openbabel/">Open Babel</a></li><li><a class="tocitem" href="../../api/kinetica/rdkit/">RDKit</a></li><li><a class="tocitem" href="../../api/kinetica/utilities/">Utilities</a></li></ul></li><li><a class="tocitem" href="../../api/kineticakpm/">KineticaKPM.jl</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Developing with Kinetica</a></li><li class="is-active"><a href>Condition Profiles</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Condition Profiles</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/Kinetica-jl/Kinetica.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/Kinetica-jl/Kinetica.jl/blob/main/docs/src/development/condition-profiles.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Condition-Profiles"><a class="docs-heading-anchor" href="#Condition-Profiles">Condition Profiles</a><a id="Condition-Profiles-1"></a><a class="docs-heading-anchor-permalink" href="#Condition-Profiles" title="Permalink"></a></h1><p>For an introduction into Kinetica&#39;s arbitrary simulation condition framework, see the tutorial on <a href="../../tutorials/arbitrary-conditions/#Arbitrary-Simulation-Conditions">Arbitrary Simulation Conditions</a>. This page aims to explain the underlying implementation of Kinetica&#39;s variable condition profiles, such that users can easily extend Kinetica by adding their own profiles to represent new macroscopic state variable changes.</p><p>As noted previously, variable condition profiles can take on one of two types of definition which effect how they are represented and interacted with inside Kinetica&#39;s solvers:</p><ul><li>Directly variable condition profiles (subtypes of <code>Kinetica.AbstractDirectProfile</code>) encode a condition <span>$X$</span> as a continuous function of time <span>$X(t)$</span>. The result of this function is then computed directly whenever it is needed at a given time <span>$t$</span>.</li><li>Gradient-variable condition profiles (subtypes of <code>Kinetica.AbstractGradientProfile</code>) encode a condition <span>$X$</span> within a gradient with respect to time <span>$\frac{dX}{dt}$</span>. These condition profiles must be integrated with time using DifferentialEquations.jl to yield an interpolable <code>ODESolution</code> which can be queried to produce values of the condition at time <span>$t$</span>.</li></ul><p>Both types of variable condition profile are simple to implement within Kinetica, provided a few criteria are fulfilled:</p><ul><li>Both are implemented as structs with supertypes as above that indicate how Kinetica should handle them. These structs must have a number of fields, but are otherwise entirely customisable for whatever data needs to be held. These usually come with outer constructors that create variables that are needed within the profile&#39;s condition function, as well as binding a condition function to one of the struct&#39;s fields.</li><li>A condition function (usually called <code>_f_[struct name]</code> for direct condition profiles or <code>_grad_[struct_name]</code> for gradient condition profiles) must exist such that it can be bound to a condition profile struct. This function takes two arguments - the time <code>t</code> and the <code>profile</code> that it will ultimately be bound to.</li><li>A method of <a href="../../api/kinetica/conditions/#Kinetica.create_discrete_tstops!"><code>Kinetica.create_discrete_tstops!</code></a> must be created for the new profile struct which tells Kinetica where rate constants should be updated in discrete rate constant update simulations.</li></ul><p>We&#39;ll demonstrate this by implementing both directly variable and gradient-variable versions of a simple sinusoidal condition profile.</p><div class="admonition is-info"><header class="admonition-header">Why not a functor?</header><div class="admonition-body"><p>The implementation of condition functions described above may look a bit strange. Variable condition profiles require condition functions that always take the same arguments for internal consistency, but are also capable of taking a potentially large number of runtime-defined parameters that are accessible from some kind of <code>Kinetica.AbstractVariableProfile</code>. Why then do we pass a condition function as a field of the profile struct during construction and then pass the struct <em>back</em> to that function instead of using a <a href="https://docs.julialang.org/en/v1/manual/methods/#Function-like-objects">functor</a>, which would seemingly fill both of these roles?</p><p>While the functor approach would certainly be more convenient, it&#39;s currently incompatible with <a href="https://github.com/JuliaSymbolics/Symbolics.jl">Symbolics.jl</a> (more specifically its function registration API), which Kinetica uses to programatically embed variable condition profiles into systems of ODEs. Instead, we are forced to use a regular function, which then takes its parameters from a condition profile struct such that its call signature is always <code>conditionfunc(t, profile::AbstractVariableProfile)</code>. This function is bound to its respective condition profile struct so that irrespective of its true name, it is always accessible through <code>profile.f</code> for direct profiles, and <code>profile.grad</code> for gradient profiles.</p><p>Similarly, we could define condition functions within the outer constructors, allowing them to implicitly make use of profile variables defined within the constructor and eliminating the need to pass an instance of the profile struct as an argument. However, due to how functions are registered within Symbolics, this can lead to condition functions overwriting one another. The separate condition function approach is admittedly a bit cumbersome, but it is currently the best viable approach that allows for hands-off creation of <a href="../../api/kinetica/conditions/#ConditionSet"><code>ConditionSet</code></a>s for users.</p></div></div><h2 id="Directly-Variable-Profile-Implementation"><a class="docs-heading-anchor" href="#Directly-Variable-Profile-Implementation">Directly Variable Profile Implementation</a><a id="Directly-Variable-Profile-Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Directly-Variable-Profile-Implementation" title="Permalink"></a></h2><p>When a condition profile can be represented exactly as a simple function of time, it is usually easiest to implement as a directly variable condition profile. In the case of our sinusoidal profile, this function of time will be a sinusoid:</p><p class="math-container">\[X(t)=A\sin\left( 2\pi f t \right)\]</p><p>where <span>$A$</span> is the amplitude and <span>$f$</span> is the number of oscillations per second.</p><p>We will begin by creating the struct for our condition profile, which we&#39;ll call <code>SinusoidDirectProfile</code>. Aside from the parameters above, we&#39;ll also need to implement fields for some basics which Kinetica expects in every directly variable profile:</p><ul><li><code>f</code>: The function which will be bound in the struct&#39;s outer constructor.</li><li><code>X_start</code>: The initial value of the condition profile.</li><li><code>t_end</code>: The time at which the condition profile should stop varying. This can either be provided by the user or calculated within the outer constructor.</li><li><code>tstops</code>: Time points at which ODE solvers should ensure to stop at and recalculate. This array is useful for handling discontinuities in condition profiles, and is usually modified by <a href="../../api/kinetica/conditions/#Kinetica.create_discrete_tstops!"><code>Kinetica.create_discrete_tstops!</code></a>.</li><li><code>sol</code>: Profile solution over the requested timespan, usually created internally by calling <a href="../../api/kinetica/conditions/#Kinetica.solve_variable_condition!-Tuple{Kinetica.AbstractDirectProfile, ODESimulationParams}"><code>Kinetica.solve_variable_condition!(::Kinetica.AbstractDirectProfile, ::ODESimulationParams)</code></a>.</li></ul><p>For this profile, we will also implement a field <code>X_end</code> to signify the value of the condition once it stops varying. In some profiles, this is more easily calculated by the profile itself, e.g. as a function of time when <code>t_end</code> is given. Conversely, in other profiles, it can be convenient to only provide <code>X_end</code> and let <code>t_end</code> be calculated instead. As a sinusoidal profile is periodic and may reach the same value multiple times, users will provide <code>t_end</code> directly and we will calculate and save the value of <code>X_end</code> in the outer constructor.</p><p>An implementation of our condition profile&#39;s struct may therefore look something like:</p><pre><code class="language-julia hljs">using Kinetica
+
+mutable struct SinusoidDirectProfile{uType, tType} &lt;: Kinetica.AbstractDirectProfile
+    f::Function
+    A::uType
+    freq::uType
+    X_start::uType
+    X_end::uType
+    t_end::tType
+    tstops::Vector{tType}
+    sol
+end</code></pre><p>We&#39;ve used a <a href="https://docs.julialang.org/en/v1/manual/types/#Parametric-Types">parametric type</a> here to ensure that all values that may affect the value of our condition are using consistent numeric types.</p><p>With this definition complete, we can now define our profile&#39;s condition function and outer constructor. The condition function will take a time <code>t</code> and an instance of the <code>SinusoidDirectProfile</code>. The outer constructor will take a minimal set of parameters needed to populate and calculate the entire condition profile, and create an instance of the profile with the condition function bound to the <code>f</code> field:</p><pre><code class="language-julia hljs">function _f_SinusoidDirectProfile(t, profile::SinusoidDirectProfile)
+    return typeof(profile.X_start)(
+        ((t &lt;= 0.0) * profile.X_start) +
+        ((t &gt; 0.0 &amp;&amp; t &lt;= profile.t_end) * (profile.X_start + profile.A*sin(2*pi*profile.freq*t))) +
+        ((t &gt; profile.t_end) * profile.X_end)
+    )
+end
+
+function SinusoidDirectProfile(;
+    A::uType,
+    freq::uType,
+    X_start::uType,
+    t_end::tType
+) where {uType &lt;: AbstractFloat, tType &lt;: AbstractFloat}
+
+    X_end = X_start + A*sin(2*pi*freq*t_end)
+    tstops = [t_end]
+
+    return SinusoidDirectProfile(_f_SinusoidDirectProfile, A, freq, X_start, X_end, t_end, tstops, nothing)
+end</code></pre><p>How we&#39;ve defined <code>_f_SinusoidDirectProfile(t, profile)</code> here may look a little strange. This is actually a way of writing if-else statements that is compatible with <a href="https://github.com/JuliaSymbolics/Symbolics.jl">Symbolics.jl</a>, and is equivalent to writing</p><pre><code class="language-julia hljs">function _f_SinusoidDirectProfile(t, profile::SinusoidDirectProfile)
+    if t &lt;= 0.0
+        return profile.X_start
+    elseif t &gt; 0.0 &amp;&amp; t &lt;= profile.t_end
+        return profile.X_start + profile.A*sin(2*pi*profile.freq*t)
+    else
+        return profile.X_end
+    end
+end</code></pre><p>However, Symbolics isn&#39;t compatible with this form of if-else statement so instead we use a bit of boolean algebra to embed the same meaning into our condition function. We&#39;ve therefore assumed that simulation time will start at <code>t=0.0</code>, before which time the condition will be <code>X_start</code>. After <code>t_end</code>, the condition profile will stop varying and be set to the value of the sinusoid at this time. In between these two times, we take the instantaneous value of the sinusoid instead.</p><div class="admonition is-info"><header class="admonition-header">Naming Condition Functions</header><div class="admonition-body"><p>Condition functions do not have to take any particular names, although Kinetica generally follows the pattern set above. Starting with an underscore indicates that the function is not intended for general use, the <code>f</code> (or <code>grad</code> in the case of gradient functions) specifies the type of variable condition profile that it attaches to, and the name of the condition profile indicates that it should only be used in the context of that particular profile.</p></div></div><p>Finally, we need to define a method of <a href="../../api/kinetica/conditions/#Kinetica.create_discrete_tstops!"><code>Kinetica.create_discrete_tstops!</code></a> for our new profile. This function creates time stopping points for discrete rate update simulations. Some profiles contain periods of time where their condition is stationary, during which rate constant updates are unnecessary, so their method of this function can avoid creating time points during these periods. However, since the gradient of a sinusoid is only ever momentarily stationary, this optimisation is not necessary. Our implementation of this method is therefore as follows:</p><pre><code class="language-julia hljs">function Kinetica.create_discrete_tstops!(profile::SinusoidDirectProfile, ts_update::AbstractFloat)
+    if ts_update &gt; profile.t_end
+        throw(ArgumentError(&quot;Error defining tstops, `ts_update` is too large.&quot;))
+    end
+    profile.tstops = create_savepoints(0.0, profile.t_end, ts_update)
+    return
+end</code></pre><p>This is simply checking that the rate update timestep <code>ts_update</code> is not larger than the total duration of our condition profile, then setting the <code>tstops</code> of our profile to an evenly spaced array of time points between <code>t=0.0</code> and <code>t=t_end</code>. <a href="../../api/kinetica/utilities/#Kinetica.create_savepoints"><code>create_savepoints</code></a> is just a Kinetica utility function for creating evenly spaced ranges of values while avoiding floating point rounding errors.</p><div class="admonition is-warning"><header class="admonition-header">Adding methods to Kinetica functions</header><div class="admonition-body"><p>Note that when we extended <a href="../../api/kinetica/conditions/#Kinetica.create_discrete_tstops!"><code>Kinetica.create_discrete_tstops!</code></a> above, we specifically prepended the function name with <code>Kinetica.</code>. The extra name of the module here is <strong>required</strong> as we want to add a method to Kinetica&#39;s existing function, not define our own in the <code>Main</code> module!</p></div></div><p>With this all implemented, our directly variable condition profile is now ready for use! Let&#39;s start by constructing a <a href="../../api/kinetica/conditions/#ConditionSet"><code>ConditionSet</code></a> for a discrete rate update simulation with a sinusoidally-varying temperature:</p><pre><code class="language-julia hljs">conditions = ConditionSet(Dict(
+    :T =&gt; SinusoidDirectProfile(;
+        A = 75.0,
+        freq = 0.25,
+        X_start = 900.0,
+        t_end = 20.0
+    )),
+    ts_update=tconvert(0.1, &quot;ms&quot;, &quot;s&quot;)
+)</code></pre><p>Because we&#39;ve made <code>SinusoidDirectProfile</code> a subtype of <code>Kinetica.AbstractDirectProfile</code>, Kinetica&#39;s <a href="../../api/kinetica/conditions/#ConditionSet"><code>ConditionSet</code></a> has done a bunch of work in the background and set this profile up for use within Symbolics.jl by <a href="https://symbolics.juliasymbolics.org/stable/manual/functions/">registering</a> the generated <code>SinusoidDirectProfile.f</code> function (which is really just a reference to <code>_f_SinusoidDirectProfile</code>) into Symbolics&#39; computation graph. This means it&#39;s ready for use within kinetic simulations, just like that!</p><pre><code class="language-julia hljs"># Load in existing CRN...
+# pars = ODESimulationParams(...)
+# calc = PrecalculatedArrheniusCalculator(...)
+
+solvemethod = VariableODESolve(pars, conditions, calc)
+res = solve_network(solvemethod, sd, rd)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span> - Calculating variable condition profiles.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Filtering reactions...
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>   - Removed 0 filtered reactions from network
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Performing calculator-specific network setup.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Removing low-rate reactions
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>   - Low rate cutoff: automatic (cutoff = 5.0e-11)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>   - Removed 0 low-rate reactions from network.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Setting up ReactionSystem
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Created ReactionSystem
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Pre-calculating rate constants at discrete time intervals.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Created callback for discrete rate constant updates.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Formulating ODEProblem
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>   - Sparse? true
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>   - Analytic Jacobian? true
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Setting up integrator...
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Solving network...
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Solved.</code></pre><pre><code class="language-julia hljs">using Plots
+
+p1 = plot(res)
+p2 = conditionsplot(res, :T)
+plot(p1, p2, layout=(2, 1))</code></pre><p><img src="../../assets/tutorials/condition_profiles/direct.svg" alt/></p><p>As you can see, the condition profile has been seamlessly integrated into Kinetica. Within <a href="../../api/kinetica/solving/#Kinetica.solve_network"><code>solve_network</code></a>, a new method of <a href="../../api/kinetica/conditions/#Kinetica.solve_variable_condition!-Tuple{Kinetica.AbstractDirectProfile, ODESimulationParams}"><code>Kinetica.solve_variable_condition!(::Kinetica.AbstractDirectProfile, ::ODESimulationParams)</code></a> was created and run for our condition profile, which generated an interpolable <code>DiffEqArray</code> that is now available in the solved profile&#39;s <code>sol</code> field:</p><pre><code class="language-julia hljs">profile = get_profile(res.conditions, :T)
+profile.sol</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">t: 1001-element Vector{Float64}:
+  0.0
+  0.02
+  0.04
+  0.06
+  0.08
+  0.1
+  0.12
+  0.14
+  0.16
+  0.18
+  ⋮
+ 19.84
+ 19.86
+ 19.88
+ 19.9
+ 19.92
+ 19.94
+ 19.96
+ 19.98
+ 20.0
+u: 1001-element Vector{Vector{Float64}}:
+ [900.0]
+ [902.3558069308597]
+ [904.7092889646985]
+ [907.0581234988886]
+ [909.3999925173229]
+ [911.7325848780173]
+ [914.0535985939293]
+ [916.3607431047407]
+ [918.6517415373642]
+ [920.9243329529422]
+ ⋮
+ [881.348258462636]
+ [883.6392568952592]
+ [885.9464014060704]
+ [888.2674151219825]
+ [890.6000074826774]
+ [892.9418765011116]
+ [895.2907110353015]
+ [897.6441930691404]
+ [899.9999999999999]</code></pre><h2 id="Gradient-Variable-Profile-Implementation"><a class="docs-heading-anchor" href="#Gradient-Variable-Profile-Implementation">Gradient-Variable Profile Implementation</a><a id="Gradient-Variable-Profile-Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Gradient-Variable-Profile-Implementation" title="Permalink"></a></h2><p>Implementing a gradient-variable condition profile is a very similar procedure to the above directly variable profile - we&#39;ll still define a new struct that needs some specific fields to be compatible with the rest of Kinetica, we&#39;ll still make an outer constructor for this struct that creates a specialised function which will be automatically registered within Symbolics.jl, and we&#39;ll need a new method for <a href="../../api/kinetica/conditions/#Kinetica.create_discrete_tstops!"><code>Kinetica.create_discrete_tstops!</code></a>.</p><p>Unlike the directly variable profile, we&#39;ll need to implement a function for our sinusoid&#39;s <em>gradient</em> with respect to time. In the case of this profile, a gradient-based definition is not required since we already have an exact function for mapping our sinusiodal condition to simulation time. However, it turns out that the gradient-based representation actually helps us include an additional parameter to describe the phase of the sinusoid <span>$\varphi$</span>:</p><p class="math-container">\[\frac{dX}{dt}=2\pi fA \cos \left( 2\pi f t + φ \right)\]</p><p>This would&#39;ve been inconvenient to include into our directly variable form, as the user&#39;s input value of <code>X_start</code> would&#39;ve needed to be changed within the outer constructor to take the starting phase into account. However, a gradient-based representation lends itself naturally to this addition.</p><p>The struct for this condition profile, which we&#39;ll call <code>SinusoidGradientProfile</code>, requires the same fields as its directly variable counterpart. The exception to this is the <code>f</code> field, which previously held the actual time-dependent condition function. In gradient-based profiles, this is replaced with a field called <code>grad</code>, which holds the gradient function. We also need to subtype <code>Kinetica.AbstractGradientProfile</code> this time, and we&#39;ll add a field for our starting phase <span>$\varphi$</span>. Our new struct might therefore look something like this:</p><pre><code class="language-julia hljs">mutable struct SinusoidGradientProfile{uType, tType} &lt;: Kinetica.AbstractGradientProfile
+    grad::Function
+    A::uType
+    freq::uType
+    φ::uType
+    X_start::uType
+    t_end::tType
+    tstops::Vector{tType}
+    sol
+end</code></pre><p>The condition function and outer constructor for this profile will also be similar to their directly variable counterparts, again with an extra parameter <code>φ</code> added:</p><pre><code class="language-julia hljs">function _grad_SinusoidGradientProfile(t, profile::SinusoidGradientProfile)
+    return typeof(profile.X_start)(
+        ((t &lt;= 0.0) * 0.0) +
+        ((t &gt; 0.0 &amp;&amp; t &lt;= profile.t_end) * (2*pi*profile.freq*profile.A*cos(2*pi*profile.freq*t + profile.φ))) +
+        ((t &gt; profile.t_end) * 0.0)
+    )
+end
+
+function SinusoidGradientProfile(;
+    A::uType,
+    freq::uType,
+    φ::uType,
+    X_start::uType,
+    t_end::tType
+) where {uType &lt;: AbstractFloat, tType &lt;: AbstractFloat}
+
+    tstops = [t_end]
+    return SinusoidGradientProfile(_grad_SinusoidGradientProfile, A, freq, φ, X_start, t_end, tstops, nothing)
+end</code></pre><p>The gradient function we&#39;ve defined here describes a function that is stationary (gradient of zero) before <code>t=0.0</code> and after <code>t=t_end</code>, but that varies sinusoidally in between. This sinusoidal variation now also takes into account the starting phase <span>$\varphi$</span>.</p><p>The implementation of <a href="../../api/kinetica/conditions/#Kinetica.create_discrete_tstops!"><code>Kinetica.create_discrete_tstops!</code></a> can be the same as it was for the directly variable profile, as we are describing the same underlying function:</p><pre><code class="language-julia hljs">function Kinetica.create_discrete_tstops!(profile::SinusoidGradientProfile, ts_update::AbstractFloat)
+    if ts_update &gt; profile.t_end
+        throw(ArgumentError(&quot;Error defining tstops, `ts_update` is too large.&quot;))
+    end
+    profile.tstops = create_savepoints(0.0, profile.t_end, ts_update)
+    return
+end</code></pre><p>And with that, we&#39;re done implementing another condition profile! Let&#39;s see it in action:</p><pre><code class="language-julia hljs">conditions = ConditionSet(Dict(
+    :T =&gt; SinusoidGradientProfile(;
+        A = 75.0,
+        freq = 0.25,
+        φ = pi/2,
+        X_start = 975.0,
+        t_end = 20.0
+    )),
+    ts_update=tconvert(0.1, &quot;ms&quot;, &quot;s&quot;)
+)
+
+solvemethod = VariableODESolve(pars, conditions, calc)
+res = solve_network(solvemethod, sd, rd)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span> - Calculating variable condition profiles.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Filtering reactions...
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>   - Removed 0 filtered reactions from network
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Performing calculator-specific network setup.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Removing low-rate reactions
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>   - Low rate cutoff: automatic (cutoff = 5.0e-11)
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>   - Removed 0 low-rate reactions from network.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Setting up ReactionSystem
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Created ReactionSystem
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Pre-calculating rate constants at discrete time intervals.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Created callback for discrete rate constant updates.
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Formulating ODEProblem
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>   - Sparse? true
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>   - Analytic Jacobian? true
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Setting up integrator...
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Solving network...
+<span class="sgr36"><span class="sgr1">[ Info: </span></span> - Solved.</code></pre><p>This time, because we&#39;re using a gradient-based profile, when <a href="../../api/kinetica/solving/#Kinetica.solve_network"><code>solve_network</code></a> is called Kinetica goes away and assembles a ModelingToolkit.jl <code>ODESystem</code> and solves it with respect to time, just like it does when performing the kinetic simulation of the CRN immediately afterwards. As such, the <code>sol</code> field of our profile now contains a full <code>ODESolution</code>:</p><pre><code class="language-julia hljs">profile = get_profile(res.conditions, :T)
+profile.sol</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">retcode: Success
+Interpolation: 1st order linear
+t: 201001-element Vector{Float64}:
+  0.0
+  0.0001
+  0.0002
+  0.0003
+  0.0004
+  0.0005
+  0.0006
+  0.0007
+  0.0008
+  0.0009
+  ⋮
+ 19.9993
+ 19.9994
+ 19.9995
+ 19.9996
+ 19.9997
+ 19.9998
+ 19.9999
+ 20.0
+ 20.0
+u: 201001-element Vector{Vector{Float64}}:
+ [975.0]
+ [974.9999990747245]
+ [974.9999962988983]
+ [974.9999916725213]
+ [974.9999851955938]
+ [974.9999768681158]
+ [974.9999666900876]
+ [974.9999546615094]
+ [974.9999407823814]
+ [974.999925052704]
+ ⋮
+ [974.9999546614908]
+ [974.9999666900691]
+ [974.9999768680973]
+ [974.9999851955753]
+ [974.9999916725028]
+ [974.9999962988798]
+ [974.999999074706]
+ [974.9999999999815]
+ [974.9999999999815]</code></pre><p>We can also look at the simulation results from using our gradient-based profile. Notice how both the concentrations and the temperature have changed since we introduced the phase parameter - now temperature starts from the top of the sinusiod rather than the middle:</p><pre><code class="language-julia hljs">p1 = plot(res)
+p2 = conditionsplot(res, :T)
+plot(p1, p2, layout=(2, 1))</code></pre><p><img src="../../assets/tutorials/condition_profiles/gradient.svg" alt/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../crn-representation/">« CRN Representation</a><a class="docs-footer-nextpage" href="../calculator-interface/">Calculator Interface »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.4.1 on <span class="colophon-date" title="Monday 20 May 2024 14:19">Monday 20 May 2024</span>. Using Julia version 1.10.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
