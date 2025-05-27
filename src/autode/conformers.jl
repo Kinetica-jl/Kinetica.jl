@@ -22,15 +22,15 @@ respectively, which can be achieved by calling `get_mult!` and
 Also populates `sd.cache` with autodE-derived values for symmetry
 number and geometry for later use in TST calculations.
 """
-function conformer_search!(sd::SpeciesData, sid)
+function conformer_search!(sd::SpeciesData, sid; n_samples=12)
     if !(sid in keys(sd.cache[:mult])) || !(sid in keys(sd.cache[:charge]))
         throw(KeyError("Missing multiplicity and/or charge in cache for SID $sid."))
     end
-    conformer_search!(SpeciesStyle(sd.toStr[sid]), sd, sid)
+    conformer_search!(SpeciesStyle(sd.toStr[sid]), sd, sid; n_samples)
     return
 end
 
-function conformer_search!(::GasSpecies, sd::SpeciesData, sid)
+function conformer_search!(::GasSpecies, sd::SpeciesData, sid; kwargs...)
     mol = ade.Molecule(smiles=sd.toStr[sid], mult=sd.cache[:mult][sid], charge=sd.cache[:charge][sid])
     if sd.xyz[sid]["N_atoms"] > 2
         @debug "Searching for conformers of species $sid: $(sd.toStr[sid]) (mult = $(sd.cache[:mult][sid]), charge = $(sd.cache[:charge][sid]))"
@@ -56,6 +56,7 @@ function conformer_search!(::GasSpecies, sd::SpeciesData, sid)
             sd.cache[:geometry][sid] = 2
         end
     end
+    return
 end
 
 function conformer_search!(::SurfaceSpecies, sd::SpeciesData, sid; n_samples=12)
@@ -118,6 +119,7 @@ function conformer_search!(::SurfaceSpecies, sd::SpeciesData, sid; n_samples=12)
             sd.cache[:geometry][sid] = 2
         end
     end
+    return
 end
 
 
