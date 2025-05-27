@@ -579,17 +579,23 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     # Loop over the solution chunks needed to generate the full solution.
     for nc in 0:n_chunks_reqd-1
         # Calculate which timestops need to be accounted for in this loop.
-        t_start_global = method.pars.solve_chunkstep * (nc+1)
+        t_start_global = method.pars.solve_chunkstep * nc
         t_end_global = t_start_global + method.pars.solve_chunkstep
         tstops_local = [tg - (nc*method.pars.solve_chunkstep) for tg in global_tstops if (tg >= t_start_global && tg < t_end_global)]
-        # If the final loop, add a final tstop.
-        if nc == n_chunks_reqd-1
-            push!(tstops_local, method.pars.solve_chunkstep)
-        end
 
         # Reinitialise the integrator at the current concentrations.
         setindex!(integ.p, nc, n_chunks_pidx)
-        reinit!(integ, integ.sol.u[end]; tstops=tstops_local)
+        chunk_tf = method.pars.solve_chunkstep
+        if nc == n_chunks_reqd-1
+            # Handle floating point inaccuracies in final timestep.
+            last_global_time = tstops_local[end] + nc*method.pars.solve_chunkstep
+            if last_global_time == method.pars.tspan[2]
+                chunk_tf = tstops_local[end]
+            else
+                push!(tstops_local, method.pars.solve_chunkstep)
+            end
+        end
+        reinit!(integ, integ.sol.u[end]; tstops=tstops_local, tf=chunk_tf)
 
         adaptive_solve!(integ, method.pars, solvecall_kwargs)
         if method.pars.progress 
@@ -785,18 +791,24 @@ function solve_network(method::VariableODESolve, sd::SpeciesData, rd::RxData, ::
     # Loop over the solution chunks needed to generate the full solution.
     for nc in 0:n_chunks_reqd-1
         # Calculate which timestops need to be accounted for in this loop.
-        t_start_global = method.pars.solve_chunkstep * (nc+1)
+        t_start_global = method.pars.solve_chunkstep * nc
         t_end_global = t_start_global + method.pars.solve_chunkstep
         tstops_local = [tg - (nc*method.pars.solve_chunkstep) for tg in global_tstops if (tg >= t_start_global && tg < t_end_global)]
-        # If the final loop, add a final tstop.
-        if nc == n_chunks_reqd-1
-            push!(tstops_local, method.pars.solve_chunkstep)
-        end
 
         # Reinitialise the integrator at the current concentrations.
         condition.tstops_local = tstops_local
         affect!.n_chunks = nc
-        reinit!(integ, integ.sol.u[end]; tstops=tstops_local)
+        chunk_tf = method.pars.solve_chunkstep
+        if nc == n_chunks_reqd-1
+            # Handle floating point inaccuracies in final timestep.
+            last_global_time = tstops_local[end] + nc*method.pars.solve_chunkstep
+            if last_global_time == method.pars.tspan[2]
+                chunk_tf = tstops_local[end]
+            else
+                push!(tstops_local, method.pars.solve_chunkstep)
+            end
+        end
+        reinit!(integ, integ.sol.u[end]; tstops=tstops_local, tf=chunk_tf)
 
         adaptive_solve!(integ, method.pars, solvecall_kwargs)
         if method.pars.progress 
