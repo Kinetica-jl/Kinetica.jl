@@ -14,7 +14,7 @@ In the event that a calculator is required to be called manually, the process is
 
 ## Calculator Showcase
 
-In all of the examples below, `sd` and `rd` refer to instances of [`SpeciesData`](@ref) and [`RxData`](@ref) respectively. These are the internal representations of species and reactions within Kinetica, see the page on [CRN Representation](@ref) for further information.
+In all the examples below, `sd` and `rd` refer to instances of [`SpeciesData`](@ref) and [`RxData`](@ref) respectively. These are the internal representations of species and reactions within Kinetica, see the page on [CRN Representation](@ref) for further information.
 
 !!! note "This section is growing!"
     Kinetica currently has only a handful of kinetic calculators available. We are adding more as we need them, but if you require a specific implementation then please let us know on our [Issues page](https://github.com/Kinetica-jl/Kinetica.jl/issues). Alternatively, calculators aren't too hard to implement yourself, and custom calculators can be dropped into kinetic simulations just like the ones presented here. See [Calculator Interface](@ref) for details.
@@ -130,7 +130,7 @@ k = calc(; T = 300.0)
 
 This calculator is dependent on temperature as an experimental condition. It estimates Arrhenius prefactors using collision theory, a hard-sphere approximation of collision frequency. All unimolecular reactions therefore require a collision partner for reactions to occur, which can be passed through the `inert_species` argument. If this is given, `setup_network!` will modify all unimolecular reactions to become bimolecular with the provided collision partners. Otherwise, an average collision partner will be calculated from the species in the CRN and rates will be calculated assuming a concentration of 1 mol dm``^{-3}`` of this 'species'.
 
-The calculator computes two properties for each reaction: the reduced mass ``\mu`` and the collision cross section ``\sigma``. For collision partners ``A`` and ``B``, these are defined as
+The calculator computes two properties for each reaction: the reduced mass ``\mu`` and the collision cross-section ``\sigma``. For collision partners ``A`` and ``B``, these are defined as
 
 ```math
 \mu = \dfrac{m_A m_B}{m_A + m_B} \\

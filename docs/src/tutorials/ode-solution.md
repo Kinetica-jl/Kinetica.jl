@@ -180,7 +180,7 @@ Depending on the input parameters used, there are currently 6 methods of the [`s
           <li><code>ConditionSet</code> <b>with</b> <code>ts_update</code> set</li>
         </ul>
       </td>
-      <td>Single long-timescale simulations of small CRNs under variable conditions</td>
+      <td>Single long-timescale simulations of large CRNs under variable conditions</td>
     </tr>
   </tbody>
 </table>

@@ -16,11 +16,11 @@ By only requiring that conditions use consistent symbolic names at their definit
 
 ## [`ConditionSet`](@ref)
 
-At the core of this system is the [`ConditionSet`](@ref), which acts as an aggregator for individula condition profiles and their symbols. At their definition, [`ConditionSet`](@ref)s take a dictionary of `Symbol => Profile()` mappings. Each `Symbol` can realistically be anything that Julia allows, but by convention (and for compatibility with most calculator implementations) we stick to the usual abbreviations for common conditions - `:T` for temperature, `:P` for pressure, `:V` for volume, etc. Each condition profile can be one of three options:
+At the core of this system is the [`ConditionSet`](@ref), which acts as an aggregator for individual condition profiles and their symbols. At their definition, [`ConditionSet`](@ref)s take a dictionary of `Symbol => Profile()` mappings. Each `Symbol` can realistically be anything that Julia allows, but by convention (and for compatibility with most calculator implementations) we stick to the usual abbreviations for common conditions - `:T` for temperature, `:P` for pressure, `:V` for volume, etc. Each condition profile can be one of three options:
 
 * A `Number` representing a static value for the given condition to take for the duration of the simulation. Internally this is converted into a [`Kinetica.StaticConditionProfile`](@ref), but this is just a container for the number within.
 * A directly variable condition profile, e.g. [`LinearDirectProfile`](@ref). These are variable condition profiles where the condition is implemented directly as a function of time.
-* A gradient-variable condition profile, e.g. [`LinearGradientProfile`](@ref). These are variable condition profiles where the condition is implemented indirectly through its gradient with respect to time. These profiles must be numerically integrated (handled automtically within Kinetica) before they can be used.
+* A gradient-variable condition profile, e.g. [`LinearGradientProfile`](@ref). These are variable condition profiles where the condition is implemented indirectly through its gradient with respect to time. These profiles must be numerically integrated (handled automatically within Kinetica) before they can be used.
 
 The [`ConditionSet`](@ref) constructor takes an optional keyword argument, `ts_update`. If provided, this argument causes any kinetic simulations done with this [`ConditionSet`](@ref) to use the discrete rate update approximation, which is usually desired in any moderate to large-scale CRN simulations. For more information, see the tutorial on [ODE Solution](@ref).
 
@@ -57,7 +57,7 @@ Once constructed, [`ConditionSet`](@ref)s can be queried in a number of ways. To
 get_profile(conditions, :T)
 ```
 
-To test if a given condition is static or variable, the [`isstatic`](@ref) and [`isvariable`](@ref) funcitons can be called:
+To test if a given condition is static or variable, the [`isstatic`](@ref) and [`isvariable`](@ref) functions can be called:
 
 ```@example arbitrary_conditions
 println("Temperature profile is static: $(isstatic(conditions, :T))")

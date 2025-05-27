@@ -38,7 +38,7 @@ nothing # hide
 
     Both [`print_rxn`](@ref) and [`format_rxn`](@ref) accept a keyword argument `display_level`, which also tags the requested reaction with the exploration level (see [Iterative CRN Exploration](@ref)) in which it was discovered.
 
-The total number of reactions in a CRN is stored in `RxData.nr`, so printing all of the reactions in a CRN is as simple as this loop:
+The total number of reactions in a CRN is stored in `RxData.nr`, so printing all the reactions in a CRN is as simple as this loop:
 
 ```@example results_analysis
 for i in 1:rd.nr

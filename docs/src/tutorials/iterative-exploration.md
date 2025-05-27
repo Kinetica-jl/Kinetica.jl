@@ -8,14 +8,14 @@ The figure above shows the main methodological differences between the direct an
 
 CRNs are built by adding all new reactions from each mechanism to the current [`SpeciesData`](@ref) and [`RxData`](@ref) (see [CRN Representation](@ref crn_representation_page) for details). Mechanism generation proceeds until a user-defined number of CDE iterations have passed without any new reactions being added to the CRN (controlled by the `rxn_convergence_threshold` parameter of [`DirectExplore`](@ref)).
 
-The direct method has a number of flaws when applied to large CRNs - it is capable of simulataneously under-exploring reactions between species many reactive steps away from the starting system, and it over-explores species and reactions that may never form/occur due to the kinetics of the CRN as a whole. This is the rationale behind the iterative exploration method.
+The direct method has a number of flaws when applied to large CRNs - it is capable of simultaneously under-exploring reactions between species many reactive steps away from the starting system, and it over-explores species and reactions that may never form/occur due to the kinetics of the CRN as a whole. This is the rationale behind the iterative exploration method.
 
 In the iterative method (b), exploration proceeds in levels. Each level consists of the following steps:
 
-1. A system of species is created. CDE requires species to be input within a single XYZ file, so care must be taken to place species in cartesian space such that they are separated (not considered to be bonded to one another). 
+1. A system of species is created. CDE requires species to be input within a single XYZ file, so care must be taken to place species in Cartesian space such that they are separated (not considered to be bonded to one another). 
     * This is performed by optimisation of a spring-particle system that moves species' centres of mass (see [Molecule System](@ref)).
 
-2. Reactions of species within this system are explored. This is usually set such that only adjacent reactions - those that are a single reaction away from reactants within the given species system - are explored, as this avoids the most unneccessary exploration. 
+2. Reactions of species within this system are explored. This is usually set such that only adjacent reactions - those that are a single reaction away from reactants within the given species system - are explored, as this avoids the most unnecessary exploration. 
     * This is first done by finding all same-species reactions, both unimolecular and bimolecular, then finding all different-species reactions. This occurs in dedicated subspaces, which are then collated to form the overall level.
     * Each subspace is considered to be converged in the same way as a direct method CRN - once a user-defined number of CDE iterations have passed without any new reactions being discovered (controlled by the `rxn_convergence_threshold` parameter of [`IterativeExplore`](@ref)).
 
