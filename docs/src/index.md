@@ -24,7 +24,7 @@ We currently provide the [KineticaKPM.jl](https://github.com/Kinetica-jl/Kinetic
 
 ## Installation
 
-Kinetica.jl can be installed through the Julia package manager by adding the KinetcaRegistry package registry:
+Kinetica.jl can be installed through the Julia package manager by adding the KineticaRegistry package registry:
 
 ```julia
 using Pkg

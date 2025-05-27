@@ -31,7 +31,7 @@ nothing # hide
 
 ## Parameter Blocks
 
-The initial part of Kinetica simulation scripts usually consist of 3-4 blocks of parameters, depending on whether or not the simulation consists of only a kinetic calculation on a pre-existing CRN or if it also requires a CRN exploration before such a calculation can take place.
+The initial part of Kinetica simulation scripts usually consist of 3-4 blocks of parameters, depending on whether the simulation consists of only a kinetic calculation on a pre-existing CRN or if it also requires a CRN exploration before such a calculation can take place.
 
 ### Simulation Conditions
 
@@ -55,7 +55,7 @@ We will be able to visualise this condition profile shortly, but we must first d
 
 ### Kinetic Simulation Parameters
 
-The [`ODESimulationParams`](@ref) block defines all of the parameters needed when converting a CRN to a system of ODEs and integrating it in time. This includes parameters such as the simulation timespan, initial concentrations of reactants and the ODE solver being used.
+The [`ODESimulationParams`](@ref) block defines all the parameters needed when converting a CRN to a system of ODEs and integrating it in time. This includes parameters such as the simulation timespan, initial concentrations of reactants and the ODE solver being used.
 
 For the purposes of this tutorial, we will construct the following [`ODESimulationParams`](@ref) block:
 
@@ -82,9 +82,9 @@ Further details of the parameters available in this block can be found in the [O
 
 In order to perform a CRN exploration, an exploration method must be chosen. Kinetica currently provides two: [`DirectExplore`](@ref) and [`IterativeExplore`](@ref). For now we will use the former, as it is simpler.
 
-[`DirectExplore`](@ref) explores all chemical reactions within a given radius of the starting reactants, irrespective of whether or not they will occur within a later kinetic simulation under the selected environmental conditions. This method is best suited to small CRNs under kinetically slow conditions, where few reactions are possible and complete sampling of all available reactions is easy.
+[`DirectExplore`](@ref) explores all chemical reactions within a given radius of the starting reactants, irrespective of whether they will occur within a later kinetic simulation under the selected environmental conditions. This method is best suited to small CRNs under kinetically slow conditions, where few reactions are possible and complete sampling of all available reactions is easy.
 
-Reactions are sampled using [CDE](https://github.com/HabershonLab/cde), an external code for graph-droven sampling of reactions that is included with Kinetica.jl. CDE has its own parameters which must be set, but these are usually very similar for most CRN explorations. As such, a directory of template inputs must be provided for CDE to function. We provide such a template directory with this documentation, which can be used to run this tutorial. If you have cloned this documentation's repository, as suggested at the start of this tutorial, these files are in `KineticaDocs.jl/examples/cde_template`.
+Reactions are sampled using [CDE](https://github.com/HabershonLab/cde), an external code for graph-driven sampling of reactions that is included with Kinetica.jl. CDE has its own parameters which must be set, but these are usually very similar for most CRN explorations. As such, a directory of template inputs must be provided for CDE to function. We provide such a template directory with this documentation, which can be used to run this tutorial. If you have cloned this documentation's repository, as suggested at the start of this tutorial, these files are in `KineticaDocs.jl/examples/cde_template`.
 
 Once this is done, the exploration parameters can be set up as follows:
 
@@ -146,7 +146,7 @@ For more advanced calculators that allow on-the-fly calculation of rate constant
 
 ## Simulation
 
-Now that all of the parameter blocks have been constructed, we can start generating and simulating CRNs!
+Now that all the parameter blocks have been constructed, we can start generating and simulating CRNs!
 
 ### Visualising Condition Profiles
 
@@ -156,8 +156,8 @@ First, now that we have both a [`ConditionSet`](@ref) and a [`ODESimulationParam
 solve_variable_conditions!(conditions, pars)
 ```
 
-!!! note "Not neccessary in regular use!"
-    We are manually triggering the solution of the [`ConditionSet`](@ref) here to visualise how the constructed temperature profile will look in the final simulation. However, calling [`solve_variable_conditions!`](@ref) as above is not neccessary in all Kinetica scripts. This function is normally run automatically before integrating the CRN ODEs, and does not typically need to be called like this.
+!!! note "Not necessary in regular use!"
+    We are manually triggering the solution of the [`ConditionSet`](@ref) here to visualise how the constructed temperature profile will look in the final simulation. However, calling [`solve_variable_conditions!`](@ref) as above is not necessary in all Kinetica scripts. This function is normally run automatically before integrating the CRN ODEs, and does not typically need to be called like this.
 
 With this in place, we can now plot our temperature profile's `ODESolution` to see how the simulation temperature is going to vary with time:
 
@@ -186,11 +186,11 @@ nothing # hide
 !!! note "Checkpoints and Restarts"
     In the event that a Kinetica CRN exploration fails before completion, all is not lost! As long as you still have the original head directory that the CRN was being explored in (`crn_dir` in this tutorial), both of Kinetica's exploration algorithms will detect where you left off and restart from there seamlessly. In the iterative exploration algorithm, Kinetica also creates checkpoint files with current CRN state and kinetic simulation results, which are saved under the `savedir` keyword argument specified above along with the final simulation output.
 
-The resulting [`ODESolveOutput`](@ref) object contains the explored CRN, the kinetic simulation results, and all of the parameters and conditions that went into it. These can be easily and efficiently saved and loaded as needed (see [Saving & Loading](@ref)).
+The resulting [`ODESolveOutput`](@ref) object contains the explored CRN, the kinetic simulation results, and all the parameters and conditions that went into it. These can be easily and efficiently saved and loaded as needed (see [Saving & Loading](@ref)).
 
 ## Analysis
 
-The [`ODESolveOutput`](@ref) object has plot recipes defined for easy plotting using [Plots.jl](https://github.com/JuliaPlots/Plots.jl), allowing complex figures and statistics to be shown with a single line of code. To begin, we can look at how the concentrations of all of the species found during CRN generation vary over time under the variable temperature profile we specified. This is achieved by simply running
+The [`ODESolveOutput`](@ref) object has plot recipes defined for easy plotting using [Plots.jl](https://github.com/JuliaPlots/Plots.jl), allowing complex figures and statistics to be shown with a single line of code. To begin, we can look at how the concentrations of all the species found during CRN generation vary over time under the variable temperature profile we specified. This is achieved by simply running
 
 ```@example getting_started
 plot(res)
@@ -199,7 +199,7 @@ savefig("assets/getting-started/kinetics_plot.svg"); nothing # hide
 
 ![](assets/getting-started/kinetics_plot.svg)
 
-This CRN presents some interesting results! According to the kinetics enforced by the calculator we have used, methane will not start breaking down into any of the free radical species discovered within this CRN until ``t \approx 5 \text{ s}``. We could check the temperature that this occurs at by referencing the temperature profile we plotted above but this is also accessible from `res` by running
+This CRN presents some interesting results! According to the kinetics enforced by the calculator we have used, methane will not start breaking down into any of the free radical species discovered within this CRN until ``t \approx 5 \text{ s}``. We could check the temperature that this occurs at by referencing the temperature profile we plotted above, but this is also accessible from `res` by running
 
 ```@example getting_started
 conditionsplot(res, :T)
@@ -219,7 +219,7 @@ Tprofile.sol(5.0)
 
 If we had multiple variable condition profiles, the above could also be done for them by simply passing in their bound symbols.
 
-Similarly, we can also obtain the concentrations of all of the species in the reaction mixture at any time in the simulation through interpolation:
+Similarly, we can also obtain the concentrations of all the species in the reaction mixture at any time in the simulation through interpolation:
 
 ```@example getting_started
 res.sol(5.0)

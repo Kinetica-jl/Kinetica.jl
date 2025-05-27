@@ -93,7 +93,7 @@ nothing # hide
 !!! note "Using findall(mask)"
     Note that we can't just pass the `mask` directly to the `splice!` function - instead, we must pass it through `findall`. This converts the `BitVector` `mask` into a `Vector{Int}` containing the indices of reactions where the mask is `true`, which is compatible with `splice!`.
 
-We've now successfully masked out all of the reactions that involve double bonds from our CRN! However, let's say we also want to remove all reactions that consume methane (`C` in SMILES). We could extend our `db_filter` function above, but it would start to become quite large. Instead, we can create a new function for this new filter and let the [`RxFilter`](@ref) do the work of combining the resulting masks together:
+We've now successfully masked out all the reactions that involve double bonds from our CRN! However, let's say we also want to remove all reactions that consume methane (`C` in SMILES). We could extend our `db_filter` function above, but it would start to become quite large. Instead, we can create a new function for this new filter and let the [`RxFilter`](@ref) do the work of combining the resulting masks together:
 
 ```@example filters
 function methane_filter(sd, rd)
