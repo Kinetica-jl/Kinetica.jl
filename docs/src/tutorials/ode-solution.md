@@ -249,12 +249,16 @@ This parameter allows a vector-valued `u0` (as opposed to a `Dict`-based `u0 sho
 
 We will start by loading in the results from [Getting Started](@ref) and extracting the underlying CRN. For more information on loading saved CRNs, see [Saving & Loading](@ref).
 
-```@example ode_solution
+```julia
 using Kinetica
-
-res = load_output("../my_CRN_out/direct_network_final.bson")
+res = load_output("./my_CRN_out/direct_network_final.bson")
 sd, rd = res.sd, res.rd
-nothing # hide
+```
+
+```@setup ode_solution
+using Kinetica
+res = load_output("../my_CRN_out/direct_network_final.bson")
+sd, rd = res.sd, res.rd;
 ```
 
 !!! note "CRN Representation"
@@ -293,10 +297,16 @@ Here we've specified that the rate update timestep ``\tau_r`` should be 1 ms - t
 
 We'll set up the kinetic calculator in the same way as before:
 
-```@example ode_solution
+```julia
 using BSON
-calc_pars = BSON.load("../../../examples/getting_started/arrhenius_params.bson")
+calc_pars = BSON.load("./getting_started/arrhenius_params.bson")
 calc = PrecalculatedArrheniusCalculator(calc_pars[:Ea], calc_pars[:A]; k_max=1e12)
+```
+
+```@example ode_solution
+using BSON # hide
+calc_pars = BSON.load("../../../examples/getting_started/arrhenius_params.bson") # hide
+calc = PrecalculatedArrheniusCalculator(calc_pars[:Ea], calc_pars[:A]; k_max=1e12) # hide
 ```
 
 Now all that's left is to run the simulation. This can be achieved with [`solve_network`](@ref):

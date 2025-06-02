@@ -84,11 +84,11 @@ In order to perform a CRN exploration, an exploration method must be chosen. Kin
 
 [`DirectExplore`](@ref) explores all chemical reactions within a given radius of the starting reactants, irrespective of whether they will occur within a later kinetic simulation under the selected environmental conditions. This method is best suited to small CRNs under kinetically slow conditions, where few reactions are possible and complete sampling of all available reactions is easy.
 
-Reactions are sampled using [CDE](https://github.com/HabershonLab/cde), an external code for graph-driven sampling of reactions that is included with Kinetica.jl. CDE has its own parameters which must be set, but these are usually very similar for most CRN explorations. As such, a directory of template inputs must be provided for CDE to function. We provide such a template directory with this documentation, which can be used to run this tutorial. If you have cloned this documentation's repository, as suggested at the start of this tutorial, these files are in `KineticaDocs.jl/examples/cde_template`.
+Reactions are sampled using [CDE](https://github.com/HabershonLab/cde), an external code for graph-driven sampling of reactions that is included with Kinetica.jl. CDE has its own parameters which must be set, but these are usually very similar for most CRN explorations. As such, a directory of template inputs must be provided for CDE to function. We provide such a template directory with this documentation, which can be used to run this tutorial. If you have cloned this documentation's repository, as suggested at the start of this tutorial, these files are in `Kinetica.jl/examples/cde_template`.
 
-Once this is done, the exploration parameters can be set up as follows:
+Once this is done, the exploration parameters can be set up as follows (assuming you are working in the `examples` directory):
 
-```@example getting_started
+```julia
 crn_dir = "./my_CRN"
 
 exploremethod = DirectExplore(
@@ -96,11 +96,16 @@ exploremethod = DirectExplore(
     reac_smiles = ["C"],
     rxn_convergence_threshold = 5,
     cde = CDE(
-        template_dir = "../../examples/cde_template",
+        template_dir = "./cde_template",
         radius = 5,
         sampling_seed = 1
     )
 )
+```
+
+```@example getting_started
+crn_dir = "./my_CRN" # hide
+exploremethod = DirectExplore(rdir_head = crn_dir, reac_smiles = ["C"], rxn_convergence_threshold = 5, cde = CDE(template_dir = "../../examples/cde_template", radius = 5, sampling_seed = 1)) # hide
 ```
 
 The parameters defined in this block are as follows:
@@ -129,11 +134,16 @@ The main Kinetica.jl package only includes one kinetic calculator, the [`Precalc
 k = Ae^{-\dfrac{E_a}{RT}}
 ```
 
-The [`PrecalculatedArrheniusCalculator`](@ref) requires vectors of Arrhenius prefactors `A` and activation energies `Ea` for all reactions before the code is executed, and as such is typically only used when a CRN has been generated and these values have been determined outside Kinetica. However, for the purposes of this tutorial (where the random seed for CDE's reaction generation has been set, see above), we know the reactions that are going to be generated in advance, so we have provided approximate values to input into this calculator. These values are in `KineticaDocs.jl/examples/getting_started/arrhenius_params.bson`, and can be loaded in with:
+The [`PrecalculatedArrheniusCalculator`](@ref) requires vectors of Arrhenius prefactors `A` and activation energies `Ea` for all reactions before the code is executed, and as such is typically only used when a CRN has been generated and these values have been determined outside Kinetica. However, for the purposes of this tutorial (where the random seed for CDE's reaction generation has been set, see above), we know the reactions that are going to be generated in advance, so we have provided approximate values to input into this calculator. These values are in `Kinetica.jl/examples/getting_started/arrhenius_params.bson`, and can be loaded in with:
+
+```julia
+using BSON
+calc_pars = BSON.load("./getting_started/arrhenius_params.bson")
+```
 
 ```@example getting_started
-using BSON
-calc_pars = BSON.load("../../examples/getting_started/arrhenius_params.bson")
+using BSON # hide
+calc_pars = BSON.load("../../examples/getting_started/arrhenius_params.bson") # hide
 ```
 
 again, replacing this path with the equivalent path on your computer. The calculator for this CRN can now be constructed:

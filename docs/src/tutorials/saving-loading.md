@@ -30,11 +30,9 @@ Saving simulation outputs this way destructures them into core Julia objects onl
 
 Saved CRN results can be loaded back in to Julia through two methods. If loaded back in using Kinetica's [`load_output`](@ref) function, the serialised BSON gets reconstructed into a new [`ODESolveOutput`](@ref). Taking the CRN we generated and simulated in [Getting Started](@ref) as an example:
 
-```@example saving_loading
+```julia
 using Kinetica
-
-res = load_output("../my_CRN_out/direct_network_final.bson");
-nothing # hide
+res = load_output("./my_CRN_out/direct_network_final.bson");
 ```
 
 !!! note "Suppressing Output"
@@ -42,9 +40,14 @@ nothing # hide
 
 While every effort is made to maintain compatibility between saved outputs between Kinetica versions, we cannot guarantee that the internal structure of [`ODESolveOutput`](@ref)s will never change. If this happens in a way that cannot be worked around when reconstructing within [`load_output`](@ref), or if you wish to load the data in an environment without Kinetica, the output can still be loaded in as a raw BSON `Dict` tree:
 
-```@example saving_loading
+```julia
 using BSON
-out_raw = BSON.load("../my_CRN_out/direct_network_final.bson")
+out_raw = BSON.load("./my_CRN_out/direct_network_final.bson")
+```
+
+```@example saving_loading
+using BSON # hide
+out_raw = BSON.load("../my_CRN_out/direct_network_final.bson") # hide
 ```
 
 This allows users to flexibly access generated CRNs and kinetic simulation results, even when Kinetica is unavailable.

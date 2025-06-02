@@ -44,7 +44,7 @@ exploremethod = IterativeExplore(
     seed_conc = 0.05,
     independent_blacklist = ["[H]"],
     cde = CDE(
-        template_dir = "../../examples/cde_template",
+        template_dir = "./cde_template",
         radius = 1
     )
 )

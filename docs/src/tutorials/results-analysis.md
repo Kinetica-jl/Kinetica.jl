@@ -10,10 +10,14 @@ Upon completion of a kinetic simulation run by [`solve_network`](@ref) (or throu
 
 We will demonstrate this analysis using the results of the CRN we generated and simulated in [Getting Started](@ref):
 
-```@example results_analysis
+```julia
 using Kinetica
-res = load_output("../my_CRN_out/direct_network_final.bson")
-nothing # hide
+res = load_output("./my_CRN_out/direct_network_final.bson")
+```
+
+```@setup results_analysis
+using Kinetica
+res = load_output("../my_CRN_out/direct_network_final.bson");
 ```
 
 ## Analysing the CRN
