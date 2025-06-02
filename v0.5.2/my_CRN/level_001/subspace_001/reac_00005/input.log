@@ -1,0 +1,414 @@
+
+************************ CDE simulation ************************
+
+- Start date:    25/03/2024
+- Start time:    12:13:26
+
+- The input filename is: input                                             
+
+================================================================
+                INPUT FILE INTERPRETATION FOLLOWS               
+================================================================
+
+- The input filename is: input                                             
+
+# COMMENT: comment line                                                                                        
+Calculation type: BREAKDOWN NETWORK GENERATION
+- Minimum allowed molecular charge:     0
+- Maximum allowed molecular charge:     0
+- Maximum number of charged molecules allowed at any step:     0
+- Maximum allowed molecular charge:     0
+- Maximum total system charge:     0
+- PES geometry optimization after graph move?:  T
+- Ignore geometry optimisations that invalidate molecular graphs?  F
+- Perform initial geometry optimisation on starting system:  F
+- PES evaluations for INDEPENDENT MOLECULES being used...
+- Number of images per path:     6
+- Start-point structure file:  Start.xyz                                         
+- End-point structure file:  end.xyz                                           
+- IDPP interpolation :  T
+
+- Path refinement method:  CLIMBING-IMAGE NUDGED ELASTIC BAND
+- (CI)NEB optimization method:  QUICKMIN
+- Maximum number of NEB iteractions:     500
+- Climbing-image start criterion (au):      0.00050000
+- NEB spring constant:        0.050000
+- NEB optimization step-size:       10.000000
+- NEB output frequency:       5
+- Strip inactive molecules before path optimization?:  T
+- Optimize end-points before NEB run:  T
+- Optimize end-points during NEB run:  F
+- Use graph-restrain potential during NEB:  T
+
+- Number of fixed DOFs:     0
+- Number of fixed atoms:     0
+
+- PES type:  xtb
+- PES calculation template file:  xtb.head
+- PES type for geometry optimization:  xtb
+- Geometry optimisation template file:  xtb.head
+- PES calculation executable:  xtb --iterations 1000 --grad
+- PES geometry optimization executable:  xtb --input xtb.inp --iterations 1000 --etemp 1000 --opt tight --grad
+
+- Graph-moves file:  moves_2+3.in                                      
+- GDS attempt probability:      0.50000000
+- Spring constant for inter-bead springs:      0.05000000
+- Spring constant for bonded-graph restraints:      0.05000000
+- Strength of non-bonded exponential graph restraints:      0.04000000
+- Range of non-bonded exponential graph restraints:      2.50000000
+- Spring constant for intermolecular repulsion restraints:      0.05000000
+- Number of SD steps after GDS graph move:    10000
+- GDS SD relaxation step-size:      0.10000000
+- GDS output frequency:       10
+
+- Number of valence range constraints:     2
+- Valence range constraint:    1 C     2    4
+- Valence range constraint:    2 H     0    1
+
+- Number of reactive atom types:     2
+- Reactive atom labels:  C 
+- Reactive atom labels:  H 
+
+
+- Number of reactive valence constraints:     0
+
+- Fixed bonds for GDS:
+
+- Number of allowed bonding constraints:     0
+
+- Pathfinding function type: Eigenvalue comparison for single molecule
+- Number of MC steps in pathfinder calculation::        1
+- Number of reactions in sampled strings for pathfinder:     5
+- Random number seed:     6
+
+================================================================
+                 END OF INPUT FILE INTERPRETATION                   
+================================================================
+
+*************** Finished reading input parameters **************
+
+* Starting single-ended breakdown product generation...
+
+* Running network-generation calculation....
+
+* Reading reactant structure...
+* Obtaining energy of starting geometry...
+* Energy calculated.
+
+================================================================
+# Graph Info for CXS:  Reactant structure
+
+* Bonded atoms *
+ C 1   - H 2  
+ C 1   - H 3  
+ C 1   - H 4  
+ C 1   - H 5  
+ C 6   - H 7  
+ C 6   - H 8  
+ C 6   - H 9  
+ C 6   - H 10 
+
+* Atomic valencies *
+ C 1    :    4
+ H 2    :    1
+ H 3    :    1
+ H 4    :    1
+ H 5    :    1
+ C 6    :    4
+ H 7    :    1
+ H 8    :    1
+ H 9    :    1
+ H 10   :    1
+
+================================================================
+
+* Reading graph moves file...
+* Graph moves input file: moves_2+3.in
+
+================================================================
+              MOVE FILE INTERPRETATION FOLLOWS...               
+================================================================
+
+Comment line: 
+# Curated movelist for polyethylene.
+
+Comment line: 
+# Bond breaking: A-B -> A / B
+
+*** Graph move number:    1 ***
+
+- Number of atoms:    2
+- Bond-changing move detected 
+- Start graph: 
+  0  1
+  1  0
+- End graph: 
+  0  0
+  0  0
+- Allowed atom labels: 
+* * 
+Move probability: 0.100
+
+Comment line: 
+# Bond making: A / B -> A-B
+
+*** Graph move number:    2 ***
+
+- Number of atoms:    2
+- Bond-changing move detected 
+- Start graph: 
+  0  0
+  0  0
+- End graph: 
+  0  1
+  1  0
+- Allowed atom labels: 
+* * 
+Move probability: 0.300
+
+Comment line: 
+# H2 dissociation from a single carbon: H-C-H -> H-H / C
+
+*** Graph move number:    3 ***
+
+- Number of atoms:    3
+- Bond-changing move detected 
+- Start graph: 
+  0  0  1
+  0  0  1
+  1  1  0
+- End graph: 
+  0  1  0
+  1  0  0
+  0  0  0
+- Allowed atom labels: 
+H H C 
+Move probability: 0.100
+
+Comment line: 
+# H2 Association to a single carbon: H-H / C -> H-C-H
+
+*** Graph move number:    4 ***
+
+- Number of atoms:    3
+- Bond-changing move detected 
+- Start graph: 
+  0  1  0
+  1  0  0
+  0  0  0
+- End graph: 
+  0  0  1
+  0  0  1
+  1  1  0
+- Allowed atom labels: 
+H H C 
+Move probability: 0.300
+
+Comment line: 
+# A-C-B -> A-B / C
+
+*** Graph move number:    5 ***
+
+- Number of atoms:    3
+- Bond-changing move detected 
+- Start graph: 
+  0  0  1
+  0  0  1
+  1  1  0
+- End graph: 
+  0  1  0
+  1  0  0
+  0  0  0
+- Allowed atom labels: 
+* * * 
+Move probability: 0.100
+
+Comment line: 
+# A-B / C -> A-C-B
+
+*** Graph move number:    6 ***
+
+- Number of atoms:    3
+- Bond-changing move detected 
+- Start graph: 
+  0  1  0
+  1  0  0
+  0  0  0
+- End graph: 
+  0  0  1
+  0  0  1
+  1  1  0
+- Allowed atom labels: 
+* * * 
+Move probability: 0.300
+
+Comment line: 
+# A-C / B -> A-B / C
+
+*** Graph move number:    7 ***
+
+- Number of atoms:    3
+- Bond-changing move detected 
+- Start graph: 
+  0  0  1
+  0  0  0
+  1  0  0
+- End graph: 
+  0  1  0
+  1  0  0
+  0  0  0
+- Allowed atom labels: 
+* * * 
+Move probability: 0.200
+
+Comment line: 
+# A-B / C -> A-C / B
+
+*** Graph move number:    8 ***
+
+- Number of atoms:    3
+- Bond-changing move detected 
+- Start graph: 
+  0  1  0
+  1  0  0
+  0  0  0
+- End graph: 
+  0  0  1
+  0  0  0
+  1  0  0
+- Allowed atom labels: 
+* * * 
+Move probability: 0.200
+
+Comment line: 
+# A-B-C -> C-A-B
+
+*** Graph move number:    9 ***
+
+- Number of atoms:    3
+- Bond-changing move detected 
+- Start graph: 
+  0  1  0
+  1  0  1
+  0  1  0
+- End graph: 
+  0  1  1
+  1  0  0
+  1  0  0
+- Allowed atom labels: 
+* * * 
+Move probability: 0.200
+
+================================================================
+                MOVE FILE INTERPRETATION COMPLETE               
+================================================================
+
+* Finished reading graph moves file...
+
+* ChangeCharges DISABLED
+--------------------------------------------------------------
+Reaction mechanism:       1
+--------------------------------------------------------------
+* Setting all initial moves to null...
+* Generating a move for reaction step   1/  5
+- Trial move   1 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   1, cycling.
+- Trial move   2 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   2, cycling.
+- Trial move   3 failed, cycling.
+- Trial move   4 failed, cycling.
+- Trial move   5 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   5, cycling.
+- Trial move   6 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   6, cycling.
+- Trial move   7 successful.
+- Checking validity of valences under new move...
+- Valence check complete, all current valences are valid.
+* Writing reaction step to file.
+- Removing spectator molecules...
+- Optimising reaction step...
+- Optimising whole system under GRP...
+- Reaction output to rxn_0001_step_0001.xyz
+
+* Setting all initial moves to null...
+* Generating a move for reaction step   2/  5
+- Trial move   1 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   1, cycling.
+- Trial move   2 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   2, cycling.
+- Trial move   3 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   3, cycling.
+- Trial move   4 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   4, cycling.
+- Trial move   5 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   5, cycling.
+- Trial move   6 successful.
+- Checking validity of valences under new move...
+- Valence check complete, all current valences are valid.
+* Writing reaction step to file.
+- Removing spectator molecules...
+- Optimising reaction step...
+- Optimising whole system under GRP...
+- Reaction output to rxn_0001_step_0002.xyz
+
+* Setting all initial moves to null...
+* Generating a move for reaction step   3/  5
+- Trial move   1 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   1, cycling.
+- Trial move   2 successful.
+- Checking validity of valences under new move...
+- Valence check complete, all current valences are valid.
+* Writing reaction step to file.
+- Removing spectator molecules...
+- Optimising reaction step...
+- Optimising whole system under GRP...
+- Reaction output to rxn_0001_step_0003.xyz
+
+* Setting all initial moves to null...
+* Generating a move for reaction step   4/  5
+- Trial move   1 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   1, cycling.
+- Trial move   2 successful.
+- Checking validity of valences under new move...
+- Valence check complete, all current valences are valid.
+* Writing reaction step to file.
+- Removing spectator molecules...
+- Optimising reaction step...
+- Optimising whole system under GRP...
+- Reaction output to rxn_0001_step_0004.xyz
+
+* Setting all initial moves to null...
+* Generating a move for reaction step   5/  5
+- Trial move   1 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   1, cycling.
+- Trial move   2 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   2, cycling.
+- Trial move   3 successful.
+- Checking validity of valences under new move...
+- Invalid valences detected from trial move   3, cycling.
+- Trial move   4 successful.
+- Checking validity of valences under new move...
+- Valence check complete, all current valences are valid.
+* Writing reaction step to file.
+- Removing spectator molecules...
+- Optimising reaction step...
+- Reaction output to rxn_0001_step_0005.xyz
+
+
+================================================================
+                     CALCULATION COMPLETE                       
+================================================================
+

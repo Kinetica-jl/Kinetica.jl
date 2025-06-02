@@ -1,0 +1,4 @@
+$opt
+    engine=lbfgs
+    optlevel=tight
+$end
