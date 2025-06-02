@@ -6,11 +6,16 @@ Kinetica enables this reaction filtering through an easily extensible system tha
 
 To demonstrate, let's construct an [`RxFilter`](@ref) which removes all reactions involving double bonds from a CRN. We'll use the CRN we created in [Getting Started](@ref) by loading the results file and extracting the [`SpeciesData`](@ref) and [`RxData`](@ref):
 
-```@example filters
+```julia
+using Kinetica
+res = load_output("./my_CRN_out/direct_network_final.bson")
+sd, rd = res.sd, res.rd
+```
+
+```@setup filters
 using Kinetica
 res = load_output("../my_CRN_out/direct_network_final.bson")
-sd, rd = res.sd, res.rd
-nothing # hide
+sd, rd = res.sd, res.rd;
 ```
 
 If we inspect the reactions in this CRN, we can see that quite a few of them involve double bonds (represented in SMILES by an equals sign `=` between two elements):
