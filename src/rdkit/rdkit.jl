@@ -271,16 +271,17 @@ function atom_map_frame(::GasSpecies, ::FreeXYZ, am_smi::String, frame::Dict{Str
         end
         if length(remove_idxs) > 0
             mol_template = rdChem.RWMol(mol_template)
+            offset = 0
             for idx in remove_idxs
-                mol_template.RemoveAtom(idx)
+                mol_template.RemoveAtom(idx-offset)
+                offset += 1
             end
         end
     end
     
     match = pyconvert(Vector, mol_target_sb.GetSubstructMatch(mol_template))
     if pyconvert(Int, mol_template.GetNumAtoms()) != length(match)
-        println(mol_template.GetNumAtoms())
-        throw(ErrorException("Incorrect number of atoms when matching substruct during atom mapping."))
+        throw(ErrorException("Incorrect number of atoms when matching substruct during atom mapping ($(length(match)) matched, $(mol_template.GetNumAtoms()) expected)."))
     end
     for atom in mol_template.GetAtoms()
         idx = match[pyconvert(Int, atom.GetIdx()) + 1]
