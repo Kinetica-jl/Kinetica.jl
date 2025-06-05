@@ -548,11 +548,36 @@ Modifies the atomic positions in `frame1` to be as close as
 possible to those in `frame2` through a combination of
 translation and rotation. Uses the Kabsch algorithm, as
 implemented in the Python package 'rmsd'.
+
+If frames are `OnSurfaceXYZ`s, this does nothing since atoms
+will already be aligned to the surface.
 """
 function kabsch_fit!(frame1::Dict{String, Any}, frame2::Dict{String, Any})
+    f1style = XYZStyle(frame1)
+    f2style = XYZStyle(frame2)
+    if f1style != f2style
+        throw(ArgumentError("Frames must be of the same XYZStyle to Kabsch fit one to another."))
+    end
+    return kabsch_fit!(f1style, frame1, frame2)
+end
+
+function kabsch_fit!(::FreeXYZ, frame1::Dict{String, Any}, frame2::Dict{String, Any})
     c1 = Py(frame1["arrays"]["pos"]).to_numpy().T
     c2 = Py(frame2["arrays"]["pos"]).to_numpy().T
     frame1["arrays"]["pos"] = pyconvert(Matrix, rmsd.kabsch_fit(c1, c2).T)
+    return
+end
+
+kabsch_fit!(::AdsorbateXYZ, frame1::Dict{String, Any}, frame2::Dict{String, Any}) = kabsch_fit!(FreeXYZ(), frame1, frame2)
+
+function kabsch_fit!(::OnSurfaceXYZ, frame1::Dict{String, Any}, frame2::Dict{String, Any})
+    # Surfaces should always be aligned to (0,0,0) and their unit
+    # cell, so as long as there are the same number of atoms, things
+    # should be aligned.
+    if frame1["N_atoms"] != frame2["N_atoms"]
+        throw(ArgumentError("Adsorbed frames must have the same number of atoms to Kabsch fit one to another."))
+    end
+    # Could do more checks in the future if there are somehow problems here.
     return
 end
 
@@ -561,27 +586,15 @@ end
     get_hydrogen_idxs(amsmi::String)
 
 Returns indices of hydrogen atoms in atom-mapped SMILES `amsmi`.
+
+Returns a vector of vectors, where each inner vector
+contains the indices of hydrogens in a single molecule.
 """
 function get_hydrogen_idxs(amsmi::String)
-    at_end = false
-    i = 1
-    nc = length(amsmi)
-    hidxs = [Int[]]
-    while !at_end
-        if amsmi[i] == '['
-            sym = amsmi[i+1]
-            idx = parse(Int, string(amsmi[i+3]))
-            if sym == 'H'
-                push!(hidxs[end], idx)
-            end
-            i += 5
-        elseif amsmi[i] == '.'
-            push!(hidxs, Int[])
-            i += 1
-        else
-            i += 1
-        end
-        if i > nc at_end = true end
+    mol_amsmis = split(amsmi, '.')
+    hidxs = Vector{Int}[]
+    for mol_amsmi in mol_amsmis
+        push!(hidxs, [parse(Int, match.captures[1]) for match in eachmatch(r"\[H:(\d+)\]", mol_amsmi)])
     end
     return hidxs
 end
