@@ -229,4 +229,24 @@ end
     @test amframe_with_surf["arrays"]["species"] == vcat(["N", "C", "C", "H", "H", "H", "H", "H", "H"], ["Pt" for _ in 1:48])
     @test_throws "surface-bound geometry from a gas-phase SMILES" atom_map_frame(amsmi2_no_surf, sd.xyz[1])
     @test_throws "gas-phase geometry from a surface-bound SMILES" atom_map_frame(amsmi2, sd.xyz[3])
+
+    # Multiply-adsorbed surfaces also need testing since they sometimes
+    # exhibit strange behaviour.
+    adssys = adsorb_two_frames(sd, 1, 2)
+    adssys_smi = join([sd.toStr[1], sd.toStr[2]], ".")
+    @test_throws "Remove surface atoms from geometry" atom_map_smiles(adssys, adssys_smi)
+    adssys_nosurf = deepcopy(adssys)
+    Kinetica.remove_surface_atoms!(adssys_nosurf, sd.surfdata, get_surfid(adssys_smi), true)
+    adssys_amsmi = atom_map_smiles(adssys_nosurf, adssys_smi)
+    @test adssys_amsmi == "[X1_1][H:10].[X1_1][N:3]([C:2]([C:1]([H:4])([H:5])[H:6])([H:7])[H:8])[H:9]"
+
+    adssys_amsmi2 = "[X1_1][H:1].[X1_1][N:4]([C:3]([C:2]([H:5])([H:6])[H:7])([H:8])[H:9])[H:10]"
+    adssys2 = atom_map_frame(adssys_amsmi2, adssys)
+    @test adssys["arrays"]["pos"][:, 37] == adssys2["arrays"]["pos"][:, 1] # H:1 moved
+
+    adssys_amsmi3 = "[X1_1][H:1].[X1_1][N:4]([C:3]([C:2]([H:7])([H:6])[H:5])([H:8])[H:9])[H:10]" # H:5 and H:7 switched
+    adssys3 = atom_map_frame(adssys_amsmi3, adssys)
+    hidxs = Kinetica.get_hydrogen_idxs(adssys_amsmi3)
+    Kinetica.permute_hydrogens!(adssys3, hidxs, adssys2)
+    @test all(adssys3["arrays"]["pos"][:, 5] .≈ adssys2["arrays"]["pos"][:, 5]) # should be equivalent after swap.
 end 
