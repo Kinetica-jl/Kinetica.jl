@@ -384,7 +384,13 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                 throw(ErrorException("Cannot handle more than 2 reactants in a reaction."))
             end
             reacsys["info"]["mult"] = rmult
-            reacsys_amsmi = atom_map_smiles(reacsys, reacsys_smi)
+            if XYZStyle(reacsys) isa OnSurfaceXYZ
+                reacsys_nosurf = deepcopy(reacsys)
+                remove_surface_atoms!(reacsys_nosurf, sd.surfdata, get_surfid(reacsys_smi), true)
+                reacsys_amsmi = atom_map_smiles(reacsys_nosurf, reacsys_smi)
+            else
+                reacsys_amsmi = atom_map_smiles(reacsys, reacsys_smi)
+            end
             reacsys_formal_charges = get_formal_charges(reacsys_amsmi)
             reacsys_initial_magmoms = get_initial_magmoms(reacsys_amsmi)
 
@@ -419,7 +425,13 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                 throw(ErrorException("Cannot handle more than 2 products in a reaction."))
             end
             prodsys["info"]["mult"] = rmult
-            prodsys_amsmi = atom_map_smiles(prodsys, prodsys_smi)
+            if XYZStyle(prodsys) isa OnSurfaceXYZ
+                prodsys_nosurf = deepcopy(prodsys)
+                remove_surface_atoms!(prodsys_nosurf, sd.surfdata, get_surfid(prodsys_smi), true)
+                prodsys_amsmi = atom_map_smiles(prodsys_nosurf, prodsys_smi)
+            else
+                prodsys_amsmi = atom_map_smiles(prodsys, prodsys_smi)
+            end
             prodsys_formal_charges = get_formal_charges(prodsys_amsmi)
             prodsys_initial_magmoms = get_initial_magmoms(prodsys_amsmi)
 
