@@ -145,6 +145,14 @@ function atom_map_smiles(::FreeXYZ, ::GasSpecies, frame::Dict{String, Any}, smi:
         mol_sanitised.GetAtomWithIdx(idx).SetAtomMapNum(map_num)
     end
 
+    # Disable any dative bonds that RDKit wants to make, since
+    # OpenBabel can't handle them.
+    for bond in mol_sanitised.GetBonds()
+        if pyis(bond.GetBondType(), rdChem.rdchem.BondType."DATIVE")
+            bond.SetBondType(rdChem.rdchem.BondType."SINGLE")
+        end
+    end
+
     return pyconvert(String, rdChem.MolToSmiles(mol_sanitised))
 end
 function atom_map_smiles(::Union{AdsorbateXYZ, OnSurfaceXYZ}, ::GasSpecies, ::Dict{String, Any}, ::String; kwargs...)
