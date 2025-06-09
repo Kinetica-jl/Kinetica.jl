@@ -330,3 +330,28 @@ function remove_surface_atoms!(frame::Dict{String, Any}, surfdata::SurfaceData, 
     end
     return
 end
+
+
+"""
+    remove_adsorbate_atoms!(frame::Dict{String, Any}, surfdata::SurfaceData, surfid::Int)
+
+Removes the atoms corresponding to the adsorbate from `frame`.
+
+Identifies which atoms are part of the surface from `surfdata.surfaces[surfid]`,
+then removes everything else.
+"""
+function remove_adsorbate_atoms!(frame::Dict{String, Any}, surfdata::SurfaceData, surfid::Int)
+    surface = surfdata.surfaces[surfid]
+    elems = surface.elements
+    keep_idxs = [i for (i, e) in enumerate(frame["arrays"]["species"]) if e in elems]
+    remove_idxs = [i for i in 1:frame["N_atoms"] if !(i in keep_idxs)]
+    for arrkey in keys(frame["arrays"])
+        if frame["arrays"][arrkey] isa Vector
+            deleteat!(frame["arrays"][arrkey], remove_idxs)
+        else
+            frame["arrays"][arrkey] = frame["arrays"][arrkey][:, keep_idxs]
+        end
+    end
+    frame["N_atoms"] -= length(remove_idxs)
+    return
+end

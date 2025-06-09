@@ -296,17 +296,34 @@ end
 
 """
     save_tsdata(ts::Dict{String, Any}, conv, mult, sym, geom, chg, saveto::String)
+    save_tsdata(ts::Dict{String, Any}, ads_ts::Dict{String, Any}, conv, mult, sym, geom, chg, saveto::String)
 
 Saves transition state data to a BSON file.
 
 Aside from the ExtXYZ frame `ts`, saves the convergence
 status `conv`, spin multiplicity `mult`, charge `chg`, 
 symmetry number `sym` and geometry identifier `geom`.
+
+If the transition state is on a surface, it should be split
+from the surface and saved as well with the isolated
+geometry passed to `ts` and the adsorbed geometry to `ads_ts`.
 """
 function save_tsdata(ts::Dict{String, Any}, conv, mult, sym, geom, chg, saveto::String)
     savedict = Dict(
         :conv => conv,
         :xyz => ts,
+        :mult => mult,
+        :charge => chg,
+        :sym => sym,
+        :geom => geom
+    )
+    bson(saveto, savedict)
+end
+function save_tsdata(ts::Dict{String, Any}, ads_ts::Dict{String, Any}, conv, mult, sym, geom, chg, saveto::String)
+    savedict = Dict(
+        :conv => conv,
+        :xyz => ts,
+        :ads_xyz => ads_ts
         :mult => mult,
         :charge => chg,
         :sym => sym,

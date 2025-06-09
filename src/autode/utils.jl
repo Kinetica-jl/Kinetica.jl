@@ -26,8 +26,13 @@ Returns the symmetry number and geometric identifier of a given geometry.
 Geometric identifier is 1 if a geometry is linear and 2 otherwise.
 This assumes that the geometry is not monoatomic, in which case the
 identifier would be 0.
+
+Can function on adsorbates - free adsorbates are treated like isolated
+molecules, while on-surface adsorbates are marked as invalid for this
+calculation and return symmetry and geometry numbers of -2.
 """
-function autode_frame_symmetry(frame::Dict{String, Any}; mult::Int=1, chg::Int=0)
+autode_frame_symmetry(frame::Dict{String, Any}; mult::Int=1, chg::Int=0) = autode_frame_symmetry(XYZStyle(frame); mult, chg)
+function autode_frame_symmetry(::FreeXYZ, frame::Dict{String, Any}; mult::Int=1, chg::Int=0)
     mol = frame_to_autode(frame; mult=mult, chg=chg)
     sym = pyconvert(Int, mol.symmetry_number)
     if pyconvert(Bool, mol.is_linear())
@@ -37,3 +42,5 @@ function autode_frame_symmetry(frame::Dict{String, Any}; mult::Int=1, chg::Int=0
     end
     return sym, geom
 end
+autode_frame_symmetry(::AdsorbateXYZ, frame::Dict{String, Any}; mult::Int=1, chg::Int=0) = autode_frame_symmetry(FreeXYZ(), frame; mult, chg)
+autode_frame_symmetry(::OnSurfaceXYZ, frame::Dict{String, Any}; mult::Int=1, chg::Int=0) = return -2, -2

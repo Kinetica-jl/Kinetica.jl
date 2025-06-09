@@ -132,7 +132,8 @@ function ASENEBCalculator(calc_builder, calcdir_head; neb_k=0.1, ftol=0.01, clim
             :symmetry => Vector{Int}(),
             :geometry => Vector{Int}(),
             :mult => Vector{Int}(),
-            :charge => Vector{Int}()
+            :charge => Vector{Int}(),
+            :ads_xyz => Vector{Dict{String, Any}}()
         )
         sd, rd = init_network()
     end
@@ -249,6 +250,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             reverse_idx = findfirst(==(reverse_rhash), calc.cached_rhashes)
             if calc.ts_cache[:symmetry][reverse_idx] > -1 
                 push!(calc.ts_cache[:xyz], calc.ts_cache[:xyz][reverse_idx])
+                push!(calc.ts_cache[:ads_xyz], calc.ts_cache[:ads_xyz][reverse_idx])
                 push!(calc.ts_cache[:vib_energies], calc.ts_cache[:vib_energies][reverse_idx])
                 push!(calc.ts_cache[:reacsys_energies], calc.ts_cache[:reacsys_energies][reverse_idx])
                 push!(calc.ts_cache[:prodsys_energies], calc.ts_cache[:prodsys_energies][reverse_idx])
@@ -286,6 +288,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                 # the TS is unconverged and doesn't exist, and does not have vibdata.
                 if tsdata[:conv] || (!(calc.remove_unconverged) && length(tsdata[:xyz]) > 0)
                     push!(calc.ts_cache[:xyz], tsdata[:xyz])
+                    haskey(tsdata, :ads_xyz) ? push!(calc.ts_cache[:ads_xyz], tsdata[:ads_xyz]) : push!(calc.ts_cache[:ads_xyz], Dict{String, Any}())
                     push!(calc.ts_cache[:mult], tsdata[:mult])
                     push!(calc.ts_cache[:charge], tsdata[:charge])
                     push!(calc.ts_cache[:symmetry], tsdata[:sym])
@@ -316,6 +319,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
 
                 else
                     push!(calc.ts_cache[:xyz], Dict{String, Any}())
+                    push!(calc.ts_cache[:ads_xyz], Dict{String, Any}())
                     push!(calc.ts_cache[:vib_energies], [0.0+0.0im])
                     push!(calc.ts_cache[:symmetry], -1)
                     push!(calc.ts_cache[:geometry], -1)
@@ -492,14 +496,31 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             images, conv = neb(reacsys_mapped, prodsys_mapped, calc; calcdir=nebdir)
             if conv
                 ts = highest_energy_frame(images)
-                ts_sym, ts_geom = autode_frame_symmetry(ts; mult=rmult, chg=prodsys_mapped["info"]["chg"])
+                if XYZStyle(ts) isa OnSurfaceXYZ
+                    ts_onsurf = deepcopy(ts)
+                    remove_surface_atoms!(ts, sd.surfdata, get_surfid(reacsys_smi), true)
+                    ts_sym, ts_geom = autode_frame_symmetry(ts; mult=rmult, chg=prodsys_mapped["info"]["chg"])
+                else
+                    ts_onsurf = Dict{String, Any}()
+                    ts_sym, ts_geom = autode_frame_symmetry(ts; mult=rmult, chg=prodsys_mapped["info"]["chg"])
+                end
             else
                 ts = Dict{String, Any}()
+                ts_onsurf = Dict{String, Any}()
                 ts_sym, ts_geom = -1, -1
             end
 
             # Save TS data.
-            save_tsdata(ts, conv, rmult, ts_sym, ts_geom, prodsys_mapped["info"]["chg"], "ts.bson")
+            # If the TS is on a surface, calculate and subtract the isolated surface energy.
+            if XYZStyle(ts) isa AdsorbateXYZ
+                ts_surface = deepcopy(ts_onsurf)
+                remove_adsorbate_atoms!(ts_surface, sd.surfdata, get_surfid(reacsys_smi))
+                surf_energy = singlepoint(ts_surface, calc.calc_builder; calcdir=nebdir, mult=rmult, chg=reacsys_mapped["info"]["chg"])
+                ts["info"]["energy_ASE"] -= surf_energy
+                save_tsdata(ts, ts_onsurf, conv, rmult, ts_sym, ts_geom, prodsys_mapped["info"]["chg"], "ts.bson")
+            else
+                save_tsdata(ts, conv, rmult, ts_sym, ts_geom, prodsys_mapped["info"]["chg"], "ts.bson")
+            end
 
             # Save to caches.
             # If unconverged and removal is requested, push blank
@@ -508,6 +529,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             # if this is the case though.
             if conv || (!(calc.remove_unconverged) && length(ts) > 0)
                 push!(calc.ts_cache[:xyz], ts)
+                push!(calc.ts_cache[:ads_xyz], ts_onsurf)
                 push!(calc.ts_cache[:mult], rmult)
                 push!(calc.ts_cache[:charge], prodsys_mapped["info"]["chg"])
                 push!(calc.ts_cache[:symmetry], ts_sym)
@@ -517,6 +539,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                 push!(calc.ts_cache[:prodsys_energies], prodsys_mapped["info"]["energy_ASE"])
             else
                 push!(calc.ts_cache[:xyz], Dict{String, Any}())
+                push!(calc.ts_cache[:ads_xyz], Dict{String, Any}())
                 push!(calc.ts_cache[:vib_energies], [0.0+0.0im])
                 push!(calc.ts_cache[:symmetry], -1)
                 push!(calc.ts_cache[:geometry], -1)
@@ -565,6 +588,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             reverse_idx = findfirst(==(reverse_rhash), calc.cached_rhashes)
             if calc.ts_cache[:symmetry][reverse_idx] > -1 
                 calc.ts_cache[:xyz][i] = calc.ts_cache[:xyz][reverse_idx]
+                calc.ts_cache[:ads_xyz][i] = calc.ts_cache[:ads_xyz][reverse_idx]
                 calc.ts_cache[:vib_energies][i] = calc.ts_cache[:vib_energies][reverse_idx]
                 calc.ts_cache[:symmetry][i] = calc.ts_cache[:symmetry][reverse_idx]
                 calc.ts_cache[:geometry][i] = calc.ts_cache[:geometry][reverse_idx]
@@ -611,11 +635,6 @@ function Base.splice!(calc::ASENEBCalculator, rids::Vector{Int})
     splice!(calc.cached_rhashes, rids)
 end
 
-# TODO: Entropy and enthalpy calculations currently do not account for:
-# a) Surface reaction endpoints where molecules are not adsorbed to the surface
-# b) Surface reaction endpoints with 2 or more adsorbates
-# These will need to be added once there is a better idea of how surface energies
-# are being tracked.
 
 """
     get_entropy(sd, sid, T, P)
@@ -638,7 +657,6 @@ function get_entropy(::GasSpecies, sd::SpeciesData, sid, T, P)
     )
 end
 function get_entropy(::SurfaceSpecies, sd::SpeciesData, sid, T, P)
-    throw(ErrorException("Surface species rate calculation is currently unfinished."))
     return get_entropy(sd.cache[:vib_energies][sid], T)
 end
 
@@ -665,7 +683,6 @@ function get_entropy(::FreeXYZ, ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
     )
 end
 function get_entropy(::AdsorbateXYZ, ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
-    throw(ErrorException("Surface species rate calculation is currently unfinished."))
     return get_entropy(ts_cache[:vib_energies][rid], T)
 end
 
@@ -758,7 +775,6 @@ function get_enthalpy(::GasSpecies, sd::SpeciesData, sid, T)
     return get_enthalpy(sd.xyz[sid]["info"]["energy_ASE"], sd.cache[:vib_energies][sid], sd.cache[:geometry][sid], T)
 end
 function get_enthalpy(::SurfaceSpecies, sd::SpeciesData, sid, T)
-    throw(ErrorException("Surface species rate calculation is currently unfinished."))
     return get_enthalpy(sd.xyz[sid]["info"]["energy_ASE"], sd.cache[:vib_energies][sid], T)
 end
 
@@ -775,7 +791,6 @@ function get_enthalpy(::FreeXYZ, ts_cache::Dict{Symbol, Any}, rid, T)
     return get_enthalpy(ts_cache[:xyz][rid]["info"]["energy_ASE"], ts_cache[:vib_energies][rid], ts_cache[:geometry][rid], T)
 end
 function get_enthalpy(::AdsorbateXYZ, ts_cache::Dict{Symbol, Any}, rid, T)
-    throw(ErrorException("Surface species rate calculation is currently unfinished."))
     return get_enthalpy(ts_cache[:xyz][rid]["info"]["energy_ASE"], ts_cache[:vib_energies][rid], T)
 end
 

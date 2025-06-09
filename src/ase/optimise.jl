@@ -237,6 +237,44 @@ end
 
 
 """
+    singlepoint(sd::SpeciesData, i, calc_builder; calcdir::String="./", kwargs...)
+
+Runs an ASE-driven single-point calculation of the species `i` in `sd`.
+
+This is a wrapper around the lower-level `singlepoint(frame, ...)` method.
+"""
+function singlepoint(sd::SpeciesData, i, calc_builder; calcdir::String="./", kwargs...)
+    @debug "Running single-point calculation for species $i."
+    frame = sd.xyz[i]
+    if !(i in keys(sd.cache[:mult])) || !(i in keys(sd.cache[:charge])) || 
+       !(i in keys(sd.cache[:formal_charges])) || !(i in keys(sd.cache[:initial_magmoms]))
+        throw(ErrorException("Species in SpeciesData is missing information needed for single-point calculations."))
+    end
+
+    return singlepoint(frame, calc_builder; calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
+               formal_charges=sd.cache[:formal_charges][i], initial_magmoms=sd.cache[:initial_magmoms][i],
+               kwargs...) 
+end
+
+"""
+    singlepoint(frame::Dict{String, Any}, calc_builder; calcdir::String="./", mult::Int=1, chg::Int=0, formal_charges=nothing, initial_magmoms=nothing, kwargs...)
+
+Runs an ASE-driven single-point calculation of the species in `frame`.
+
+Closely mirrors `geomopt!`, but does not perform any geometry optimisation
+or graph isomorphism checks.
+"""
+function singlepoint(frame::Dict{String, Any}, calc_builder; calcdir::String="./", mult::Int=1, chg::Int=0, 
+                     formal_charges=nothing, initial_magmoms=nothing, kwargs...)
+    atoms = frame_to_atoms(frame, formal_charges, initial_magmoms)
+    atoms.calc = calc_builder(calcdir, mult, chg, kwargs...)
+    energy = pyconvert(Float64, atoms.get_potential_energy())
+    frame["info"]["energy_ASE"] = energy
+    return energy
+end
+
+
+"""
     geomopt!(sd::SpeciesData, i, calc_builder[, calcdir::String="./", optimiser="LBFGSLineSearch", 
              fmax=0.01, maxiters=nothing, check_isomorphic=true, kwargs...])
 
@@ -265,8 +303,10 @@ optimiser converges with can also be controlled.
 Directly modifies the atomic positions and energy of the
 passed in `frame` - for gas-phase species this updates
 `sd.xyz[i]`. For surface-phase species, their surface-bound
-form gets saved to `sd.cache[:ads_xyz][i]`, while isolated
-adsorbates are also updated to `sd.xyz[i]`.
+form (complete with calculated total surface-adsorbate energy)
+gets saved to `sd.cache[:ads_xyz][i]`, while isolated
+adsorbates (with isolated surface energy subtracted) update 
+`sd.xyz[i]`. 
 
 Energies returned are in eV. Returns a boolean for whether the
 optimisation converged.
@@ -313,12 +353,16 @@ function geomopt!(::SurfaceSpecies, sd::SpeciesData, i, calc_builder, calcdir::S
     else
         atoms = frame_to_atoms(copy_frame)
     end
-    _, mol, label = sd.surfdata.finder.predict(atoms)
+    slab, mol, label = sd.surfdata.finder.predict(atoms)
     if pylen(mol) > 1
         throw(ErrorException("Multiple adsorbates returned from a single-molecule optimisation."))
     end
 
-    adsorbate_frame = atoms_to_frame(mol[0], frame["info"]["energy_ASE"], pyconvert(Vector{Float64}, mol[0].get_moments_of_inertia()))
+    # Remove surface energy from the total (adsorbed) energy to use in enthalpy calculations
+    slab.calc = calc_builder(calcdir, sd.cache[:mult][i], sd.cache[:charge][i], kwargs...)
+    slab_energy = pyconvert(Float64, slab.get_potential_energy())
+
+    adsorbate_frame = atoms_to_frame(mol[0], frame["info"]["energy_ASE"]-slab_energy, pyconvert(Vector{Float64}, mol[0].get_moments_of_inertia()))
     adsorbate_frame["info"]["ads_heights"] = [pyconvert(Float64, label[0][i]["height"]) for i in label[0].keys()]
     adsorbate_frame["info"]["adsorbate"] = "true"
 
