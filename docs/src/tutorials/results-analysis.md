@@ -128,7 +128,7 @@ The exploration level that each species and reaction was found in (see [Iterativ
 
 Kinetica makes use of many functions within both [RDKit](https://github.com/rdkit/rdkit) and [Open Babel](https://github.com/openbabel/openbabel) to assist with basic property prediction and conversion between geometry and SMILES. A comprehensive list of functions implemented are available in the [Open Babel](@ref) and [RDKit](@ref) API pages.
 
-Kinetica supports cached calculation of properties such as species molecular weights and hard-sphere radii through Open Babel through the [`get_species_stats!`](@ref) function. This places these properties in the `SpeciesData.cache`, which is useful for storing per-species values during a calculation.
+Kinetica supports cached calculation of properties such as species molecular weights and hard-sphere radii through ASE with the [`get_species_stats!`](@ref) function. This places these properties in the `SpeciesData.cache`, which is useful for storing per-species values during a calculation.
 
 Kinetica also stores species geometries within `SpeciesData.xyz`. These are stored as [ExtXYZ.jl](https://github.com/libAtoms/ExtXYZ.jl) `frame`s and can be manipulated as such.
 
