@@ -85,7 +85,7 @@ end
     @test sd.toStr[4] == "[H]"
     @test sd.xyz[3]["N_atoms"] == 3
     @test rd.nr == 4
-    @test rd.mapped_rxns[1] == "[C:1](=[O:2])=[O:3]>>[X1_1]<-[O:2]=[C:1]=[O:3]"
+    @test rd.mapped_rxns[1] == "[C:1](=[O:2])=[O:3]>>[X1_1][O:2]=[C:1]=[O:3]"
     @test rd.mapped_rxns[2] == "[X1_1][H:1]>>[H:1]"
 end
 
@@ -250,3 +250,15 @@ end
     Kinetica.permute_hydrogens!(adssys3, hidxs, adssys2)
     @test all(adssys3["arrays"]["pos"][:, 5] .≈ adssys2["arrays"]["pos"][:, 5]) # should be equivalent after swap.
 end 
+
+@testset "Full Surface CRN Calculation" begin
+    surfdata = SurfaceData([Surface("Au_fcc111", Kinetica.asebuild.fcc111("Au", (3,3,3)))])
+    sd, rd = init_network(surfdata)
+    loc = Kinetica.ExploreLoc("Python/data/surface_crn", 1, 1)
+    import_mechanism!(sd, rd, loc, 1)
+
+    builder = TBLiteBuilder(; method="GFN1-xTB")
+    calcdir_head = "./crn_calcs"
+    calc = ASENEBCalculator(builder, calcdir_head; n_images=7, ftol=0.1, climb=false, neb_optimiser="fire")
+    setup_network!(sd, rd, calc)
+end
