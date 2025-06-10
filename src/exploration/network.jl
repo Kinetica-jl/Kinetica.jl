@@ -106,19 +106,21 @@ see its docs for further information.
 function SpeciesData(xyz_file::String, surfdata::SurfaceData; 
                      level::Int=1, unique_species=true, 
                      fix_radicals=true)
-    smi_list, xyz_list = ingest_xyz_system(xyz_file, surfdata; fix_radicals)
+    xyz_str = endswith(xyz_file, ".xyz") ? xyz_file_to_str(xyz_file) : xyz_file
+    smi_list, xyz_list = ingest_xyz_system(xyz_str, surfdata; fix_radicals)
     SpeciesData(smi_list, xyz_list, surfdata; level, unique_species)
 end
 
 function SpeciesData(xyz_file::String, surfaces::Vector{Surface}; 
                      level::Int=1, unique_species=true, 
                      fix_radicals=true)
+    xyz_str = endswith(xyz_file, ".xyz") ? xyz_file_to_str(xyz_file) : xyz_file
     if length(surfaces) == 0
         surfdata = nothing
-        smi_list, xyz_list = ingest_xyz_system(xyz_file; fix_radicals)
+        smi_list, xyz_list = ingest_xyz_system(xyz_str; fix_radicals)
     else
         surfdata = SurfaceData(surfaces)
-        smi_list, xyz_list = ingest_xyz_system(xyz_file, surfdata; fix_radicals)
+        smi_list, xyz_list = ingest_xyz_system(xyz_str, surfdata; fix_radicals)
     end
     SpeciesData(smi_list, xyz_list, surfdata; level, unique_species)
 end
@@ -126,7 +128,8 @@ end
 function SpeciesData(xyz_file::String; 
                      level::Int=1, unique_species=true, 
                      fix_radicals=true)
-    smi_list, xyz_list = ingest_xyz_system(xyz_file; fix_radicals)
+    xyz_str = endswith(xyz_file, ".xyz") ? xyz_file_to_str(xyz_file) : xyz_file
+    smi_list, xyz_list = ingest_xyz_system(xyz_str; fix_radicals)
     SpeciesData(smi_list, xyz_list, nothing; level, unique_species)
 end
 
