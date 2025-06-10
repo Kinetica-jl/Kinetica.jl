@@ -3,43 +3,42 @@ mutable struct SpeciesData{iType}
     toStr::Dict{iType, String}
     n::iType
     xyz::Dict{iType, Dict{String, Any}}
+    surfdata::Union{SurfaceData, Nothing}
     level_found::Dict{iType, Int}
     cache::Dict{Any, Any}
 end
 
 """
-    SpeciesData(smi_list, xyz_list[, unique_species=true])
-    SpeciesData(smi_list, xyz_list, level[, unique_species=true])
-    SpeciesData(xyz_file[, unique_species=true, fix_radicals=true])
-    SpeciesData(xyz_file, level[, unique_species=true, fix_radicals=true])
+    SpeciesData(smi_list, xyz_list, surfaces::Vector{Surface}[, level::Int=1, unique_species=true])
+    SpeciesData(smi_list, xyz_list, surfdata::SurfaceData[, level::Int=1, unique_species=true])
+    SpeciesData(smi_list, xyz_list[, level::Int=1, unique_species=true])
 
 Bidirectional String-Int dictionary for chemical species.
 
-Can either be constructed from an array of SMILES strings
-and their corresponding ExtXYZ frames, or from a single
-XYZ file with one or multiple species present. If
-`unique_species=true`, will not include any duplicate
-species if present. If `fix_radicals=true` in the XYZ
-file loading case, will attempt to tidy up radical
-SMILES with OBCR.
+Given an array of SMILES strings and their corresponding
+ExtXYZ frames, builds a container for the supplied species.
+If `unique_species=true`, will not include any duplicate
+species if present.
 
-Both constuctors can optionally be given a `level` argument,
-indicating the exploration level which a species (or set of
-species) was first discovered. If this is not provided,
-assumes species are entering the struct at level 1.
+Can optionally be given a `level` argument, indicating the
+exploration level which a species (or set of species) was
+first discovered. If this is not provided, assumes species
+are entering the struct at level 1.
 
 Contains fields for:
 * SMILES string -> integer ID dictionary (`toInt`)
 * Integer ID -> SMILES string dictionary (`toStr`)
 * Number of species (`n`)
 * ExtXYZ structures of species (`xyz`)
+* `SurfaceData` instance containing surface information and ASESurfaceFinder interface (`surfdata`)
 * Integer ID -> initial discovered level dictionary (`level_found`)
 * Dictionary of per-species cached values (`cache`)
 """
-function SpeciesData(smi_list, xyz_list, level; unique_species=true)
+function SpeciesData(smi_list, xyz_list, surfdata::Union{SurfaceData, Nothing};
+                     level::Int=1, unique_species=true)
     n = length(smi_list)
     if n == 0
-        return SpeciesData(Dict(), Dict(), 0, Dict(), Dict(), Dict())
+        return SpeciesData(Dict(), Dict(), 0, Dict(), surfdata, Dict(), Dict())
     end
 
     if unique_species
@@ -56,6 +55,7 @@ function SpeciesData(smi_list, xyz_list, level; unique_species=true)
             Dict(i => smi for (i, smi) in enumerate(unique_smi_list)),
             length(unique_smi_list),
             Dict(i => x for (i, x) in enumerate(unique_xyz_list)),
+            surfdata,
             Dict(i => level for i in 1:length(unique_smi_list)),
             Dict()
         )
@@ -65,18 +65,73 @@ function SpeciesData(smi_list, xyz_list, level; unique_species=true)
             Dict(i => smi for (i, smi) in enumerate(smi_list)),
             n,
             Dict(i => x for (i, x) in enumerate(xyz_list)),
+            surfdata,
             Dict(i => level for i in 1:n),
             Dict()
         )
     end
 end
-SpeciesData(smi_list, xyz_list; unique_species=true) = SpeciesData(smi_list, xyz_list, 1; unique_species=unique_species)
 
-function SpeciesData(xyz_file::String, level::Int; unique_species=true, fix_radicals=true)
-    smi_list, xyz_list = ingest_xyz_system(xyz_file; fix_radicals)
-    SpeciesData(smi_list, xyz_list, level; unique_species=unique_species)
+function SpeciesData(smi_list, xyz_list, surfaces::Vector{Surface};
+                     level::Int=1, unique_species=true)
+    if length(surfaces) == 0
+        surfdata = nothing
+    else
+        surfdata = SurfaceData(surfaces)
+    end
+    return SpeciesData(smi_list, xyz_list, surfdata; level, unique_species)
 end
-SpeciesData(xyz_file::String; unique_species=true, fix_radicals=true) = SpeciesData(xyz_file, 1; unique_species=unique_species, fix_radicals=fix_radicals)
+
+function SpeciesData(smi_list, xyz_list;
+                     level::Int=1, unique_species=true)
+    return SpeciesData(smi_list, xyz_list, nothing; level, unique_species)
+end
+
+
+"""
+    SpeciesData(xyz_file::String, surfdata::SurfaceData[, level::Int=1, unique_species=true, fix_radicals=true])
+    SpeciesData(xyz_file::String, surfaces::Vector{Surfaces}[, level::Int=1, unique_species=true, fix_radicals=true])
+    SpeciesData(xyz_file::String[, level::Int=1, unique_species=true, fix_radicals=true])
+
+Bidirectional String-Int dictionary for chemical species.
+
+Alternate constructor which takes a single XYZ file
+potentially containing multiple species and parses them
+into indiviual SMILES. If `fix_radicals=true`, will 
+attempt to tidy up radical SMILES with OBCR.
+
+Otherwise functions identically to the main constructor,
+see its docs for further information.
+"""
+function SpeciesData(xyz_file::String, surfdata::SurfaceData; 
+                     level::Int=1, unique_species=true, 
+                     fix_radicals=true)
+    xyz_str = endswith(xyz_file, ".xyz") ? xyz_file_to_str(xyz_file) : xyz_file
+    smi_list, xyz_list = ingest_xyz_system(xyz_str, surfdata; fix_radicals)
+    SpeciesData(smi_list, xyz_list, surfdata; level, unique_species)
+end
+
+function SpeciesData(xyz_file::String, surfaces::Vector{Surface}; 
+                     level::Int=1, unique_species=true, 
+                     fix_radicals=true)
+    xyz_str = endswith(xyz_file, ".xyz") ? xyz_file_to_str(xyz_file) : xyz_file
+    if length(surfaces) == 0
+        surfdata = nothing
+        smi_list, xyz_list = ingest_xyz_system(xyz_str; fix_radicals)
+    else
+        surfdata = SurfaceData(surfaces)
+        smi_list, xyz_list = ingest_xyz_system(xyz_str, surfdata; fix_radicals)
+    end
+    SpeciesData(smi_list, xyz_list, surfdata; level, unique_species)
+end
+
+function SpeciesData(xyz_file::String; 
+                     level::Int=1, unique_species=true, 
+                     fix_radicals=true)
+    xyz_str = endswith(xyz_file, ".xyz") ? xyz_file_to_str(xyz_file) : xyz_file
+    smi_list, xyz_list = ingest_xyz_system(xyz_str; fix_radicals)
+    SpeciesData(smi_list, xyz_list, nothing; level, unique_species)
+end
 
 """
     push!(sd::SpeciesData, smi::String, xyz::Dict{String, Any})
@@ -109,7 +164,8 @@ if not provided). Does not account for `smi` already existing
 within `sd`. To ensure no overlap, use `push_unique!`.
 """
 function Base.push!(sd::SpeciesData, xyz_file::String, level::Int; fix_radicals=true)
-    smi_list, xyz_list = ingest_xyz_system(xyz_file; fix_radicals)
+    xyz_str = endswith(xyz_file, ".xyz") ? xyz_file_to_str(xyz_file) : xyz_file
+    smi_list, xyz_list = ingest_xyz_system(xyz_str, sd.surfdata; fix_radicals)
     for (smi, xyz) in zip(smi_list, xyz_list)
         push!(sd, smi, xyz, level)
     end
@@ -162,7 +218,8 @@ Optionally takes a specified exploration level (defaults to 1
 if not provided).
 """
 function push_unique!(sd::SpeciesData, xyz_file::String, level::Int; fix_radicals=true)
-    smi_list, xyz_list = ingest_xyz_system(xyz_file; fix_radicals)
+    xyz_str = endswith(xyz_file, ".xyz") ? xyz_file_to_str(xyz_file) : xyz_file
+    smi_list, xyz_list = ingest_xyz_system(xyz_str, sd.surfdata; fix_radicals)
     for (smi, xyz) in zip(smi_list, xyz_list)
         if !(smi in keys(sd.toInt))
             push!(sd, smi, xyz, level)
@@ -188,6 +245,42 @@ function push_unique!(sd::SpeciesData, smis::Vector{String}, xyzs::Vector{Dict{S
     return
 end
 push_unique!(sd::SpeciesData, smis::Vector{String}, xyzs::Vector{Dict{String, Any}}) = push_unique!(sd, smis, xyzs, 1)
+
+
+"""
+    add_surface!(sd::SpeciesData, surface::Surface)
+
+Adds a `Surface` to `sd.surfdata`.
+
+Determines the next free surface ID and adds to underlying
+list of `Surface`s, additionally retraining the ASESurfaceFinder
+random forest classifier instance to also work with this surface.
+"""
+function add_surface!(sd::SpeciesData, surface::Surface)
+    add_surface!(sd.surfdata, surface)
+    return
+end
+
+
+"""
+    populate_sd_cache!(sd::SpeciesData)
+
+Creates empty Dicts for species properties in `sd.cache`.
+
+Shortcut for creating the cache Dicts required by most of the
+ASENEBCalculator infrastructure.
+"""
+function populate_sd_cache!(sd::SpeciesData{iType}) where {iType}
+    sd.cache[:vib_energies] = Dict{iType, Vector{Float64}}()
+    sd.cache[:symmetry] = Dict{iType, Int}()
+    sd.cache[:mult] = Dict{iType, Int}()
+    sd.cache[:charge] = Dict{iType, Int}()
+    sd.cache[:formal_charges] = Dict{iType, Vector{Int}}()
+    sd.cache[:geometry] = Dict{iType, Int}()
+    sd.cache[:initial_magmoms] = Dict{iType, Vector{Float64}}()
+    sd.cache[:ads_xyz] = Dict{iType, Dict{String, Any}}()
+    return
+end
 
 
 mutable struct RxData{iType, fType}
@@ -285,6 +378,25 @@ function RxData(sd::SpeciesData{iType},
 
         # Add reaction to arrays if it is unique.
         if !unique_rxns || !(rhash in hashes_final)
+            # Remove surface atoms if present so that atom-mapping only
+            # represents adsorbates.
+            reacs_surfids = get_surfid.(all_reacs)
+            prods_surfids = get_surfid.(all_prods)
+            reacs_surfid_idx = findfirst(x->!isnothing(x), reacs_surfids)
+            prods_surfid_idx = findfirst(x->!isnothing(x), prods_surfids)
+            reacs_surfid = isnothing(reacs_surfid_idx) ? nothing : reacs_surfids[reacs_surfid_idx]
+            prods_surfid = isnothing(prods_surfid_idx) ? nothing : prods_surfids[prods_surfid_idx]
+            if !isnothing(reacs_surfid) && !isnothing(prods_surfid) && reacs_surfid != prods_surfid
+                throw(ErrorException("Error importing reaction - reactant and product surfaces do not match."))
+            end
+            surfid = isnothing(reacs_surfid) ? prods_surfid : reacs_surfid
+            if !isnothing(surfid)
+                rsys_is_adsorbed = SpeciesStyle(join(all_reacs, ".")) isa SurfaceSpecies
+                remove_surface_atoms!(rsys[i], sd.surfdata, surfid, rsys_is_adsorbed)
+                psys_is_adsorbed = SpeciesStyle(join(all_prods, ".")) isa SurfaceSpecies
+                remove_surface_atoms!(psys[i], sd.surfdata, surfid, psys_is_adsorbed)
+            end
+
             # Construct atom-mapped reaction SMILES from original geometries.
             mapped_reacs = atom_map_smiles(rsys[i], join(all_reacs, "."))
             mapped_prods = atom_map_smiles(psys[i], join(all_prods, "."))
@@ -386,6 +498,23 @@ function Base.push!(rd::RxData{iType, fType}, sd::SpeciesData,
 
         # Add reaction to arrays if it is unique.
         if !unique_rxns || !(rhash in rd.rhash)
+            # Remove surface atoms if present so that atom-mapping only
+            # represents adsorbates.
+            reacs_surfids = get_surfid.(all_reacs)
+            prods_surfids = get_surfid.(all_prods)
+            reacs_surfid_idx = findfirst(x->!isnothing(x), reacs_surfids)
+            prods_surfid_idx = findfirst(x->!isnothing(x), prods_surfids)
+            reacs_surfid = isnothing(reacs_surfid_idx) ? nothing : reacs_surfids[reacs_surfid_idx]
+            prods_surfid = isnothing(prods_surfid_idx) ? nothing : prods_surfids[prods_surfid_idx]
+            if !isnothing(reacs_surfid) && !isnothing(prods_surfid) && reacs_surfid != prods_surfid
+                throw(ErrorException("Error importing reaction - reactant and product surfaces do not match."))
+            end
+            surfid = isnothing(reacs_surfid) ? prods_surfid : reacs_surfid
+            if !isnothing(surfid)
+                remove_surface_atoms!(rsys[i], sd.surfdata, surfid)
+                remove_surface_atoms!(psys[i], sd.surfdata, surfid)
+            end
+
             # Construct atom-mapped reaction SMILES from original geometries.
             mapped_reacs = atom_map_smiles(rsys[i], join(all_reacs, "."))
             mapped_prods = atom_map_smiles(psys[i], join(all_prods, "."))
@@ -425,66 +554,15 @@ function Base.push!(rd::RxData{iType, fType}, sd::SpeciesData,
     return
 end
 
-"""
-    get_rhash(sd::SpeciesData, rd::RxData, rid)
-
-Returns the reaction hash for the reaction at `rid` in `rd`.
-"""
-function get_rhash(sd::SpeciesData, rd::RxData, rid)
-    reacs = String[]
-    for (i, sid) in enumerate(rd.id_reacs[rid])
-        for _ in 1:rd.stoic_reacs[rid][i] 
-            push!(reacs, sd.toStr[sid])
-        end
-    end
-    sort!(reacs)
-    prods = String[]
-    for (i, sid) in enumerate(rd.id_prods[rid])
-        for _ in 1:rd.stoic_prods[rid][i] 
-            push!(prods, sd.toStr[sid])
-        end
-    end
-    sort!(prods)
-
-    return stable_hash(vcat(reacs, prods); version=4)
-end
-
-"""
-    get_reverse_rhash(sd::SpeciesData, rd::RxData, rid)
-
-Returns the reverse reaction hash for the reaction at `rid` in `rd`.
-
-Useful when needing to identify if a reverse reaction
-is already in a CRN without having to look through many
-species permutations.
-"""
-function get_reverse_rhash(sd::SpeciesData, rd::RxData, rid)
-    reacs = String[]
-    for (i, sid) in enumerate(rd.id_reacs[rid])
-        for _ in 1:rd.stoic_reacs[rid][i] 
-            push!(reacs, sd.toStr[sid])
-        end
-    end
-    sort!(reacs)
-    prods = String[]
-    for (i, sid) in enumerate(rd.id_prods[rid])
-        for _ in 1:rd.stoic_prods[rid][i] 
-            push!(prods, sd.toStr[sid])
-        end
-    end
-    sort!(prods)
-
-    forw_rhash = stable_hash(vcat(reacs, prods); version=4)
-    @assert rd.rhash[rid] == forw_rhash # Checks StableHashTraits hasn't broken anything.
-    rev_rhash = stable_hash(vcat(prods, reacs); version=4)
-    return rev_rhash
-end
-
 
 """
     init_network([iType=Int64, fType=Float64])
+    init_network(surfdata::SurfaceData[, iType=Int64, fType=Float64])
 
 Initialises an empty reaction network.
+
+If initialised with `surfdata`, the resulting CRN will implicitly
+support surfaces.
 
 Returns an empty `SpeciesData{iType}` and RxData{iType, fType}.
 """
@@ -493,6 +571,7 @@ function init_network(; iType=Int64, fType=Float64)
         Dict{String, iType}(), Dict{iType, String}(),
         0, 
         Dict{iType, Dict{String, Any}}(), 
+        nothing,
         Dict{iType, Int}(), Dict()
     )
     rd = RxData{iType, fType}(
@@ -501,7 +580,22 @@ function init_network(; iType=Int64, fType=Float64)
         Vector{iType}[], Vector{iType}[], 
         fType[], Vector{UInt8}[], Vector{Int}[]
     )
-
+    return sd, rd
+end
+function init_network(surfdata::SurfaceData; iType=Int64, fType=Float64)
+    sd = SpeciesData{iType}(
+        Dict{String, iType}(), Dict{iType, String}(),
+        0, 
+        Dict{iType, Dict{String, Any}}(), 
+        surfdata,
+        Dict{iType, Int}(), Dict()
+    )
+    rd = RxData{iType, fType}(
+        0, String[],
+        Vector{iType}[], Vector{iType}[], 
+        Vector{iType}[], Vector{iType}[], 
+        fType[], Vector{UInt8}[], Vector{Int}[]
+    )
     return sd, rd
 end
 
@@ -526,37 +620,4 @@ function Base.splice!(rd::RxData, rids::Vector{Int})
         end
         rd.nr -= length(rids)
     end
-end
-
-
-"""
-    format_rxn(sd::SpeciesData, rd::RxData, rid::Int[, display_level=false])
-
-Nicely formats a string describing the reaction at `rid`.
-
-If the keyword argument `display_level` is `true`, additionally
-annotates the reaction with the level in which it was discovered.
-"""
-function format_rxn(sd::SpeciesData, rd::RxData, rid::Int; display_level=false)
-    reacs = [sd.toStr[sid] for sid in rd.id_reacs[rid]]
-    prods = [sd.toStr[sid] for sid in rd.id_prods[rid]]
-    reac_strs = [n > 1 ? "$n $spec" : spec for (n, spec) in zip(rd.stoic_reacs[rid], reacs)]
-    prod_strs = [n > 1 ? "$n $spec" : spec for (n, spec) in zip(rd.stoic_prods[rid], prods)]
-    rxn_str = join([join(reac_strs, " + "), join(prod_strs, " + ")], " --> ")
-    if display_level
-        rxn_str = "L$(rd.level_found[rid]): " * rxn_str
-    end
-    return rxn_str
-end
-
-"""
-    print_rxn(sd::SpeciesData, rd::RxData, rid::Int[, display_level=false])
-
-Prints the reaction at ID `rid` with SMILES names for species.
-
-If the keyword argument `display_level` is `true`, additionally
-annotates the reaction with the level in which it was discovered.
-"""
-function print_rxn(sd::SpeciesData, rd::RxData, rid::Int; display_level=false)
-    println(format_rxn(sd, rd, rid; display_level=display_level))
 end

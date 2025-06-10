@@ -1,10 +1,13 @@
 """
-    get_mult(sd::SpeciesData, sid)
+    get_mult(smi::String)
 
-Calculates the spin multiplicity of the species in `sd` at ID `sid`.
+Calculates the spin multiplicity of the species represented by SMILES `smi`.
+
+For surfaces-bound species, this is currently undefined and returns
+a multiplicity of 1.
 """
-function get_mult(sd::SpeciesData, sid)
-    smi = sd.toStr[sid]
+get_mult(smi::String) = get_mult(SpeciesStyle(smi), smi)
+function get_mult(::GasSpecies, smi::String)
     mol = rdChem.MolFromSmiles(smi)
     n_radical_electrons = 0
     for atom in mol.GetAtoms()
@@ -13,6 +16,17 @@ function get_mult(sd::SpeciesData, sid)
     mult = n_radical_electrons + 1
     return mult
 end
+get_mult(::SurfaceSpecies, smi::String) = 1
+
+"""
+    get_mult(sd::SpeciesData, sid)
+
+Calculates the spin multiplicity of the species in `sd` at ID `sid`.
+"""
+function get_mult(sd::SpeciesData, sid)
+    smi = sd.toStr[sid]
+    return get_mult(smi)
+end
 
 """
     get_mult!(sd::SpeciesData, sid)
@@ -20,14 +34,26 @@ end
 Caches the spin multiplicity of the species in `sd` at ID `sid` in `sd.cache[:mult]`.
 """
 get_mult!(sd::SpeciesData, sid) = sd.cache[:mult][sid] = get_mult(sd, sid)
-    
+
+
+"""
+    get_charge(smi::String)
+
+Calculates the charge of the species represented by SMILES `smi`.
+
+For surfaces-bound species, this is currently undefined and returns
+a charge of 0.
+"""
+get_charge(smi::String) = get_charge(SpeciesStyle(smi), smi)
+get_charge(::GasSpecies, smi::String) = pyconvert(Int, pybel.readstring("can", smi).charge)
+get_charge(::SurfaceSpecies, smi::String) = 0
 
 """
     get_charge(sd::SpeciesData, sid)
 
 Calculates the charge of the species in `sd` at ID `sid`.
 """
-get_charge(sd::SpeciesData, sid) = pyconvert(Int, pybel.readstring("can", sd.toStr[sid]).charge)
+get_charge(sd::SpeciesData, sid) = get_charge(sd.toStr[sid])
 
 """
     get_charge!(sd::SpeciesData, sid)
@@ -46,12 +72,24 @@ Calculates formal charges on each atom of a species.
 Can be given an atom-mapped SMILES `amsmi` to calculate from,
 or a species in `sd` at ID `sid`, in which case the atom-mapped
 SMILES is calculated on-the-fly.
+
+For surfaces-bound species, this is currently undefined and returns
+a charge of 0 on each atom.
 """
-function get_formal_charges(amsmi::String)
+get_formal_charges(amsmi::String) = get_formal_charges(SpeciesStyle(amsmi), amsmi)
+function get_formal_charges(::GasSpecies, amsmi::String)
     mol = pybel.readstring("smi", amsmi)
     formal_charges = [pyconvert(Int, atom.formalcharge) for atom in mol.atoms]
     return formal_charges
 end
+function get_formal_charges(::SurfaceSpecies, amsmi::String)
+    amsmi_replaced = replace(amsmi, r"X\d_\d" => "Fm")
+    mol = pybel.readstring("smi", amsmi_replaced)
+    n_sites = count(x->x=="Fm", [pyconvert(String, atom.type) for atom in mol.atoms])
+    formal_charges = [0 for _ in 1:pylen(mol.atoms)-n_sites]
+    return formal_charges
+end
+
 function get_formal_charges(sd::SpeciesData, sid)
     amsmi = atom_map_smiles(sd.xyz[sid], sd.toStr[sid])
     return get_formal_charges(amsmi)
@@ -74,8 +112,12 @@ Calculates initial magnetic moments on each atom of a species.
 Can be given an atom-mapped SMILES `amsmi` to calculate from,
 or a species in `sd` at ID `sid`, in which case the atom-mapped
 SMILES is calculated on-the-fly.
+
+For surfaces-bound species, this is currently undefined and returns
+a magnetic moment of 0 on each atom.
 """
-function get_initial_magmoms(amsmi::String)
+get_initial_magmoms(amsmi::String) = get_initial_magmoms(SpeciesStyle(amsmi), amsmi)
+function get_initial_magmoms(::GasSpecies, amsmi::String)
     mol = rdChem.MolFromSmiles(amsmi, rdSmilesParamsWithH)
     magmoms = zeros(Float64, pyconvert(Int, mol.GetNumAtoms()))
     for atom in mol.GetAtoms()
@@ -83,6 +125,14 @@ function get_initial_magmoms(amsmi::String)
     end
     return magmoms
 end 
+function get_initial_magmoms(::SurfaceSpecies, amsmi::String)
+    amsmi_replaced = replace(amsmi, r"X\d_\d" => "Fm")
+    mol = pybel.readstring("smi", amsmi_replaced)
+    n_sites = count(x->x=="Fm", [pyconvert(String, atom.type) for atom in mol.atoms])
+    magmoms = [0 for _ in 1:pylen(mol.atoms)-n_sites]
+    return magmoms
+end
+
 function get_initial_magmoms(sd::SpeciesData, sid)
     amsmi = atom_map_smiles(sd.xyz[sid], sd.toStr[sid])
     return get_initial_magmoms(amsmi)
@@ -187,20 +237,54 @@ end
 
 
 """
+    singlepoint(sd::SpeciesData, i, calc_builder; calcdir::String="./", kwargs...)
+
+Runs an ASE-driven single-point calculation of the species `i` in `sd`.
+
+This is a wrapper around the lower-level `singlepoint(frame, ...)` method.
+"""
+function singlepoint(sd::SpeciesData, i, calc_builder; calcdir::String="./", kwargs...)
+    @debug "Running single-point calculation for species $i."
+    frame = sd.xyz[i]
+    if !(i in keys(sd.cache[:mult])) || !(i in keys(sd.cache[:charge])) || 
+       !(i in keys(sd.cache[:formal_charges])) || !(i in keys(sd.cache[:initial_magmoms]))
+        throw(ErrorException("Species in SpeciesData is missing information needed for single-point calculations."))
+    end
+
+    return singlepoint(frame, calc_builder; calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
+               formal_charges=sd.cache[:formal_charges][i], initial_magmoms=sd.cache[:initial_magmoms][i],
+               kwargs...) 
+end
+
+"""
+    singlepoint(frame::Dict{String, Any}, calc_builder; calcdir::String="./", mult::Int=1, chg::Int=0, formal_charges=nothing, initial_magmoms=nothing, kwargs...)
+
+Runs an ASE-driven single-point calculation of the species in `frame`.
+
+Closely mirrors `geomopt!`, but does not perform any geometry optimisation
+or graph isomorphism checks.
+"""
+function singlepoint(frame::Dict{String, Any}, calc_builder; calcdir::String="./", mult::Int=1, chg::Int=0, 
+                     formal_charges=nothing, initial_magmoms=nothing, kwargs...)
+    atoms = frame_to_atoms(frame, formal_charges, initial_magmoms)
+    atoms.calc = calc_builder(calcdir, mult, chg, kwargs...)
+    energy = pyconvert(Float64, atoms.get_potential_energy())
+    frame["info"]["energy_ASE"] = energy
+    return energy
+end
+
+
+"""
     geomopt!(sd::SpeciesData, i, calc_builder[, calcdir::String="./", optimiser="LBFGSLineSearch", 
              fmax=0.01, maxiters=nothing, check_isomorphic=true, kwargs...])
-    geomopt!(frame::Dict{String, Any}, calc_builder[, calcdir::String="./", mult::Int=1, 
-             chg::Int=0, formal_charges=nothing, initial_magmoms=nothing, 
-             optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, check_isomorphic=true, 
-             kwargs...])   
 
-Runs an ASE-driven geometry optimisation of the species in `frame`.
+Runs an ASE-driven geometry optimisation of the species `i` in `sd`.
 
-Can be run directly from a `frame`, or a `frame` can be extracted
-from `sd.xyz[i]` in theh case of the second method. With this method,
-formal charges, total charge and spin multiplicity are assumed
-to have been calculated and cached in `sd.cache`. When running
-directly from a `frame`, this information must be passed manually.
+This is a wrapper around the lower-level `geomopt!(frame, ...)` method
+which can dispatch on methods for gas-phase and surface-phase species.
+It detects many of the properties needed by the geometry optimisation
+from `sd`, and adds extra post-processing of adsorption heights for
+the surface-phase case.
 
 `calc_builder` should be a struct with a functor that returns
 a correctly constructed ASE calculator for the system at hand.
@@ -210,6 +294,107 @@ and sometimes charge must be input separately. For this reason,
 the `calc_builder` functor must take `mult::Int` and `charge::Int`
 as its first two arguments. Any other arguments can be passed
 via this method's `kwargs`.
+
+This optimisation always uses one of ASE's optimisers out of
+"BFGSLineSearch", "fire", "bfgs" or "lbfgs". The maximum force
+`fmax` and maximum number of iterations `maxiters` that this
+optimiser converges with can also be controlled.
+
+Directly modifies the atomic positions and energy of the
+passed in `frame` - for gas-phase species this updates
+`sd.xyz[i]`. For surface-phase species, their surface-bound
+form (complete with calculated total surface-adsorbate energy)
+gets saved to `sd.cache[:ads_xyz][i]`, while isolated
+adsorbates (with isolated surface energy subtracted) update 
+`sd.xyz[i]`. 
+
+Energies returned are in eV. Returns a boolean for whether the
+optimisation converged.
+"""
+function geomopt!(sd::SpeciesData, i, calc_builder; calcdir::String="./", 
+                  optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, 
+                  check_isomorphic=true, kwargs...)
+    return geomopt!(SpeciesStyle(sd.toStr[i]), sd, i, calc_builder, calcdir, optimiser, fmax, maxiters,
+                    check_isomorphic, kwargs...)
+end
+
+function geomopt!(::GasSpecies, sd::SpeciesData, i, calc_builder, calcdir::String, 
+                  optimiser, fmax, maxiters, check_isomorphic, kwargs...)
+    frame = sd.xyz[i]
+    conv = geomopt!(frame, calc_builder; calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
+                    formal_charges=sd.cache[:formal_charges][i], initial_magmoms=sd.cache[:initial_magmoms][i],
+                    optimiser, fmax, maxiters, check_isomorphic, kwargs...)
+    sd.xyz[i] = frame
+    return conv
+end
+
+function geomopt!(::SurfaceSpecies, sd::SpeciesData, i, calc_builder, calcdir::String, 
+                  optimiser, fmax, maxiters, check_isomorphic, kwargs...)
+    if isnothing(get(sd.cache, :ads_xyz, nothing))
+        throw(ErrorException("Missing cache keys, SpeciesData has not been set up for geometry optimisations."))
+    elseif isnothing(get(sd.cache[:ads_xyz], i, nothing))
+        throw(ErrorException("Surface species at SID $i is missing an initial conformation, try running `conformer_search!`."))
+    end
+    frame = sd.cache[:ads_xyz][i]
+    copy_frame = deepcopy(frame)
+    # Zero these until we have a proper way of defining them for surfaces.
+    formal_charges = [0 for _ in 1:frame["N_atoms"]]
+    initial_magmoms = [0 for _ in 1:frame["N_atoms"]]
+    conv = geomopt!(frame, calc_builder, sd.surfdata; calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
+                    formal_charges=formal_charges, initial_magmoms=initial_magmoms,
+                    optimiser, fmax, maxiters, check_isomorphic, kwargs...)
+
+    # frame with surface goes to cache - (non)convergence had already been sorted.
+    sd.cache[:ads_xyz][i] = frame
+
+    # frame without surface gets information copied over and height tagged, then goes to sd.xyz
+    if conv
+        atoms = frame_to_atoms(frame)
+    else
+        atoms = frame_to_atoms(copy_frame)
+    end
+    slab, mol, label = sd.surfdata.finder.predict(atoms)
+    if pylen(mol) > 1
+        throw(ErrorException("Multiple adsorbates returned from a single-molecule optimisation."))
+    end
+
+    # Remove surface energy from the total (adsorbed) energy to use in enthalpy calculations
+    slab.calc = calc_builder(calcdir, sd.cache[:mult][i], sd.cache[:charge][i], kwargs...)
+    slab_energy = pyconvert(Float64, slab.get_potential_energy())
+
+    adsorbate_frame = atoms_to_frame(mol[0], frame["info"]["energy_ASE"]-slab_energy, pyconvert(Vector{Float64}, mol[0].get_moments_of_inertia()))
+    adsorbate_frame["info"]["ads_heights"] = [pyconvert(Float64, label[0][i]["height"]) for i in label[0].keys()]
+    adsorbate_frame["info"]["adsorbate"] = "true"
+
+    sd.xyz[i] = adsorbate_frame
+
+    return conv
+end
+
+"""
+    geomopt!(frame::Dict{String, Any}, calc_builder[, calcdir::String="./", mult::Int=1, 
+             chg::Int=0, formal_charges=nothing, initial_magmoms=nothing, 
+             optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, check_isomorphic=true, 
+             kwargs...]) 
+    geomopt!(frame::Dict{String, Any}, calc_builder, surfdata::SurfaceData[, calcdir::String="./",
+             mult::Int=1, chg::Int=0, formal_charges=nothing, initial_magmoms=nothing, 
+             optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, check_isomorphic=true, 
+             kwargs...]) 
+
+Runs an ASE-driven geometry optimisation of the species in `frame`.
+
+`calc_builder` should be a struct with a functor that returns
+a correctly constructed ASE calculator for the system at hand.
+While ASE can handle many system-specific calculator details
+from an `Atoms` object, quantities such as spin multiplicity
+and sometimes charge must be input separately. For this reason,
+the `calc_builder` functor must take `mult::Int` and `charge::Int`
+as its first two arguments. Any other arguments can be passed
+via this method's `kwargs`.
+
+If `surfdata` is provided, this assumes that the system in `frame`
+contains molecules on/above a surface and will dispatch a method with
+different isomorphism checks.
 
 Some ASE calculators handle charged species at the `Atoms` level.
 These require an array of formal charges on each atom to be
@@ -226,21 +411,15 @@ This optimisation always uses one of ASE's optimisers out of
 `fmax` and maximum number of iterations `maxiters` that this
 optimiser converges with can also be controlled.
 
+Additional graph isomorphism checks will be run through autodE
+if `check_isomorphic=true`. If a surface-phase system is
+optimised, this checks adosrption sites remain unchanged, and
+that each adsorbate maintains its own graph.
+
 Directly modifies the atomic positions and energy of the
 passed in `frame`. Energies returned are in eV. Returns a
-boolean for whether the optimisation was a conv.
+boolean for whether the optimisation converged.
 """
-function geomopt!(sd::SpeciesData, i, calc_builder; calcdir::String="./", 
-                  optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, 
-                  check_isomorphic=true, kwargs...)
-    frame = sd.xyz[i]
-    conv = geomopt!(frame, calc_builder; calcdir=calcdir, mult=sd.cache[:mult][i], chg=sd.cache[:charge][i],
-                    formal_charges=sd.cache[:formal_charges][i], initial_magmoms=sd.cache[:initial_magmoms][i],
-                    optimiser=optimiser, fmax=fmax, maxiters=maxiters, check_isomorphic=check_isomorphic, kwargs...)
-    sd.xyz[i] = frame
-    return conv
-end
-
 function geomopt!(frame::Dict{String, Any}, calc_builder; 
                   calcdir::String="./", mult::Int=1, chg::Int=0, 
                   formal_charges=nothing, initial_magmoms=nothing,
@@ -305,6 +484,104 @@ function geomopt!(frame::Dict{String, Any}, calc_builder;
     return conv
 end
 
+function geomopt!(frame::Dict{String, Any}, calc_builder, surfdata::SurfaceData; 
+                  calcdir::String="./", mult::Int=1, chg::Int=0, 
+                  formal_charges=nothing, initial_magmoms=nothing,
+                  optimiser="BFGSLineSearch", fmax=0.01, maxiters=1000, 
+                  check_isomorphic=true, kwargs...)
+    @debug "Starting geometry optimisation."
+    atoms = frame_to_atoms(frame, formal_charges, initial_magmoms)
+    _, mols_preopt, labels_preopt = surfdata.finder.predict(atoms)
+    atoms.calc = calc_builder(calcdir, mult, chg, kwargs...)
+    init_energy = pyconvert(Float64, atoms.get_potential_energy())
+    init_inertias = pyconvert(Vector{Float64}, atoms.get_moments_of_inertia())
+
+    if optimiser == "BFGSLineSearch"
+        opt = aseopt.QuasiNewton(atoms)
+    elseif optimiser == "fire"    
+        opt = aseopt.FIRE(atoms)
+    elseif optimiser == "bfgs"
+        opt = aseopt.BFGS(atoms)
+    elseif optimiser == "lbfgs"
+        opt = aseopt.LBFGS(atoms)
+    else
+        throw(ArgumentError("Unknown optimiser, must be one of [\"BFGSLineSearch\", \"fire\", \"bfgs\", \"lbfgs\"]"))
+    end
+
+    # Optimise with Python exception catching.
+    # Also check forces when 10% of the way in to ensure
+    # system has not exploded beyond repair.
+    conv = false; checkiters = Int(floor(maxiters/10))
+    try
+        conv = opt.run(fmax=fmax, steps=checkiters)
+        conv = pyconvert(Bool, pybuiltins.bool(conv))
+        if !conv
+            if pyconvert(Float64, opt.get_residual()) > 1e5
+                @debug "Optimisation has exploded."
+            else
+                conv = opt.run(fmax=fmax, steps=maxiters-checkiters)
+                conv = pyconvert(Bool, pybuiltins.bool(conv))
+            end
+        end
+    catch err
+        conv = false
+    end
+
+    mols_opt = nothing; labels_opt = nothing
+    if conv 
+        _, mols_opt, labels_opt = surfdata.finder.predict(atoms)
+    end
+
+    if conv && check_isomorphic
+        # Check that number of molecules is the same.
+        # For each molecule, check number of sites is the same.
+        # For each site, check its corresponding site in the preopt is the same.
+        sites_match = pylen(labels_opt) == pylen(labels_preopt)
+        mol_index = 0
+        while sites_match && mol_index < pylen(labels_opt)
+            sites_match = (pylen(labels_opt[mol_index]) == pylen(labels_preopt[mol_index]))
+            if sites_match && pylen(labels_opt[mol_index]) > 0
+                sites_match = all([
+                    pyconvert(Bool, labels_opt[mol_index][site_index]["site"] == labels_preopt[mol_index][site_index]["site"]) 
+                    for site_index in labels_opt[mol_index].keys()
+                ])
+            end
+            mol_index += 1
+        end
+
+        if sites_match
+            # Use extracted molecules for autodE conformer check.
+            for (mol_preopt, mol_opt) in zip(mols_preopt, mols_opt)
+                graph_preopt = frame_to_autode(atoms_to_frame(mol_preopt); mult=1, chg=1).graph
+                graph_opt = frame_to_autode(atoms_to_frame(mol_opt); mult=1, chg=1).graph
+                if !autode_is_isomorphic(graph_preopt, graph_opt)
+                    conv = false
+                    @debug "Geometry optimisation breaks molecular graph for one or more adsorbates."
+                    break
+                end
+            end
+        else
+            conv = false
+            @debug "Geometry optimisation has moved adsorbate(s) to a different surface site."
+        end
+    end
+
+    if conv
+        @debug "Geometry optimisation complete."
+        frame["arrays"]["pos"] = pyconvert(Matrix, atoms.get_positions().T)
+        frame["info"]["energy_ASE"] = pyconvert(Float64, atoms.get_potential_energy())
+        frame["arrays"]["inertias"] = pyconvert(Vector{Float64}, atoms.get_moments_of_inertia())
+        if pylen(mols_opt) == 1
+            frame["info"]["ads_heights"] = [pyconvert(Float64, labels_opt[0][i]["height"]) for i in labels_opt[0].keys()]
+        end
+    else
+        @debug "Geometry optimisation failed."
+        frame["info"]["energy_ASE"] = init_energy
+        frame["arrays"]["inertias"] = init_inertias
+    end
+    return conv
+end
+
 
 """
     kabsch_fit!(frame1::Dict{String, Any}, frame2::Dict{String, Any})
@@ -315,11 +592,36 @@ Modifies the atomic positions in `frame1` to be as close as
 possible to those in `frame2` through a combination of
 translation and rotation. Uses the Kabsch algorithm, as
 implemented in the Python package 'rmsd'.
+
+If frames are `OnSurfaceXYZ`s, this does nothing since atoms
+will already be aligned to the surface.
 """
 function kabsch_fit!(frame1::Dict{String, Any}, frame2::Dict{String, Any})
+    f1style = XYZStyle(frame1)
+    f2style = XYZStyle(frame2)
+    if f1style != f2style
+        throw(ArgumentError("Frames must be of the same XYZStyle to Kabsch fit one to another."))
+    end
+    return kabsch_fit!(f1style, frame1, frame2)
+end
+
+function kabsch_fit!(::FreeXYZ, frame1::Dict{String, Any}, frame2::Dict{String, Any})
     c1 = Py(frame1["arrays"]["pos"]).to_numpy().T
     c2 = Py(frame2["arrays"]["pos"]).to_numpy().T
     frame1["arrays"]["pos"] = pyconvert(Matrix, rmsd.kabsch_fit(c1, c2).T)
+    return
+end
+
+kabsch_fit!(::AdsorbateXYZ, frame1::Dict{String, Any}, frame2::Dict{String, Any}) = kabsch_fit!(FreeXYZ(), frame1, frame2)
+
+function kabsch_fit!(::OnSurfaceXYZ, frame1::Dict{String, Any}, frame2::Dict{String, Any})
+    # Surfaces should always be aligned to (0,0,0) and their unit
+    # cell, so as long as there are the same number of atoms, things
+    # should be aligned.
+    if frame1["N_atoms"] != frame2["N_atoms"]
+        throw(ArgumentError("Adsorbed frames must have the same number of atoms to Kabsch fit one to another."))
+    end
+    # Could do more checks in the future if there are somehow problems here.
     return
 end
 
@@ -328,27 +630,15 @@ end
     get_hydrogen_idxs(amsmi::String)
 
 Returns indices of hydrogen atoms in atom-mapped SMILES `amsmi`.
+
+Returns a vector of vectors, where each inner vector
+contains the indices of hydrogens in a single molecule.
 """
 function get_hydrogen_idxs(amsmi::String)
-    at_end = false
-    i = 1
-    nc = length(amsmi)
-    hidxs = [Int[]]
-    while !at_end
-        if amsmi[i] == '['
-            sym = amsmi[i+1]
-            idx = parse(Int, string(amsmi[i+3]))
-            if sym == 'H'
-                push!(hidxs[end], idx)
-            end
-            i += 5
-        elseif amsmi[i] == '.'
-            push!(hidxs, Int[])
-            i += 1
-        else
-            i += 1
-        end
-        if i > nc at_end = true end
+    mol_amsmis = split(amsmi, '.')
+    hidxs = Vector{Int}[]
+    for mol_amsmi in mol_amsmis
+        push!(hidxs, [parse(Int, match.captures[1]) for match in eachmatch(r"\[H:(\d+)\]", mol_amsmi)])
     end
     return hidxs
 end

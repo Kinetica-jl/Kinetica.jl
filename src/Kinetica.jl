@@ -32,6 +32,10 @@ using PythonCall
 using CDE_jll
 
 # Global Python package interfaces
+const pysys = PythonCall.pynew()
+const pyos = PythonCall.pynew()
+const pycopy = PythonCall.pynew()
+const py_PrintMuter = PythonCall.pynew()
 const pybel = PythonCall.pynew()
 const obcr = PythonCall.pynew()
 const pyextxyz = PythonCall.pynew()
@@ -46,10 +50,37 @@ const aseneb = PythonCall.pynew()
 const aseio = PythonCall.pynew()
 const asevib = PythonCall.pynew()
 const asethermo = PythonCall.pynew()
+const asebuild = PythonCall.pynew()
+const aseanalysis = PythonCall.pynew()
+const aseconstraints = PythonCall.pynew()
+const asesf = PythonCall.pynew()
 const ade = PythonCall.pynew()
 const rmsd = PythonCall.pynew()
 const rdSmilesParamsWithH = PythonCall.pynew()
 function __init__()
+    PythonCall.pycopy!(pysys, pyimport("sys"))
+    PythonCall.pycopy!(pyos, pyimport("os"))
+    PythonCall.pycopy!(pycopy, pyimport("copy"))
+    PythonCall.pycopy!(py_PrintMuter, pyexec(
+        @NamedTuple{f::Py},
+        """
+global sys; sys = _sys
+global os; os = _os
+
+class PrintMuter:
+    def mute(self):
+        self.stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+
+    def unmute(self):
+        sys.stdout.close()
+        sys.stdout = self.stdout
+
+f = PrintMuter""",
+        Kinetica,
+        (_sys=pysys, _os=pyos)
+    )[1])
+
     PythonCall.pycopy!(pybel, pyimport("openbabel.pybel"))
     PythonCall.pycopy!(obcr, pyimport("obcr"))
     PythonCall.pycopy!(pyextxyz, pyimport("extxyz"))
@@ -63,6 +94,10 @@ function __init__()
     PythonCall.pycopy!(aseio, pyimport("ase.io"))
     PythonCall.pycopy!(asevib, pyimport("ase.vibrations"))
     PythonCall.pycopy!(asethermo, pyimport("ase.thermochemistry"))
+    PythonCall.pycopy!(asebuild, pyimport("ase.build"))
+    PythonCall.pycopy!(aseanalysis, pyimport("ase.geometry.analysis"))
+    PythonCall.pycopy!(aseconstraints, pyimport("ase.constraints"))
+    PythonCall.pycopy!(asesf, pyimport("asesurfacefinder"))
     PythonCall.pycopy!(ade, pyimport("autode"))
     PythonCall.pycopy!(rmsd, pyimport("rmsd"))
 
@@ -71,6 +106,7 @@ function __init__()
     smilesparams.removeHs = false
     PythonCall.pycopy!(rdSmilesParamsWithH, smilesparams)
 
+    # If this code isn't executed on the Python side, OB segfaults.
     PythonCall.pycopy!(frame_to_rdkit_remap_atoms, pyexec(
         @NamedTuple{f::Py}, 
         """
@@ -112,6 +148,7 @@ export start_log, end_log, flush_log, flush
 
 include("utils.jl")
 export tconvert, create_savepoints
+include("pyconvert_utils.jl")
 
 include("solving/params.jl")
 export ODESimulationParams
@@ -128,17 +165,22 @@ export ConditionSet, isstatic, isvariable
 export get_profile, get_tstops, get_t_final
 export register_direct_conditions, solve_variable_conditions!
 
+include("exploration/species_traits.jl")
+include("exploration/surfaces.jl")
+export Surface, SurfaceData
+export get_surfid, get_surf_siteids
 include("exploration/network.jl")
 export SpeciesData, push!, push_unique!
-export RxData, get_rhash, get_reverse_rhash
+export RxData
 export init_network
+include("exploration/network_utils.jl")
+export get_species_stats!
+export get_rhash, get_reverse_rhash
 export format_rxn, print_rxn
 
 include("openbabel/conversion.jl")
 export ingest_xyz_system, xyz_to_frame, frame_to_xyz, xyz_file_to_str
 export frame_from_smiles, xyz_from_smiles
-include("openbabel/properties.jl")
-export get_species_stats!
 
 include("rdkit/rdkit.jl")
 export frame_to_rdkit, atom_map_smiles, atom_map_frame
@@ -159,6 +201,8 @@ include("exploration/explore_utils.jl")
 export import_mechanism, import_mechanism!, import_network
 include("exploration/molecule_system.jl")
 export system_from_smiles, system_from_mols
+include("exploration/surface_utils.jl")
+export adsorb_frame, adsorb_two_frames
 
 include("solving/calculator.jl")
 export DummyKineticCalculator, PrecalculatedArrheniusCalculator, PrecalculatedLindemannCalculator
@@ -170,7 +214,7 @@ include("ase/io.jl")
 include("ase/optimise.jl")
 include("ase/vibrations.jl")
 include("ase/builders.jl")
-export EMTBuilder, NWChemDFTBuilder, FHIAimsBuilder
+export EMTBuilder, NWChemDFTBuilder, FHIAimsBuilder, TBLiteBuilder
 include("ase/asethermo_interface.jl")
 
 

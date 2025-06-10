@@ -177,3 +177,53 @@ function (builder::FHIAimsBuilder)(dir::String, mult::Int, chg::Int, kwargs...)
     
     return builder.calc_class(; arg_dict...)
 end
+
+
+mutable struct TBLiteBuilder
+    calc_class::Py
+    method::String
+    accuracy::Float64
+    electronic_temperature::Float64
+    max_iterations::Int
+    verbosity::Int
+end
+
+"""
+    TBLiteBuilder([, method::String="GFN2-xTB", accuracy::Float64=1.0,
+                  electronic_temperature::Float64=300.0, max_iterations::Int=250])
+
+Builder for the TBLite calculator, installed with Kinetica.
+
+Can perform xTB calculations at any of the available levels
+with the TBLite package. While this isn't part of ASE, xTB
+is used internally within Kinetica so this calculator builder
+can be used without having to install any other dependencies.
+"""
+function TBLiteBuilder(;
+        method::String="GFN2-xTB",
+        accuracy::Float64=1.0,
+        electronic_temperature::Float64=300.0,
+        max_iterations::Int=250,
+        verbosity::Int=0
+    )
+    tblite_ase = pyimport("tblite.ase")
+    return TBLiteBuilder(tblite_ase.TBLite, method, accuracy, electronic_temperature, max_iterations, verbosity)
+end
+
+"""
+    (builder::TBLiteBuilder)(dir::String, mult::Int, chg::Int[, kwargs...])
+
+Constructs a TBLite calculator for ASE energy/force evaluation.
+"""
+function (builder::TBLiteBuilder)(dir::String, mult::Int, chg::Int, kwargs...)
+    calc = builder.calc_class(
+        method=builder.method,
+        charge=chg,
+        multiplicity=mult,
+        accuracy=builder.accuracy,
+        electronic_temperature=builder.electronic_temperature,
+        max_iterations=builder.max_iterations,
+        verbosity=builder.verbosity
+    )
+    return calc
+end
