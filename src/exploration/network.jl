@@ -164,7 +164,8 @@ if not provided). Does not account for `smi` already existing
 within `sd`. To ensure no overlap, use `push_unique!`.
 """
 function Base.push!(sd::SpeciesData, xyz_file::String, level::Int; fix_radicals=true)
-    smi_list, xyz_list = ingest_xyz_system(xyz_file, sd.surfaces; fix_radicals)
+    xyz_str = endswith(xyz_file, ".xyz") ? xyz_file_to_str(xyz_file) : xyz_file
+    smi_list, xyz_list = ingest_xyz_system(xyz_str, sd.surfdata; fix_radicals)
     for (smi, xyz) in zip(smi_list, xyz_list)
         push!(sd, smi, xyz, level)
     end
@@ -217,7 +218,8 @@ Optionally takes a specified exploration level (defaults to 1
 if not provided).
 """
 function push_unique!(sd::SpeciesData, xyz_file::String, level::Int; fix_radicals=true)
-    smi_list, xyz_list = ingest_xyz_system(xyz_file_to_str(xyz_file), sd.surfaces; fix_radicals)
+    xyz_str = endswith(xyz_file, ".xyz") ? xyz_file_to_str(xyz_file) : xyz_file
+    smi_list, xyz_list = ingest_xyz_system(xyz_str, sd.surfdata; fix_radicals)
     for (smi, xyz) in zip(smi_list, xyz_list)
         if !(smi in keys(sd.toInt))
             push!(sd, smi, xyz, level)

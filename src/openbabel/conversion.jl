@@ -115,7 +115,7 @@ function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=
 end
 
 
-function ingest_xyz_system(xyz_str::String; fix_radicals=true)
+function ingest_xyz_system(xyz_str::String, ::Nothing; fix_radicals=true)
     pbmol = pybel.readstring("xyz", xyz_str)
     fragments = [pybel.Molecule(obmol) for obmol in pbmol.OBMol.Separate()]
     n = length(fragments)
@@ -141,6 +141,7 @@ function ingest_xyz_system(xyz_str::String; fix_radicals=true)
 
     return smi_list, xyz_list
 end
+ingest_xyz_system(xyz_str::String; fix_radicals=true) = ingest_xyz_system(xyz_str, nothing; fix_radicals)
 
 
 """

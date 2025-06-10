@@ -31,7 +31,7 @@ Can function on adsorbates - free adsorbates are treated like isolated
 molecules, while on-surface adsorbates are marked as invalid for this
 calculation and return symmetry and geometry numbers of -2.
 """
-autode_frame_symmetry(frame::Dict{String, Any}; mult::Int=1, chg::Int=0) = autode_frame_symmetry(XYZStyle(frame); mult, chg)
+autode_frame_symmetry(frame::Dict{String, Any}; mult::Int=1, chg::Int=0) = autode_frame_symmetry(XYZStyle(frame), frame; mult, chg)
 function autode_frame_symmetry(::FreeXYZ, frame::Dict{String, Any}; mult::Int=1, chg::Int=0)
     mol = frame_to_autode(frame; mult=mult, chg=chg)
     sym = pyconvert(Int, mol.symmetry_number)
