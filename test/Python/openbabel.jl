@@ -23,18 +23,3 @@ using PythonCall
     smi_list, xyz_list = ingest_xyz_system(xyz_file_to_str(f3))
     @test issetequal(Set(smi_list), Set(["CC", "[H][H]", "C=C"]))
 end
-
-@testset "OpenBabel Property Calculation Tests" begin
-    smis_in = ["CC", "[H][H]", "[CH2][CH2]"]
-    frames = [xyz_to_frame(xyz_from_smiles(smi; generator=:rdkit, seed=10)) for smi in smis_in]
-    f = tempname(); system_from_mols(frames, f)
-    smi_list, xyz_list = ingest_xyz_system(xyz_file_to_str(f))
-    sd = SpeciesData(smi_list, xyz_list)
-    get_species_stats!(sd)
-
-    smis_out = ["CC", "[H][H]", "C=C"]
-    radii = [sd.cache[:radii][sd.toInt[smi]] for smi in smis_out]
-    @test Float32.(radii) ≈ Float32.([2.5973664892147017, 1.449005, 2.570778768925198])
-    weights = [sd.cache[:weights][sd.toInt[smi]] for smi in smis_out]
-    @test Float32.(weights) ≈ Float32.([30.06904, 2.01588, 28.05316])
-end

@@ -5,14 +5,24 @@ using Random
 Random.seed!(12345)
 Kinetica.np.random.seed(12345)
 
-# Python tests - should come first, as they are most likely to have issues and
-# many other bits depend on them down the chain.
+# Network import requires I/O through openbabel and RDKit for 
+# SMILES generation, molecule separation and atom mapping, so
+# these have to come first.
 @safetestset "OpenBabel Tests" begin
     include("Python/openbabel.jl")
 end
 @safetestset "RDKit Tests" begin
     include("Python/rdkit.jl")
 end
+
+@safetestset "Base Reaction Network Tests" begin
+    include("Main/network.jl")
+end
+@safetestset "ConditionSet Tests" begin
+    include("Main/conditions.jl")
+end
+
+# Further Pythonic functionality.
 @safetestset "ASE Tests" begin
     include("Python/ase.jl")
 end
@@ -23,7 +33,3 @@ end
     include("Python/autode.jl")
 end
 
-# Pure Julia tests.
-@safetestset "ConditionSet Tests" begin
-    include("Main/conditions.jl")
-end
