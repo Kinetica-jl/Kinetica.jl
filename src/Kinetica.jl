@@ -171,15 +171,16 @@ export Surface, SurfaceData
 export get_surfid, get_surf_siteids
 include("exploration/network.jl")
 export SpeciesData, push!, push_unique!
-export RxData, get_rhash, get_reverse_rhash
+export RxData
 export init_network
+include("exploration/network_utils.jl")
+export get_species_stats!
+export get_rhash, get_reverse_rhash
 export format_rxn, print_rxn
 
 include("openbabel/conversion.jl")
 export ingest_xyz_system, xyz_to_frame, frame_to_xyz, xyz_file_to_str
 export frame_from_smiles, xyz_from_smiles
-include("openbabel/properties.jl")
-export get_species_stats!
 
 include("rdkit/rdkit.jl")
 export frame_to_rdkit, atom_map_smiles, atom_map_frame

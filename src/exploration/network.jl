@@ -549,61 +549,6 @@ function Base.push!(rd::RxData{iType, fType}, sd::SpeciesData,
     return
 end
 
-"""
-    get_rhash(sd::SpeciesData, rd::RxData, rid)
-
-Returns the reaction hash for the reaction at `rid` in `rd`.
-"""
-function get_rhash(sd::SpeciesData, rd::RxData, rid)
-    reacs = String[]
-    for (i, sid) in enumerate(rd.id_reacs[rid])
-        for _ in 1:rd.stoic_reacs[rid][i] 
-            push!(reacs, sd.toStr[sid])
-        end
-    end
-    sort!(reacs)
-    prods = String[]
-    for (i, sid) in enumerate(rd.id_prods[rid])
-        for _ in 1:rd.stoic_prods[rid][i] 
-            push!(prods, sd.toStr[sid])
-        end
-    end
-    sort!(prods)
-
-    return stable_hash(vcat(reacs, prods); version=4)
-end
-
-"""
-    get_reverse_rhash(sd::SpeciesData, rd::RxData, rid)
-
-Returns the reverse reaction hash for the reaction at `rid` in `rd`.
-
-Useful when needing to identify if a reverse reaction
-is already in a CRN without having to look through many
-species permutations.
-"""
-function get_reverse_rhash(sd::SpeciesData, rd::RxData, rid)
-    reacs = String[]
-    for (i, sid) in enumerate(rd.id_reacs[rid])
-        for _ in 1:rd.stoic_reacs[rid][i] 
-            push!(reacs, sd.toStr[sid])
-        end
-    end
-    sort!(reacs)
-    prods = String[]
-    for (i, sid) in enumerate(rd.id_prods[rid])
-        for _ in 1:rd.stoic_prods[rid][i] 
-            push!(prods, sd.toStr[sid])
-        end
-    end
-    sort!(prods)
-
-    forw_rhash = stable_hash(vcat(reacs, prods); version=4)
-    @assert rd.rhash[rid] == forw_rhash # Checks StableHashTraits hasn't broken anything.
-    rev_rhash = stable_hash(vcat(prods, reacs); version=4)
-    return rev_rhash
-end
-
 
 """
     init_network([iType=Int64, fType=Float64])
@@ -670,37 +615,4 @@ function Base.splice!(rd::RxData, rids::Vector{Int})
         end
         rd.nr -= length(rids)
     end
-end
-
-
-"""
-    format_rxn(sd::SpeciesData, rd::RxData, rid::Int[, display_level=false])
-
-Nicely formats a string describing the reaction at `rid`.
-
-If the keyword argument `display_level` is `true`, additionally
-annotates the reaction with the level in which it was discovered.
-"""
-function format_rxn(sd::SpeciesData, rd::RxData, rid::Int; display_level=false)
-    reacs = [sd.toStr[sid] for sid in rd.id_reacs[rid]]
-    prods = [sd.toStr[sid] for sid in rd.id_prods[rid]]
-    reac_strs = [n > 1 ? "$n $spec" : spec for (n, spec) in zip(rd.stoic_reacs[rid], reacs)]
-    prod_strs = [n > 1 ? "$n $spec" : spec for (n, spec) in zip(rd.stoic_prods[rid], prods)]
-    rxn_str = join([join(reac_strs, " + "), join(prod_strs, " + ")], " --> ")
-    if display_level
-        rxn_str = "L$(rd.level_found[rid]): " * rxn_str
-    end
-    return rxn_str
-end
-
-"""
-    print_rxn(sd::SpeciesData, rd::RxData, rid::Int[, display_level=false])
-
-Prints the reaction at ID `rid` with SMILES names for species.
-
-If the keyword argument `display_level` is `true`, additionally
-annotates the reaction with the level in which it was discovered.
-"""
-function print_rxn(sd::SpeciesData, rd::RxData, rid::Int; display_level=false)
-    println(format_rxn(sd, rd, rid; display_level=display_level))
 end
