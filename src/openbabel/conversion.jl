@@ -32,7 +32,7 @@ function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=
     if pyconvert(Float64, sum(ads_slab.cell[2])) == 0.0
         ads_slab.center(10.0, axis=2)
     end
-    _, ads_molecules, sf_labels_per_molecule = surfdata.finder.predict(ads_slab)
+    _, ads_molecules, sf_labels_per_molecule = predict_surface_sites(surfdata, ads_slab)
 
     smi_list = String[]
     xyz_list = Dict{String, Any}[]
@@ -42,7 +42,6 @@ function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=
         if length(ads_atom_idxs) > 0
             ads_frame["info"]["adsorbate"] = "true"
         end
-        push!(xyz_list, ads_frame)
         ads_pbmol = pybel.readstring("xyz", frame_to_xyz(ads_frame))
         ads_pbmol.title = ""
         ads_smi = String(strip(pyconvert(String, ads_pbmol.write("can")), ['\n', '\t']))
@@ -75,9 +74,12 @@ function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=
             smi_label = "X$(surf_idx)_$(site_idx)"
             ads_smi = "[$(smi_label)][H]"
             push!(smi_list, ads_smi)
+            ads_frame["info"]["ads_sitetags"] = ["$(smi_label)->1"]
+            push!(xyz_list, ads_frame)
 
         else
             elem_replacements = []
+            sitetags = String[]
             site_atomic_number = 100
             for atom_idx in ads_atom_idxs
                 # Determine SMILES label for surface site that adsorbed atom is on.
@@ -101,13 +103,16 @@ function ingest_xyz_system(xyz_str::String, surfdata::SurfaceData; fix_radicals=
                 ads_pbmol.OBMol.AddBond(atom_idx+1, site_atom.GetIdx(), coord)
                 
                 push!(elem_replacements, Pair(site_elem, smi_label))
+                push!(sitetags, "$(smi_label)->$(atom_idx+1)")
+                site_atomic_number += 1
             end
 
             # Generate new SMILES, replace dummy atoms with ads labels.
             ads_smi = String(strip(pyconvert(String, ads_pbmol.write("can")), ['\n', '\t']))
             ads_smi_replaced = replace(ads_smi, elem_replacements...)
-
             push!(smi_list, ads_smi_replaced)
+            ads_frame["info"]["ads_sitetags"] = sitetags
+            push!(xyz_list, ads_frame)
         end
     end
 

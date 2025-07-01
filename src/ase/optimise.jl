@@ -353,7 +353,7 @@ function geomopt!(::SurfaceSpecies, sd::SpeciesData, i, calc_builder, calcdir::S
     else
         atoms = frame_to_atoms(copy_frame)
     end
-    slab, mol, label = sd.surfdata.finder.predict(atoms)
+    slab, mol, label = predict_surface_sites(sd.surfdata, atoms)
     if pylen(mol) > 1
         throw(ErrorException("Multiple adsorbates returned from a single-molecule optimisation."))
     end
@@ -365,6 +365,17 @@ function geomopt!(::SurfaceSpecies, sd::SpeciesData, i, calc_builder, calcdir::S
     adsorbate_frame = atoms_to_frame(mol[0], frame["info"]["energy_ASE"]-slab_energy, pyconvert(Vector{Float64}, mol[0].get_moments_of_inertia()))
     adsorbate_frame["info"]["ads_heights"] = [pyconvert(Float64, label[0][i]["height"]) for i in label[0].keys()]
     adsorbate_frame["info"]["adsorbate"] = "true"
+    # Remap adsorbate site tags.
+    adsorbate_frame["info"]["ads_sitetags"] = String[]
+    if length(frame["info"]["ads_sitetags"]) != pylen(label[0])
+        throw(ErrorException("Number of adsorbate site tags does not match number of sites in ASESF label."))
+    end
+    surf_idx = get_surfid(sd.toStr[i])
+    for i in label[0].keys()
+        split_labels = split(pyconvert(String, label[0][i]["site"]), '_')
+        site_idx = sd.surfdata.surfaces[surf_idx].siteids[String(split_labels[end])]
+        push!(adsorbate_frame["info"]["ads_sitetags"], "X$(surf_idx)_$(site_idx)->$(i+1)")
+    end
 
     sd.xyz[i] = adsorbate_frame
 
@@ -491,10 +502,9 @@ function geomopt!(frame::Dict{String, Any}, calc_builder, surfdata::SurfaceData;
                   check_isomorphic=true, kwargs...)
     @debug "Starting geometry optimisation."
     atoms = frame_to_atoms(frame, formal_charges, initial_magmoms)
-    _, mols_preopt, labels_preopt = surfdata.finder.predict(atoms)
+    _, mols_preopt, labels_preopt = predict_surface_sites(surfdata, atoms)
     atoms.calc = calc_builder(calcdir, mult, chg, kwargs...)
     init_energy = pyconvert(Float64, atoms.get_potential_energy())
-    init_inertias = pyconvert(Vector{Float64}, atoms.get_moments_of_inertia())
 
     if optimiser == "BFGSLineSearch"
         opt = aseopt.QuasiNewton(atoms)
@@ -529,7 +539,7 @@ function geomopt!(frame::Dict{String, Any}, calc_builder, surfdata::SurfaceData;
 
     mols_opt = nothing; labels_opt = nothing
     if conv 
-        _, mols_opt, labels_opt = surfdata.finder.predict(atoms)
+        _, mols_opt, labels_opt = predict_surface_sites(surfdata, atoms)
     end
 
     if conv && check_isomorphic

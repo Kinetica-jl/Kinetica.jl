@@ -64,7 +64,7 @@ function adsorb_frame(frame::Dict{String, Any}, surfdata::SurfaceData, smi::Stri
                !adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads3_idxs, 5.0) &&
                !adsorbed_system_has_overlap(atoms_rep, ads1_idxs, ads4_idxs, 5.0) &&
                !adsorbed_system_has_overlap(atoms_rep, ads2_idxs, ads3_idxs, 5.0)
-                atoms.info["ads_atomid"] = surf_na + ads_atomid+1
+                atoms.info["ads_sitetags"] =["X$(surfid)_$(siteids[1])->$(surf_na + ads_atomid+1)"]
                 break
             end
 
@@ -219,6 +219,19 @@ function adsorb_two_frames(::FreeXYZ, ::AdsorbateXYZ, ads1::Dict{String, Any}, a
         # If no overlaps are detected, use this configuration.
         ads_frame = atoms_to_frame(combined_atoms)
         ads_frame["info"]["unit_cell_mult"] = uc_mult
+        ads_frame["info"]["n_adsorbates"] = 1
+        ads_frame["info"]["n_gas_species"] = 1
+        delete!(ads_frame["info"], "ads_heights")
+
+        ads2_sitelabels = String[] 
+        ads2_atomids = Int[]
+        for sitetag in ads2["info"]["ads_sitetags"]
+            sitelabel, atomid = split(sitetag, "->")
+            atomid = parse(Int, atomid)
+            push!(ads2_sitelabels, sitelabel)
+            push!(ads2_atomids, atomid)
+        end
+        ads_frame["info"]["ads_sitetags"] = ["$(sitelabel)->$(pylen(surf_atoms)+atomid)" for (sitelabel, atomid) in zip(ads2_sitelabels, ads2_atomids)]
         return ads_frame
     end
 
@@ -295,6 +308,30 @@ function adsorb_two_frames(::AdsorbateXYZ, ::AdsorbateXYZ, ads1::Dict{String, An
         # If no overlaps are detected, use this configuration.
         ads_frame = atoms_to_frame(combined_atoms)
         ads_frame["info"]["unit_cell_mult"] = uc_mult
+        ads_frame["info"]["n_adsorbates"] = 2
+        ads_frame["info"]["n_gas_species"] = 0
+        delete!(ads_frame["info"], "ads_heights")
+
+        ads1_sitelabels = String[] 
+        ads1_atomids = Int[]
+        for sitetag in ads1["info"]["ads_sitetags"]
+            sitelabel, atomid = split(sitetag, "->")
+            atomid = parse(Int, atomid)
+            push!(ads1_sitelabels, sitelabel)
+            push!(ads1_atomids, atomid)
+        end
+        ads2_sitelabels = String[] 
+        ads2_atomids = Int[]
+        for sitetag in ads2["info"]["ads_sitetags"]
+            sitelabel, atomid = split(sitetag, "->")
+            atomid = parse(Int, atomid)
+            push!(ads2_sitelabels, sitelabel)
+            push!(ads2_atomids, atomid)
+        end
+        ads_frame["info"]["ads_sitetags"] = vcat(
+            ["$(sitelabel)->$(pylen(surf_atoms)+atomid)" for (sitelabel, atomid) in zip(ads1_sitelabels, ads1_atomids)],
+            ["$(sitelabel)->$(pylen(surf_atoms)+ads1["N_atoms"]+atomid)" for (sitelabel, atomid) in zip(ads2_sitelabels, ads2_atomids)]
+        )
         return ads_frame
     end
 
@@ -411,6 +448,18 @@ function add_surface_beneath!(::FreeXYZ, frame::Dict{String, Any}, surf::Surface
     frame["arrays"] = combined_frame["arrays"]
     frame["cell"] = combined_frame["cell"]
     frame["pbc"] = combined_frame["pbc"]
+    if haskey(frame["info"], "chg")
+        combined_frame["info"]["chg"] = frame["info"]["chg"]
+    end
+    if haskey(frame["info"], "mult")
+        combined_frame["info"]["mult"] = frame["info"]["mult"]
+    end
+    if haskey(frame["info"], "n_species")
+        combined_frame["info"]["n_species"] = frame["info"]["n_species"]
+    end
+    if haskey(frame["info"], "ads_sitetags")
+        combined_frame["info"]["ads_sitetags"] = frame["info"]["ads_sitetags"]
+    end
     frame["info"] = combined_frame["info"]
     frame["info"]["unit_cell_mult"] = uc_mult
     return
@@ -460,6 +509,79 @@ function scale_surface_to_match!(mod_frame::Dict{String, Any}, ref_frame::Dict{S
     mod_frame["cell"] = mod_newframe["cell"]
     mod_frame["info"] = mod_newframe["info"]
     mod_frame["info"]["unit_cell_mult"] = ref_uc_mult
+    return    
+end
+
+
+"""
+    get_surfsite_coordination(atoms::Py, sitename[, height=1.5])
+
+Determines expected coordination of adsorbate atoms on a given surface site.
+
+Adsorbs a hydrogen atom on the surface site of `atoms` with xy position
+specified by `sitename` and height by `height`. Reads the resulting
+geometry's adjacency matrix to determine coordination at this site.
+"""
+function get_surfsite_coordination(atoms::Py, sitename, height=1.5; cutoff_mult=1.0)
+    # Ensure slab is big enough to account for full coordination
+    # of sites without periodicity.
+    slab = pycopy.deepcopy(atoms)
+    slab.center(vacuum=10.0, axis=2)
+    slab = slab.repeat((4,4,1))
+    asebuild.add_adsorbate(slab, "H", height, sitename)
+    
+    cutoffs = aseneighborlist.natural_cutoffs(slab, mult=cutoff_mult)
+    ana = aseanalysis.Analysis(slab, self_interaction=false, bothways=true, cutoffs=cutoffs)
+    nl = ana.nl[0]
+    na = pylen(slab)
+    coord = pylen(nl.get_neighbors(na-1)[0])
+    return coord
+end
+
+
+"""
+    get_all_surfsite_atoms(frame::Dict{String, Any}, surfdata::SurfaceData)
+
+Returns the indices of all surface atoms bound to adsorbed atoms.
+
+Requires that the frame has an "ads_sitetags" key in its info dictionary,
+and that its atoms are correctly tagged.
+"""
+function get_all_surfsite_atoms(frame::Dict{String, Any}, surfdata::SurfaceData)
+    if !haskey(frame["info"], "ads_sitetags")
+        throw(ErrorException("ads_sitetags key not found in frame info."))
+    elseif pylen(frame["info"]["ads_sitetags"]) == 0
+        return Int[]
+    end
+
+    if !haskey(frame["arrays"], "tags")
+        throw(ErrorException("tags key not found in frame arrays."))
+    else
+        surf_idxs = findall(frame["arrays"]["tags"] .!= 0)
+    end
+
+    atoms = frame_to_atoms(frame)
+    sitelabel, _ = split(frame["info"]["ads_sitetags"][1], "->")
+    surfidx = get_surfid(string(sitelabel))
+    surf = surfdata.surfaces[surfidx]
+    ana = aseanalysis.Analysis(atoms, self_interaction=false, bothways=true, cutoffs=aseneighborlist.natural_cutoffs(atoms, mult=surf.cutoff_mult))
+    nl = ana.nl[0]
+
+    siteatoms = Int[]
+    for sitetag in frame["info"]["ads_sitetags"]
+        atomid = parse(Int, split(sitetag, "->")[2])
+        neighbors = pyconvert(Vector{Int}, nl.get_neighbors(atomid-1)[0]) .+ 1
+        for neighbor in neighbors
+            if neighbor in surf_idxs
+                push!(siteatoms, neighbor)
+            end
+        end
+    end
+
+    return siteatoms
+end
+
+
 """
     predict_surface_sites(surfdata::SurfaceData, atoms::Py)
 

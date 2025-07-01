@@ -344,7 +344,37 @@ function ingest_cde_run(rdir::String, rcount, surfdata::SurfaceData; fix_radical
         smis, xyzs = ingest_xyz_system(frame_to_xyz(reac), surfdata; fix_radicals)
         push!(reac_smis, smis)
         push!(reac_xyzs, xyzs)
-        push!(reac_systems, reac)
+        # Reassemble surfaceless reactant system to allow tracking of surface site tags.
+        if XYZStyle(reac) isa OnSurfaceXYZ
+            reac_nosurf = Dict{String, Any}(
+                "N_atoms" => sum(xyz["N_atoms"] for xyz in xyzs),
+                "arrays" => Dict{String, Any}(
+                    "pos" => reduce(hcat, [xyz["arrays"]["pos"] for xyz in xyzs]),
+                    "species" => reduce(vcat, [xyz["arrays"]["species"] for xyz in xyzs])
+                ),
+                "info" => Dict{String, Any}(
+                    "ads_sitetags" => String[]
+                )
+            )
+            if any([haskey(xyz["info"], "adsorbate") for xyz in xyzs])
+                reac_nosurf["info"]["adsorbate"] = "true"
+            end
+            # Remap adsorbate site tags to new atom indices.
+            atomcount = 0
+            for xyz in xyzs
+                na = xyz["N_atoms"]
+                for sitetag in xyz["info"]["ads_sitetags"]
+                    sitelabel, atomid = split(sitetag, "->")
+                    atomid = parse(Int, atomid)
+                    push!(reac_nosurf["info"]["ads_sitetags"], "$sitelabel->$(atomcount + atomid)")
+                end
+                atomcount += na
+            end
+
+            push!(reac_systems, reac_nosurf)
+        else
+            push!(reac_systems, reac)
+        end
     end
     prod_smis = Vector{String}[]
     prod_xyzs = Vector{Dict{String, Any}}[]
@@ -354,7 +384,37 @@ function ingest_cde_run(rdir::String, rcount, surfdata::SurfaceData; fix_radical
         smis, xyzs = ingest_xyz_system(frame_to_xyz(prod), surfdata; fix_radicals)
         push!(prod_smis, smis)
         push!(prod_xyzs, xyzs)
-        push!(prod_systems, prod)
+        # Reassemble surfaceless product system to allow tracking of surface site tags.
+        if XYZStyle(prod) isa OnSurfaceXYZ
+            prod_nosurf = Dict{String, Any}(
+                "N_atoms" => sum(xyz["N_atoms"] for xyz in xyzs),
+                "arrays" => Dict{String, Any}(
+                    "pos" => reduce(hcat, [xyz["arrays"]["pos"] for xyz in xyzs]),
+                    "species" => reduce(vcat, [xyz["arrays"]["species"] for xyz in xyzs])
+                ),
+                "info" => Dict{String, Any}(
+                    "ads_sitetags" => String[]
+                )
+            )
+            if any([haskey(xyz["info"], "adsorbate") for xyz in xyzs])
+                prod_nosurf["info"]["adsorbate"] = "true"
+            end
+            # Remap adsorbate site tags to new atom indices.
+            atomcount = 0
+            for xyz in xyzs
+                na = xyz["N_atoms"]
+                for sitetag in xyz["info"]["ads_sitetags"]
+                    sitelabel, atomid = split(sitetag, "->")
+                    atomid = parse(Int, atomid)
+                    push!(prod_nosurf["info"]["ads_sitetags"], "$sitelabel->$(atomcount + atomid)")
+                end
+                atomcount += na
+            end
+
+            push!(prod_systems, prod_nosurf)
+        else
+            push!(prod_systems, prod)
+        end
     end
 
     # Add in all reverse reactions if requested.

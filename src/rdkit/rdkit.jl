@@ -103,7 +103,7 @@ Heavily based on the implementation in Colin Grambow's `ard_gsm`
 package: https://github.com/cgrambow/ard_gsm/tree/v1.0.0
 """
 atom_map_smiles(frame::Dict{String, Any}, smi::String; kwargs...) = atom_map_smiles(XYZStyle(frame), SpeciesStyle(smi), frame, smi; kwargs...)
-function atom_map_smiles(::FreeXYZ, ::GasSpecies, frame::Dict{String, Any}, smi::String; allow_mismatch=false)
+function atom_map_smiles(::FreeXYZ, ::GasSpecies, frame::Dict{String, Any}, smi::String; allow_mismatch=false, ignore_elements=nothing)
     atoms_in_mol_true = Dict{String, Int}()
     for i in 1:frame["N_atoms"]
         elem = frame["arrays"]["species"][i]
@@ -134,32 +134,72 @@ function atom_map_smiles(::FreeXYZ, ::GasSpecies, frame::Dict{String, Any}, smi:
         bond.SetBondType(rdChem.rdchem.BondType."SINGLE")
     end
 
-    match = pyconvert(Vector, mol_sani_sb.GetSubstructMatch(mol_with_map))
-    if pyconvert(Int, mol_with_map.GetNumAtoms()) != length(match)
-        println(mol_with_map.GetNumAtoms())
-        throw(ErrorException("Incorrect number of atoms when matching substruct during atom mapping."))
+    # Get all possible permutations of matching atoms.
+    matches = pyconvert(Vector{Vector{Int}}, mol_sani_sb.GetSubstructMatches(mol_with_map, uniquify=false))
+    if length(matches) == 0
+       throw(ErrorException("No substructure matches found during atom mapping."))
     end
-    for atom in mol_with_map.GetAtoms()
-        idx = match[pyconvert(Int, atom.GetIdx()) + 1]
-        map_num = atom.GetAtomMapNum()
-        mol_sanitised.GetAtomWithIdx(idx).SetAtomMapNum(map_num)
-    end
-
-    # Disable any dative bonds that RDKit wants to make, since
-    # OpenBabel can't handle them.
-    for bond in mol_sanitised.GetBonds()
-        if pyis(bond.GetBondType(), rdChem.rdchem.BondType."DATIVE")
-            bond.SetBondType(rdChem.rdchem.BondType."SINGLE")
+    
+    best_match_natoms = 0
+    amsmis = String[]
+    for match in matches
+        best_match_natoms = max(best_match_natoms, length(match))
+        if pyconvert(Int, mol_with_map.GetNumAtoms()) != length(match)
+            continue
         end
+        mol_sanitised_copy = rdChem.Mol(mol_sanitised)
+        for atom in mol_with_map.GetAtoms()
+            idx = match[pyconvert(Int, atom.GetIdx()) + 1]
+            map_num = atom.GetAtomMapNum()
+            mol_sanitised_copy.GetAtomWithIdx(idx).SetAtomMapNum(map_num)
+        end
+
+        # Disable any dative bonds that RDKit wants to make, since
+        # OpenBabel can't handle them.
+        for bond in mol_sanitised_copy.GetBonds()
+            if pyis(bond.GetBondType(), rdChem.rdchem.BondType."DATIVE")
+                bond.SetBondType(rdChem.rdchem.BondType."SINGLE")
+            end
+        end
+
+        push!(amsmis, pyconvert(String, rdChem.MolToSmiles(mol_sanitised_copy, canonical=false)))
     end
 
-    return pyconvert(String, rdChem.MolToSmiles(mol_sanitised))
+    if length(amsmis) == 0
+        throw(ErrorException("No full substructure matches found during atom mapping (best match: $(best_match_natoms)/$(mol_with_map.GetNumAtoms()) atoms)."))
+    elseif length(amsmis) == 1
+        return amsmis[1]
+    end
+
+    # Reverse atom map any remaining amsmis back onto the original frame to find best match.
+    best_match_idx = nothing
+    best_match_rmsd = Inf
+    original_pos = Py(frame["arrays"]["pos"]).to_numpy().T
+    for (i, amsmi) in enumerate(amsmis)
+        amframe = atom_map_frame(GasSpecies(), FreeXYZ(), amsmi, frame; allow_mismatch, ignore_elements)
+        match_pos = Py(amframe["arrays"]["pos"]).to_numpy().T
+        match_rmsd = pyconvert(Float64, rmsd.rmsd(original_pos, match_pos))
+        if match_rmsd < best_match_rmsd
+            best_match_rmsd = match_rmsd
+            best_match_idx = i
+        end
+        if isapprox(match_rmsd, 0.0; atol=1e-9) break end
+    end
+
+    if !isapprox(best_match_rmsd, 0.0; atol=1e-9)
+        @warn "No perfect match found for atom mapping $(smi) to geometry, returning best match with RMSD $(best_match_rmsd)."
+    end
+    return amsmis[best_match_idx]
 end
 function atom_map_smiles(::Union{AdsorbateXYZ, OnSurfaceXYZ}, ::GasSpecies, ::Dict{String, Any}, ::String; kwargs...)
     throw(ErrorException("Unable to map gas-phase SMILES from a surface-bound geometry."))
 end
 
 function atom_map_smiles(::AdsorbateXYZ, ::SurfaceSpecies, frame::Dict{String, Any}, smi::String; resub_ads_bonding=false)
+    if !(haskey(frame["info"], "ads_sitetags"))
+        throw(ErrorException("Unable to map surface SMILES with multiple substructures without adsorbate tags."))
+    end
+
     surfid = get_surfid(smi)
     siteids = get_surf_siteids(smi)
     pt = rdChem.GetPeriodicTable()
@@ -183,18 +223,36 @@ function atom_map_smiles(::AdsorbateXYZ, ::SurfaceSpecies, frame::Dict{String, A
     # Substitute surface site tags with unique elements.
     site_atomic_number = 100
     elem_replacements = []
-    for siteid in siteids
+    elem_replacements_flipped = []
+    for siteid in unique(siteids)
         elem = pyconvert(String, pt.GetElementSymbol(site_atomic_number))
         push!(elem_replacements, Pair("X$(surfid)_$(siteid)", elem))
+        push!(elem_replacements_flipped, Pair(Regex("($elem:\\d+)"), "X$(surfid)_$(siteid)"))
         site_atomic_number += 1
     end
     smi_replaced = replace(smi_subbed, elem_replacements...)
 
+    # Add replacement surface atoms below the tagged adsorbate atoms.
+    frame_with_replacements = deepcopy(frame)
+    elem_replacements_dict = Dict(elem_replacements)
+    for sitetag in frame["info"]["ads_sitetags"]
+        sitelabel, siteidx = split(sitetag, "->")
+        if !haskey(elem_replacements_dict, sitelabel)
+            throw(ErrorException("Unable to find replacement for site tag $(sitetag) in SMILES replacements."))
+        end
+        adsatom_idx = parse(Int, siteidx)
+        adsatom_pos = frame["arrays"]["pos"][:, adsatom_idx]
+        # Add a new atom below the lowest atom.
+        surfatom_pos = adsatom_pos .- [0.0, 0.0, 2.0]
+        frame_with_replacements["arrays"]["pos"] = hcat(frame_with_replacements["arrays"]["pos"], surfatom_pos)
+        frame_with_replacements["arrays"]["species"] = vcat(frame_with_replacements["arrays"]["species"], elem_replacements_dict[sitelabel])
+        frame_with_replacements["N_atoms"] += 1
+    end
+        
     # Generate atom mapped SMILES, ignoring substituted elements.
-    amsmi = atom_map_smiles(FreeXYZ(), GasSpecies(), frame, smi_replaced; allow_mismatch=true)
+    amsmi = atom_map_smiles(FreeXYZ(), GasSpecies(), frame_with_replacements, smi_replaced)
 
     # Substitute site tags back into atom mapped SMILES.
-    elem_replacements_flipped = [Pair(e[2], e[1]) for e in elem_replacements]
     amsmi_replaced = replace(amsmi, elem_replacements_flipped...)
 
     # Substitute bonding back onto surface sites.
@@ -242,6 +300,7 @@ function atom_map_frame(::GasSpecies, ::FreeXYZ, am_smi::String, frame::Dict{Str
     for atom in mol_template.GetAtoms()
         elem = pyconvert(String, atom.GetSymbol())
         atoms_in_mol_template[elem] = get(atoms_in_mol_template, elem, 0) + 1
+        atom.SetFormalCharge(0)
     end
     for bond in mol_template.GetBonds()
         bond.SetBondType(rdChem.rdchem.BondType."SINGLE")
@@ -309,8 +368,39 @@ function atom_map_frame(::GasSpecies, ::FreeXYZ, am_smi::String, frame::Dict{Str
 
     return new_frame
 end
-function atom_map_frame(::GasSpecies, ::Union{AdsorbateXYZ, OnSurfaceXYZ}, am_smi::String, frame::Dict{String, Any})
-    throw(ErrorException("Unable to map a surface-bound geometry from a gas-phase SMILES."))
+function atom_map_frame(::GasSpecies, ::AdsorbateXYZ, am_smi::String, frame::Dict{String, Any})
+    throw(ErrorException("Unable to map adsorbate geometry from a gas-phase SMILES."))
+end
+function atom_map_frame(::GasSpecies, ::OnSurfaceXYZ, am_smi::String, frame::Dict{String, Any})
+    if !haskey(frame["arrays"], "tags")
+        throw(ErrorException("Unable to map surface-bound geometry - missing surface-adsorbate tags."))
+    end
+    # Remove surface atoms from geometry
+    gas_idxs = findall(frame["arrays"]["tags"] .== 0)
+    gas_frame = Dict{String, Any}("arrays" => Dict{String, Any}(), "info" => Dict{String, Any}())
+    gas_frame["N_atoms"] = length(gas_idxs)
+    gas_frame["arrays"]["pos"] = frame["arrays"]["pos"][:, gas_idxs]
+    gas_frame["arrays"]["species"] = frame["arrays"]["species"][gas_idxs]
+
+    # Separately map adsorbate to SMILES.
+    gas_frame_mapped = atom_map_frame(GasSpecies(), FreeXYZ(), am_smi, gas_frame)
+
+    # Recombine mapped adsorbate and surface.
+    mapped_frame = deepcopy(frame)
+    surf_idxs = findall(frame["arrays"]["tags"] .!= 0)
+    surf_tags = frame["arrays"]["tags"][surf_idxs]
+    surf_pos = frame["arrays"]["pos"][:, surf_idxs]
+    surf_species = frame["arrays"]["species"][surf_idxs]
+    mapped_frame["arrays"]["pos"] = hcat(gas_frame_mapped["arrays"]["pos"], surf_pos)
+    mapped_frame["arrays"]["species"] = vcat(gas_frame_mapped["arrays"]["species"], surf_species)
+    mapped_frame["arrays"]["tags"] = vcat(zeros(Int, length(gas_idxs)), surf_tags)
+    if haskey(frame["arrays"], "fixed_pos")
+        gas_fixed_pos = frame["arrays"]["fixed_pos"][gas_idxs]
+        surf_fixed_pos = frame["arrays"]["fixed_pos"][surf_idxs]
+        mapped_frame["arrays"]["fixed_pos"] = vcat(gas_fixed_pos, surf_fixed_pos)
+    end
+
+    return mapped_frame
 end
 
 function atom_map_frame(::SurfaceSpecies, ::AdsorbateXYZ, am_smi::String, frame::Dict{String, Any})
@@ -376,6 +466,11 @@ function atom_map_frame(::SurfaceSpecies, ::OnSurfaceXYZ, am_smi::String, frame:
     mapped_frame["arrays"]["pos"] = hcat(ads_frame_mapped["arrays"]["pos"], surf_pos)
     mapped_frame["arrays"]["species"] = vcat(ads_frame_mapped["arrays"]["species"], surf_species)
     mapped_frame["arrays"]["tags"] = vcat(zeros(Int, length(ads_idxs)), surf_tags)
+    if haskey(frame["arrays"], "fixed_pos")
+        ads_fixed_pos = frame["arrays"]["fixed_pos"][ads_idxs]
+        surf_fixed_pos = frame["arrays"]["fixed_pos"][surf_idxs]
+        mapped_frame["arrays"]["fixed_pos"] = vcat(ads_fixed_pos, surf_fixed_pos)
+    end
 
     return mapped_frame
 end

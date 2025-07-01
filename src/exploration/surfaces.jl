@@ -432,6 +432,21 @@ function remove_surface_atoms!(frame::Dict{String, Any}, surfdata::SurfaceData, 
     elems = surface.elements
     remove_idxs = [i for (i, e) in enumerate(frame["arrays"]["species"]) if e in elems]
     keep_idxs = [i for i in 1:frame["N_atoms"] if !(i in remove_idxs)]
+
+    # Remap adsorbate site tags (if present) before removing
+    # surface element data.
+    if haskey(frame["info"], "ads_sitetags")
+        new_sitetags = String[]
+        for sitetag in frame["info"]["ads_sitetags"]
+            site, idx = split(sitetag, "->")
+            siteidx_with_surf = parse(Int, idx)
+            removed_before_siteidx = count([true for (i, e) in enumerate(frame["arrays"]["species"][1:siteidx_with_surf-1]) if e in elems])
+            siteidx_no_surf = siteidx_with_surf - removed_before_siteidx
+            push!(new_sitetags, "$(site)->$(siteidx_no_surf)")
+        end
+        frame["info"]["ads_sitetags"] = new_sitetags
+    end
+
     for arrkey in keys(frame["arrays"])
         if frame["arrays"][arrkey] isa Vector
             deleteat!(frame["arrays"][arrkey], remove_idxs)
