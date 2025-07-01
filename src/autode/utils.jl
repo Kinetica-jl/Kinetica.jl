@@ -42,5 +42,28 @@ function autode_frame_symmetry(::FreeXYZ, frame::Dict{String, Any}; mult::Int=1,
     end
     return sym, geom
 end
-autode_frame_symmetry(::AdsorbateXYZ, frame::Dict{String, Any}; mult::Int=1, chg::Int=0) = autode_frame_symmetry(FreeXYZ(), frame; mult, chg)
+function autode_frame_symmetry(::AdsorbateXYZ, frame::Dict{String, Any}; mult::Int=1, chg::Int=0)
+    sym, geom = nothing, nothing
+    # Mult and charge are unimportant for this calculation,
+    # if there is an error then try a bunch of combinations.
+    mult_chg_combos = unique([(mult, chg), (1, 0), (2, 0), (3, 0), (1, 1), (2, 1), (3, 1), (1, -1), (2, -1), (3, -1)])
+    for (m, c) in mult_chg_combos
+        try
+            sym, geom = autode_frame_symmetry(FreeXYZ(), frame; mult=m, chg=c)
+        catch err
+            if err isa PyException && pyisinstance(err, pybuiltins.ValueError)
+                continue
+            else
+                rethrow(err)
+            end
+        end
+        if !isnothing(sym)
+            break
+        end
+    end
+    if isnothing(sym)
+        throw(ErrorException("Failed to determine symmetry number and geometry type for adsorbate frame."))
+    end
+    return sym, geom
+end
 autode_frame_symmetry(::OnSurfaceXYZ, frame::Dict{String, Any}; mult::Int=1, chg::Int=0) = return -2, -2
