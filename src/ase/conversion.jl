@@ -98,7 +98,7 @@ function atoms_to_frame(atoms::Py, ase_energy=nothing, inertias=nothing)
     end
 
     if !isnothing(ase_energy) frame["info"]["energy_ASE"] = ase_energy end
-    if !isnothing(inertias) frame["arrays"]["inertias"] = inertias end
+    if !isnothing(inertias) frame["info"]["inertias"] = inertias end
 
     return frame
 end

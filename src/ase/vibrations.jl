@@ -92,7 +92,7 @@ array. All imaginary frequencies can be ignored by
 passing `ivetol=0.0`.
 """
 function calc_ts_vibrations!(ts_cache::Dict{Symbol, Any}, rid, calc_builder; calcdir::String="./", delta=0.01, ivetol=0.1, kwargs...)
-    atoms = frame_to_atoms(ts_cache[:xyz][rid], ts_cache[:xyz][rid]["info"]["formal_charges"], ts_cache[:xyz][rid]["info"]["initial_magmoms"])
+    atoms = frame_to_atoms(ts_cache[:xyz][rid], ts_cache[:xyz][rid]["arrays"]["formal_charges"], ts_cache[:xyz][rid]["arrays"]["initial_magmoms"])
     atoms.calc = calc_builder(calcdir, ts_cache[:mult][rid], ts_cache[:charge][rid], kwargs...)
 
     vibdir = joinpath(calcdir, "vib")

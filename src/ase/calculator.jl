@@ -648,7 +648,7 @@ get_entropy(sd::SpeciesData, sid, T, P) = get_entropy(SpeciesStyle(sd.toStr[sid]
 function get_entropy(::GasSpecies, sd::SpeciesData, sid, T, P)
     return get_entropy(
         sd.cache[:weights][sid],
-        sd.xyz[sid]["arrays"]["inertias"],
+        sd.xyz[sid]["info"]["inertias"],
         sd.cache[:geometry][sid],
         sd.cache[:symmetry][sid],
         sd.cache[:mult][sid],
@@ -674,7 +674,7 @@ get_entropy(ts_cache::Dict{Symbol, Any}, rid, mass, T, P) = get_entropy(XYZStyle
 function get_entropy(::FreeXYZ, ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
     return get_entropy(
         mass,
-        ts_cache[:xyz][rid]["arrays"]["inertias"],
+        ts_cache[:xyz][rid]["info"]["inertias"],
         ts_cache[:geometry][rid],
         ts_cache[:symmetry][rid],
         ts_cache[:mult][rid],

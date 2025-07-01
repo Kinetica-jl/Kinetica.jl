@@ -486,11 +486,11 @@ function geomopt!(frame::Dict{String, Any}, calc_builder;
         @debug "Geometry optimisation complete."
         frame["arrays"]["pos"] = pyconvert(Matrix, atoms.get_positions().T)
         frame["info"]["energy_ASE"] = pyconvert(Float64, atoms.get_potential_energy())
-        frame["arrays"]["inertias"] = pyconvert(Vector{Float64}, atoms.get_moments_of_inertia())
+        frame["info"]["inertias"] = pyconvert(Vector{Float64}, atoms.get_moments_of_inertia())
     else
         @debug "Geometry optimisation failed."
         frame["info"]["energy_ASE"] = init_energy
-        frame["arrays"]["inertias"] = init_inertias
+        frame["info"]["inertias"] = init_inertias
     end
     return conv
 end
@@ -580,14 +580,12 @@ function geomopt!(frame::Dict{String, Any}, calc_builder, surfdata::SurfaceData;
         @debug "Geometry optimisation complete."
         frame["arrays"]["pos"] = pyconvert(Matrix, atoms.get_positions().T)
         frame["info"]["energy_ASE"] = pyconvert(Float64, atoms.get_potential_energy())
-        frame["arrays"]["inertias"] = pyconvert(Vector{Float64}, atoms.get_moments_of_inertia())
         if pylen(mols_opt) == 1
             frame["info"]["ads_heights"] = [pyconvert(Float64, labels_opt[0][i]["height"]) for i in labels_opt[0].keys()]
         end
     else
         @debug "Geometry optimisation failed."
         frame["info"]["energy_ASE"] = init_energy
-        frame["arrays"]["inertias"] = init_inertias
     end
     return conv
 end

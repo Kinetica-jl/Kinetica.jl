@@ -78,13 +78,13 @@ function neb(reacsys, prodsys, calc::ASENEBCalculator; calcdir="./", kwargs...)
     images = [
         [frame_to_atoms(
             reacsys, 
-            reacsys["info"]["formal_charges"], 
-            reacsys["info"]["initial_magmoms"]
+            reacsys["arrays"]["formal_charges"], 
+            reacsys["arrays"]["initial_magmoms"]
         ) for _ in 1:half_images]; 
         [frame_to_atoms(
             prodsys, 
-            prodsys["info"]["formal_charges"], 
-            prodsys["info"]["initial_magmoms"]
+            prodsys["arrays"]["formal_charges"], 
+            prodsys["arrays"]["initial_magmoms"]
         ) for _ in half_images+1:calc.n_images]
     ]
 
@@ -169,7 +169,7 @@ function highest_energy_frame(images::Py)
     @debug "TS found at image $(ts_idx)/$(pylen(images))"
     inertias = pyconvert(Vector{Float64}, images[ts_idx-1].get_moments_of_inertia())
     ts = atoms_to_frame(images[ts_idx-1], energies[ts_idx], inertias)
-    ts["info"]["formal_charges"] = pyconvert(Vector{Float64}, images[ts_idx-1].get_initial_charges())
-    ts["info"]["initial_magmoms"] = pyconvert(Vector{Float64}, images[ts_idx-1].get_initial_magnetic_moments())
+    ts["arrays"]["formal_charges"] = pyconvert(Vector{Float64}, images[ts_idx-1].get_initial_charges())
+    ts["arrays"]["initial_magmoms"] = pyconvert(Vector{Float64}, images[ts_idx-1].get_initial_magnetic_moments())
     return ts
 end
