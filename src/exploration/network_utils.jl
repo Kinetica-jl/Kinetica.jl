@@ -87,7 +87,7 @@ function get_species_stats!(sd::SpeciesData{iType}; refresh::Bool=false) where {
             sd.cache[:weights][i] = pyconvert(Float64, sum(atoms.get_masses()))
             na = sd.xyz[i]["N_atoms"]
             if na == 1
-                sd.cache[:radii][i] = pyconvert(Float64, ase.data.vdw_radii[atoms.get_atomic_numbers()[1]])
+                sd.cache[:radii][i] = pyconvert(Float64, ase.data.vdw_radii[atoms.get_atomic_numbers()[0]])
             else
                 sd.cache[:radii][i] = calc_average_molecular_radius(atoms)
             end

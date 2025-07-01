@@ -44,7 +44,7 @@ it is assumed to represent one or more species, on or above a surface.
 function XYZStyle(frame::Dict{String, Any})
     if haskey(frame, "pbc") && any(frame["pbc"])
         return OnSurfaceXYZ()
-    elseif haskey(frame["info"], "adsorbate") && frame["info"]["adsorbate"] == "true"
+    elseif haskey(frame, "info") && haskey(frame["info"], "adsorbate") && frame["info"]["adsorbate"] == "true"
         return AdsorbateXYZ()
     else
         return FreeXYZ()

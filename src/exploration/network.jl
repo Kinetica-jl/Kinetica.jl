@@ -389,13 +389,6 @@ function RxData(sd::SpeciesData{iType},
             if !isnothing(reacs_surfid) && !isnothing(prods_surfid) && reacs_surfid != prods_surfid
                 throw(ErrorException("Error importing reaction - reactant and product surfaces do not match."))
             end
-            surfid = isnothing(reacs_surfid) ? prods_surfid : reacs_surfid
-            if !isnothing(surfid)
-                rsys_is_adsorbed = SpeciesStyle(join(all_reacs, ".")) isa SurfaceSpecies
-                remove_surface_atoms!(rsys[i], sd.surfdata, surfid, rsys_is_adsorbed)
-                psys_is_adsorbed = SpeciesStyle(join(all_prods, ".")) isa SurfaceSpecies
-                remove_surface_atoms!(psys[i], sd.surfdata, surfid, psys_is_adsorbed)
-            end
 
             # Construct atom-mapped reaction SMILES from original geometries.
             mapped_reacs = atom_map_smiles(rsys[i], join(all_reacs, "."))
@@ -508,11 +501,6 @@ function Base.push!(rd::RxData{iType, fType}, sd::SpeciesData,
             prods_surfid = isnothing(prods_surfid_idx) ? nothing : prods_surfids[prods_surfid_idx]
             if !isnothing(reacs_surfid) && !isnothing(prods_surfid) && reacs_surfid != prods_surfid
                 throw(ErrorException("Error importing reaction - reactant and product surfaces do not match."))
-            end
-            surfid = isnothing(reacs_surfid) ? prods_surfid : reacs_surfid
-            if !isnothing(surfid)
-                remove_surface_atoms!(rsys[i], sd.surfdata, surfid)
-                remove_surface_atoms!(psys[i], sd.surfdata, surfid)
             end
 
             # Construct atom-mapped reaction SMILES from original geometries.

@@ -586,6 +586,8 @@ function geomopt!(frame::Dict{String, Any}, calc_builder, surfdata::SurfaceData;
         else
             conv = false
             @debug "Geometry optimisation has moved adsorbate(s) to a different surface site."
+            @debug "Pre-optimisation labels: $(labels_preopt)"
+            @debug "Post-optimisation labels: $(labels_opt)"
         end
     end
 
@@ -687,6 +689,7 @@ least likelihood to cause NEB problems has been found.
 function permute_hydrogens!(frame1::Dict{String, Any}, hidxs::Vector{Vector{Int}}, frame2::Dict{String, Any})
     c1 = Py(frame1["arrays"]["pos"]).to_numpy().T
     c2 = Py(frame2["arrays"]["pos"]).to_numpy().T
+    weights = [sym == "H" ? 0.1 : 1.0 for sym in frame1["arrays"]["species"]]
 
     if length(reduce(vcat, hidxs)) > 1
         best_pos = c1.copy()
@@ -701,7 +704,7 @@ function permute_hydrogens!(frame1::Dict{String, Any}, hidxs::Vector{Vector{Int}
                         swap_pos = best_pos.copy()
                         swap_pos[hidxs_mol[i]-1] = best_pos[hidxs_mol[j]-1]
                         swap_pos[hidxs_mol[j]-1] = best_pos[hidxs_mol[i]-1]
-                        swap_rmsd = pyconvert(Float64, rmsd.kabsch_rmsd(swap_pos, c2))
+                        swap_rmsd = pyconvert(Float64, rmsd.kabsch_weighted_rmsd(swap_pos, c2, weights))
                         if swap_rmsd < best_rmsd
                             @debug "Swapped H$(hidxs_mol[i]) for H$(hidxs_mol[j])"
                             best_pos = swap_pos
