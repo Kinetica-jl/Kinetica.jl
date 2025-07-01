@@ -260,6 +260,9 @@ end
     load_optgeom(savefile::String)
 
 Loads an optimised geometry from a BSON file.
+
+Works around odd BSON behaviour where arrays of strings
+are loaded as `Vector{Any}` instead of `Vector{String}`.
 """
 function load_optgeom(savefile::String)
     savedict = BSON.load(savefile)
@@ -270,14 +273,16 @@ end
 
 
 """
-    save_endpoints(reacsys::Dict{String, Any}, prodsys::Dict{String, Any}, saveto::String)
+    save_endpoints(reacsys::Dict{String, Any}, prodsys::Dict{String, Any}, reacsmi::String, prodsmi::String, saveto::String)
 
 Saves reaction endpoint systems `reacsys` and `prodsys` to a BSON file.
 """
-function save_endpoints(reacsys::Dict{String, Any}, prodsys::Dict{String, Any}, saveto::String)
+function save_endpoints(reacsys::Dict{String, Any}, prodsys::Dict{String, Any}, reacsmi::String, prodsmi::String, saveto::String)
     savedict = Dict(
         :reacsys => reacsys,
-        :prodsys => prodsys
+        :prodsys => prodsys,
+        :reacsmi => reacsmi,
+        :prodsmi => prodsmi
     )
     bson(saveto, savedict)
 end
@@ -290,7 +295,9 @@ Loads reaction endpoint systems from a BSON file.
 """
 function load_endpoints(savefile::String)
     savedict = BSON.load(savefile)
-    return savedict[:reacsys], savedict[:prodsys]
+    savedict[:reacsys]["arrays"]["species"] = String[s for s in savedict[:reacsys]["arrays"]["species"]]
+    savedict[:prodsys]["arrays"]["species"] = String[s for s in savedict[:prodsys]["arrays"]["species"]]
+    return savedict[:reacsys], savedict[:prodsys], savedict[:reacsmi], savedict[:prodsmi]
 end
 
 
@@ -323,7 +330,7 @@ function save_tsdata(ts::Dict{String, Any}, ads_ts::Dict{String, Any}, conv, mul
     savedict = Dict(
         :conv => conv,
         :xyz => ts,
-        :ads_xyz => ads_ts
+        :ads_xyz => ads_ts,
         :mult => mult,
         :charge => chg,
         :sym => sym,

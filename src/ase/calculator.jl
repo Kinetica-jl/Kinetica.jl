@@ -273,7 +273,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
         if isdir(nebdir) 
             @info "Searching for completed calculations in $nebdir"
             if isfile(joinpath(nebdir, "endpts.bson"))
-                reacsys_mapped, prodsys_mapped = load_endpoints(joinpath(nebdir, "endpts.bson"))
+                reacsys_mapped, prodsys_mapped, reacsys_smi, prodsys_smi = load_endpoints(joinpath(nebdir, "endpts.bson"))
                 rmult = get_rxn_mult(reacsys_mapped, prodsys_mapped)
                 endpoints_complete = true
                 @info "Found completed endpoint calculations."
@@ -488,7 +488,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             permute_hydrogens!(prodsys_mapped, get_hydrogen_idxs(prod_map), reacsys_mapped)
 
             # Save final endpoints.
-            save_endpoints(reacsys_mapped, prodsys_mapped, "endpts.bson")
+            save_endpoints(reacsys_mapped, prodsys_mapped, reacsys_smi, prodsys_smi, "endpts.bson")
         end
 
         # Interpolate and run NEB.
