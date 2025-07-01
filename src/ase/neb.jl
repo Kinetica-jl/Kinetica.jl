@@ -103,20 +103,20 @@ function neb(reacsys, prodsys, calc::ASENEBCalculator; calcdir="./", kwargs...)
 
     @debug "Interpolating reaction path with method: $(calc.interpolation)"
     if calc.interpolation in ["linear", "idpp"]
-        neb.interpolate(method=calc.interpolation)
+        neb.interpolate(method=calc.interpolation, apply_constraint=true)
     else
         throw(ErrorException("Unknown interpolation method, must be one of [\"linear\", \"idpp\"]"))
     end
     aseio.write(joinpath(calcdir, "interp.traj"), images)
 
     if calc.neb_optimiser == "fire"
-        opt = aseopt.FIRE(neb)
+        opt = aseopt.FIRE(neb, trajectory=joinpath(calcdir, "neb.traj"))
     elseif calc.neb_optimiser == "lbfgs"    
-        opt = aseopt.LBFGS(neb)
+        opt = aseopt.LBFGS(neb, trajectory=joinpath(calcdir, "neb.traj"))
     elseif calc.neb_optimiser == "mdmin"
-        opt = aseopt.MDMin(neb)
+        opt = aseopt.MDMin(neb, trajectory=joinpath(calcdir, "neb.traj"))
     elseif calc.neb_optimiser == "ode"
-        opt = aseneb.NEBOptimizer(neb, verbose=1)
+        opt = aseneb.NEBOptimizer(neb, trajectory=joinpath(calcdir, "neb.traj"), verbose=1)
     else
         throw(ArgumentError("Unknown optimiser, must be one of [\"ode\", \"fire\", \"lbfgs\", \"mdmin\"]"))
     end
@@ -141,9 +141,15 @@ function neb(reacsys, prodsys, calc::ASENEBCalculator; calcdir="./", kwargs...)
     catch err
         conv = false
     end
+    # Ensure final energies are calculated for saving.
+    for im in images
+        energy = im.get_potential_energy()
+        forces = im.get_forces()
+        im.calc = asecalc.singlepoint.SinglePointCalculator(im, energy=energy, forces=forces)
+    end
     aseio.write(joinpath(calcdir, "neb_final.traj"), images)
 
-    final_fmax = pyconvert(Float64, opt.get_residual())
+    final_fmax = pyconvert(Float64, neb.get_residual())
     if conv
         @info "NEB converged (fmax = $(final_fmax))"
     else

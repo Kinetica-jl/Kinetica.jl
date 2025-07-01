@@ -481,7 +481,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                                           reac_adjust_idxs=reacsys_surfsite_atoms,
                                           prod_adjust_idxs=prodsys_surfsite_atoms)
             else
-            correct_magmoms_for_mult!(reacsys_initial_magmoms, prodsys_initial_magmoms, rmult)
+                correct_magmoms_for_mult!(reacsys_initial_magmoms, prodsys_initial_magmoms, rmult)
             end
 
             if XYZStyle(reacsys) isa OnSurfaceXYZ
@@ -490,10 +490,10 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                          initial_magmoms=reacsys_initial_magmoms, optimiser=calc.geom_optimiser,
                          maxiters=calc.maxiters)
             else
-            geomopt!(reacsys, calc.calc_builder; calcdir=nebdir, mult=rmult, 
-                          chg=reacsys["info"]["chg"], formal_charges=reacsys_formal_charges, 
-                          initial_magmoms=reacsys_initial_magmoms, optimiser=calc.geom_optimiser,
-                          maxiters=calc.maxiters)
+                geomopt!(reacsys, calc.calc_builder; calcdir=nebdir, mult=rmult, 
+                         chg=reacsys["info"]["chg"], formal_charges=reacsys_formal_charges, 
+                         initial_magmoms=reacsys_initial_magmoms, optimiser=calc.geom_optimiser,
+                         maxiters=calc.maxiters)
             end
             @info "Assembled reactant system."
 
@@ -503,10 +503,10 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                          initial_magmoms=prodsys_initial_magmoms, optimiser=calc.geom_optimiser,
                          maxiters=calc.maxiters)
             else
-            geomopt!(prodsys, calc.calc_builder; calcdir=nebdir, mult=rmult, 
-                          chg=prodsys["info"]["chg"], formal_charges=prodsys_formal_charges, 
-                          initial_magmoms=prodsys_initial_magmoms, optimiser=calc.geom_optimiser,
-                          maxiters=calc.maxiters)
+                geomopt!(prodsys, calc.calc_builder; calcdir=nebdir, mult=rmult, 
+                         chg=prodsys["info"]["chg"], formal_charges=prodsys_formal_charges, 
+                         initial_magmoms=prodsys_initial_magmoms, optimiser=calc.geom_optimiser,
+                         maxiters=calc.maxiters)
             end
             @info "Assembled product system."
 
@@ -541,8 +541,8 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
 
             # Kabsch fit product system onto reactant system (gas-phase only).
             if XYZStyle(reacsys_mapped) isa FreeXYZ
-            kabsch_fit!(prodsys_mapped, reacsys_mapped)
-            @info "Completed Kabsch fit of product system onto reactant system."
+                kabsch_fit!(prodsys_mapped, reacsys_mapped)
+                @info "Completed Kabsch fit of product system onto reactant system."
             end
             # Standardise unit cell between reactants and products (surface-phase only).
             if XYZStyle(reacsys_mapped) isa OnSurfaceXYZ
@@ -562,7 +562,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                 ts = highest_energy_frame(images)
                 if XYZStyle(ts) isa OnSurfaceXYZ
                     ts_onsurf = deepcopy(ts)
-                    remove_surface_atoms!(ts, sd.surfdata, get_surfid(reacsys_smi), true)
+                    remove_surface_atoms!(ts, sd.surfdata, reacsys_mapped["info"]["surfid"], true)
                     ts_sym, ts_geom = autode_frame_symmetry(ts; mult=rmult, chg=prodsys_mapped["info"]["chg"])
                 else
                     ts_onsurf = Dict{String, Any}()
@@ -578,7 +578,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             # If the TS is on a surface, calculate and subtract the isolated surface energy.
             if XYZStyle(ts) isa AdsorbateXYZ
                 ts_surface = deepcopy(ts_onsurf)
-                remove_adsorbate_atoms!(ts_surface, sd.surfdata, get_surfid(reacsys_smi))
+                remove_adsorbate_atoms!(ts_surface, sd.surfdata, reacsys_mapped["info"]["surfid"])
                 surf_energy = singlepoint(ts_surface, calc.calc_builder; calcdir=nebdir, mult=rmult, chg=reacsys_mapped["info"]["chg"])
                 ts["info"]["energy_ASE"] -= surf_energy
                 save_tsdata(ts, ts_onsurf, conv, rmult, ts_sym, ts_geom, prodsys_mapped["info"]["chg"], "ts.bson")
