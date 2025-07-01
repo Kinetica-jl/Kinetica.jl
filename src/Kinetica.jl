@@ -52,8 +52,11 @@ const asevib = PythonCall.pynew()
 const asethermo = PythonCall.pynew()
 const asebuild = PythonCall.pynew()
 const aseanalysis = PythonCall.pynew()
+const aseneighborlist = PythonCall.pynew()
 const aseconstraints = PythonCall.pynew()
+const asecalc = PythonCall.pynew()
 const asesf = PythonCall.pynew()
+const SampleBounds = PythonCall.pynew()
 const ade = PythonCall.pynew()
 const rmsd = PythonCall.pynew()
 const rdSmilesParamsWithH = PythonCall.pynew()
@@ -96,8 +99,11 @@ f = PrintMuter""",
     PythonCall.pycopy!(asethermo, pyimport("ase.thermochemistry"))
     PythonCall.pycopy!(asebuild, pyimport("ase.build"))
     PythonCall.pycopy!(aseanalysis, pyimport("ase.geometry.analysis"))
+    PythonCall.pycopy!(aseneighborlist, pyimport("ase.neighborlist"))
     PythonCall.pycopy!(aseconstraints, pyimport("ase.constraints"))
+    PythonCall.pycopy!(asecalc, pyimport("ase.calculators"))
     PythonCall.pycopy!(asesf, pyimport("asesurfacefinder"))
+    PythonCall.pycopy!(SampleBounds, asesf.SampleBounds)
     PythonCall.pycopy!(ade, pyimport("autode"))
     PythonCall.pycopy!(rmsd, pyimport("rmsd"))
 
@@ -138,7 +144,7 @@ f = rdmol_addbonds""",
     # Add Conda-installed binaries to PATH
     ENV["PATH"] *= ":"*join(CondaPkg.bindirs(), ":")
 end
-export pybel, obcr, rdChem
+export pybel, obcr, rdChem, SampleBounds
 
 include("constants.jl")
 using .Constants

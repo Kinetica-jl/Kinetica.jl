@@ -1,14 +1,16 @@
-struct Surface
+mutable struct Surface
     name::String
     atoms::Py
     elements::Set{String}
     sites::Dict{Int, String}
     siteids::Dict{String, Int}
     sitecoords::Dict{String, Int}
+    sitebounds::Dict{String, <:Any}
+    cutoff_mult::Float64
 end
 
 """
-    Surface(name::String, atoms::Py)
+    Surface(name::String, atoms::Py[, cutoff_mult=1.0, sitecoords::Dict{String, Int}=Dict(), sitebounds::Dict{String, <:Any}=Dict()])
 
 Constructs a `Surface` directly from an ASE surface slab.
 
@@ -19,8 +21,15 @@ The surface slab supplied in `atoms` should be created with
 one of the surface builders in `ase.build` (e.g. `fcc111()`),
 such that they are compatible with ASE functions such as 
 `ase.build.add_adsorbate()`. 
+
+If `sitebounds` is passed, it should be a `Dict` for string-form 
+absorption site names bound to instances of `asesurfacefinder.SampleBounds`.
+Details can be found in ASESurfaceFinder's docs. If bounds for any
+site are not provided, they will be set to ASESurfaceFinder's defaults
+when passing this `Surface` to `SurfaceData`.
 """
-function Surface(name::String, atoms::Py)
+function Surface(name::String, atoms::Py; cutoff_mult=1.0, 
+                 sitecoords::Dict{String, Int}=Dict{String, Int}(), sitebounds::Dict{String, <:Any}=Dict{String, Any}())
     # Check Atoms object is usable.
     if !pyconvert(Bool, (pytype(atoms) == ase.Atoms))
         error("Cannot construct Surface '$(name)': provided `atoms` are not of type `ase.Atoms`.")
@@ -30,19 +39,45 @@ function Surface(name::String, atoms::Py)
     end
 
     # Extract site names and bind to integer IDs.
-    site_names = pyconvert(Vector{String}, atoms.info["adsorbate_info"]["sites"].keys())
+    # Canonicalise order of site ids by sorting names alphabetically.
+    site_names = sort(pyconvert(Vector{String}, atoms.info["adsorbate_info"]["sites"].keys()))
     sites = Dict{Int, String}(i => s for (i, s) in enumerate(site_names))
     siteids = Dict{String, Int}(s => i for (i, s) in enumerate(site_names))
-    sitecoords = Dict{String, Int}(s => get_surfsite_coordination(atoms, s) for s in site_names)
+    for site in keys(sitecoords)
+        if !(site in keys(siteids))
+            error("Site '$(site)' provided to sitecoords does not exist on Surface '$(name)'." )
+        end
+    end
+    for site in keys(sitebounds)
+        if !(site in keys(siteids))
+            error("Site '$(site)' provided to sitebounds does not exist on Surface '$(name)'." )
+        end
+        if !pyisinstance(sitebounds[site], asesf.SampleBounds)
+            error("Bounds for site '$(site)' on Surface '$(name)' are not an asesurfacefinder.SampleBounds object.")
+        end
+    end
+    # Mark unassigned coordinations and bounds as invalid placeholders.
+    # These will be overwritten when put through SurfaceData.
+    n_sites = length(sites)
+    sitebounds = Dict{String, Any}(k => v for (k, v) in sitebounds)
+    for i in 1:n_sites
+        site = sites[i]
+        if !(site in keys(sitecoords))
+            sitecoords[site] = -1
+        end
+        if !(site in keys(sitebounds))
+            sitebounds[site] = nothing
+        end
+    end
 
     # Extract elements.
     elements = pyconvert(Set{String}, atoms.symbols.species())
 
-    return Surface(name, atoms, elements, sites, siteids, sitecoords)
+    return Surface(name, atoms, elements, sites, siteids, sitecoords, sitebounds, cutoff_mult)
 end
 
 """
-    Surface(name::String, frame::Dict{String, Any}, sitedict::Dict{String, Any}[, relative_sites=true])
+    Surface(name::String, frame::Dict{String, Any}, sitedict::Dict{String, Any}[, relative_sites=true, minimal_xy_cell=nothing, cutoff_mult=1.0, sitecoords::Dict{String, Int}=Dict(), sitebounds::Dict{String, <:Any}=Dict()])
 
 Constructs a `Surface` compatible with ASE from an ExtXYZ `frame`.
 
@@ -55,15 +90,33 @@ or they can be relative to the surface's unit cell. In the case of
 the former, `relative_sites` should be `false` to automatically
 convert to relative positions, which ASE requires for passing in
 named absorption sites.
+
+If `sitebounds` is passed, it should be a `Dict` of string-form 
+absorption site names bound to instances of `asesurfacefinder.SampleBounds`.
+Details can be found in ASESurfaceFinder's docs. If bounds for any
+site are not provided, they will be set to ASESurfaceFinder's defaults
+when passing this `Surface` to `SurfaceData`.
+
+If `sitecoords` is passed, it should be a `Dict` of string-form
+absorption site names bound to integer site coordinations. If
+coordinations for any sites are not provided, they will similarly
+be populated when the `Surface` is passed to `SurfaceData`.
+
+The frame should be a minimal cell in xy, i.e it can have vertical
+thickness, but should not have any periodicity in the xy plane. If
+this is not the case, the minimal xy unit cell should be specified
+in `minimal_xy_cell`, otherwise adsorbates will be placed incorrectly.
 """
-function Surface(name::String, frame::Dict{String, Any}, sitedict::Dict{String, Any}; relative_sites=true)
+function Surface(name::String, frame::Dict{String, Any}, sitedict::Dict; 
+                 relative_sites=true, minimal_xy_cell=nothing, cutoff_mult=1.0, 
+                 sitecoords::Dict{String, Int}=Dict(), sitebounds::Dict{String, <:Any}=Dict())
     atoms = frame_to_atoms(frame)
     elements = pyconvert(Set{String}, atoms.symbols.species())
 
     # Sanitise absorption site positions.
     for (site, sitepos) in sitedict
         if !(typeof(sitepos) <: Vector && eltype(sitepos) <: AbstractFloat && length(sitepos) == 2)
-            error("Incorrectly defined absorption site in Surface '$(name)'.")
+            error("Incorrectly defined absorption site '$(site)' in Surface '$(name)'.")
         end
     end
 
@@ -77,44 +130,65 @@ function Surface(name::String, frame::Dict{String, Any}, sitedict::Dict{String, 
     end
 
     atoms.info["adsorbate_info"] = pydict(; sites=pydict())
+    if isnothing(minimal_xy_cell)
+        # Use the full cell from the frame.
+        atoms.info["adsorbate_info"]["cell"] = Py(frame["cell"][1:2, 1:2]).to_numpy()
+    else
+        # Use a minimal xy cell.
+        atoms.info["adsorbate_info"]["cell"] = Py(minimal_xy_cell).to_numpy()
+    end
     for site in keys(sitedict)
         atoms.info["adsorbate_info"]["sites"][site] = sitedict[site]
     end
-    site_names = pyconvert(Vector{String}, atoms.info["adsorbate_info"]["sites"].keys())
+    site_names = sort(pyconvert(Vector{String}, atoms.info["adsorbate_info"]["sites"].keys()))
     kinetica_sites = Dict{Int, String}(i => s for (i, s) in enumerate(site_names))
     kinetica_siteids = Dict{String, Int}(s => i for (i, s) in enumerate(site_names))
-    sitecoords = Dict{String, Int}(s => get_surfsite_coordination(atoms, s) for s in site_names)
+    for site in keys(sitecoords)
+        if !(site in keys(kinetica_siteids))
+            error("Site '$(site)' provided to sitecoords does not exist on Surface '$(name)'." )
+        end
+    end
+    for site in keys(sitebounds)
+        if !(site in keys(kinetica_siteids))
+            error("Site '$(site)' provided to sitebounds does not exist on Surface '$(name)'." )
+        end
+        if !pyisinstance(sitebounds[site], asesf.SampleBounds)
+            error("Bounds for site '$(site)' on Surface '$(name)' are not an asesurfacefinder.SampleBounds object.")
+        end
+    end
+    # Mark unassigned coordinaitons and bounds as invalid placeholders.
+    # These will be overwritten when put through SurfaceData.
+    n_sites = length(sitedict)
+    sitebounds = Dict{String, Any}(k => v for (k, v) in sitebounds)
+    for i in 1:n_sites
+        site = kinetica_sites[i]
+        if !(site in keys(sitecoords))
+            sitecoords[site] = -1
+        end
+        if !(site in keys(sitebounds))
+            sitebounds[site] = nothing
+        end
+    end
 
-    return Surface(name, atoms, elements, kinetica_sites, kinetica_siteids, sitecoords)
+    return Surface(name, atoms, elements, kinetica_sites, kinetica_siteids, sitecoords, sitebounds, cutoff_mult)
+end
+
+
+mutable struct SurfaceData
+    surfaces::Vector{Surface}
+    nameToSurf::Dict{String, Surface}
+    nameToInt::Dict{String, Int}
+    n::Int
+
+    finder::Py
+    sf_samples::Int
+    sf_reject_coord::Bool
+    sf_reject_bonded_h::Bool
+    sf_kwargs
 end
 
 """
-    get_surfsite_coordination(atoms::Py, sitename[, height=1.5])
-
-Determines expected coordination of adsorbate atoms on a given surface site.
-
-Adsorbs a hydrogen atom on the surface site of `atoms` with xy position
-specified by `sitename` and height by `height`. Reads the resulting
-geometry's adjacency matrix to determine coordination at this site.
-"""
-function get_surfsite_coordination(atoms::Py, sitename, height=1.5)
-    # Ensure slab is big enough to account for full coordination
-    # of sites without periodicity.
-    slab = pycopy.deepcopy(atoms)
-    slab.center(vacuum=10.0, axis=2)
-    slab = slab.repeat((4,4,1))
-    asebuild.add_adsorbate(slab, "H", height, sitename)
-    
-    ana = aseanalysis.Analysis(slab)
-    adj = ana.adjacency_matrix[0]
-    na = pylen(slab)
-    coord = sum(pyconvert(Vector{Int}, [adj[i, na-1] for i in 0:na-2]))
-    return coord
-end
-
-
-"""
-    SurfaceData(surfaces::Vector{Surface}[, sf_samples=5000, sf_z_bounds=(1.0, 2.75), sf_xy_noise=0.1])
+    SurfaceData(surfaces::Vector{Surface}[, sf_samples=5000, reject_wrong_coordination=false, reject_bonded_hydrogens=true, kwargs...])
 
 Constructs a container for `Surface`s and a linked ASESurfaceFinder instance.
 
@@ -125,36 +199,56 @@ a surface's integer ID with `nameToInt`.
 In addition to constructing an instance of ASESurfaceFinder's
 `SurfaceFinder`, constructing `SurfaceData` this way also trains
 this instance to predict labels for adsorbates on high-symmetry
-sites.
+sites. This is currently limited to serial descriptor generation
+and training only until parallelisation is stabilised. `sf_samples`
+is passed through when training to specify the number of samples
+that should be taken per site on each surface.
 
-Training can be controlled with the keyword arguments. This
-is currently limited to serial descriptor generation and 
-training only until parallelisation is stabilised.
+Any remaining keyword arguments are passed through to the
+`SurfaceFinder` class at construction, allowing for finer control
+over additional properties.
+
+Any surface site sampling bounds or coordinations that were not
+provided at `Surface` construction will be backfilled from 
+the created `SurfaceFinder` instance's defaults.
 """
-mutable struct SurfaceData
-    surfaces::Vector{Surface}
-    nameToSurf::Dict{String, Surface}
-    nameToInt::Dict{String, Int}
-    n::Int
-
-    finder::Py
-    sf_samples::Int
-    sf_z_bounds::Tuple{AbstractFloat, AbstractFloat}
-    sf_xy_noise::AbstractFloat
-end
-
-function SurfaceData(surfaces::Vector{Surface}; sf_samples=5000, sf_z_bounds=(1.0, 2.75), sf_xy_noise=0.1)
+function SurfaceData(surfaces::Vector{Surface}; sf_samples=5000, reject_wrong_coordination=false, reject_bonded_hydrogens=true, kwargs...)
     nameToSurf = Dict(surf.name => surf for surf in surfaces)
     nameToInt = Dict(surf.name => i for (i, surf) in enumerate(surfaces))
     n = length(surfaces)
 
     labels = [surf.name for surf in surfaces]
     surf_atoms = [surf.atoms for surf in surfaces]
-    finder = asesf.SurfaceFinder(surf_atoms, labels=labels, verbose=false)
+    site_coordinations = [Dict(site => c for (site, c) in surf.sitecoords if c != -1) for surf in surfaces]
+    sample_bounds = [Dict(site => b for (site, b) in surf.sitebounds if !isnothing(b)) for surf in surfaces]
+    full_kwargs = merge(
+        Dict(
+            :labels => labels, 
+            :sample_bounds => sample_bounds, 
+            :site_coordinations => site_coordinations,
+            :verbose => false
+        ),
+        Dict(a => b for (a, b) in kwargs)
+    )
+    finder = asesf.SurfaceFinder(surf_atoms; full_kwargs...)
+
+    # Read completed coordinations and sample bounds from SurfaceFinder.
+    for i in 1:n
+        n_sites = length(surfaces[i].sites)
+        for j in 1:n_sites
+            site = surfaces[i].sites[j]
+            if surfaces[i].sitecoords[site] == -1
+                surfaces[i].sitecoords[site] = pyconvert(Int, finder.site_coordinations[i-1][site])
+            end
+            if isnothing(surfaces[i].sitebounds[site])
+                surfaces[i].sitebounds[site] = finder.sample_bounds[i-1][site]
+            end
+        end
+    end
+
+    # Train ASESurfaceFinder model.
     finder.train(
         samples_per_site=sf_samples,
-        ads_z_bounds=sf_z_bounds,
-        ads_xy_noise=sf_xy_noise,
         n_jobs=1
     )
 
@@ -165,8 +259,9 @@ function SurfaceData(surfaces::Vector{Surface}; sf_samples=5000, sf_z_bounds=(1.
         n,
         finder,
         sf_samples,
-        sf_z_bounds,
-        sf_xy_noise
+        reject_wrong_coordination,
+        reject_bonded_hydrogens,
+        kwargs
     )
 end
 
@@ -188,11 +283,33 @@ function add_surface!(surfdata::SurfaceData, surface::Surface)
 
     labels = [surf.name for surf in surfdata.surfaces]
     surf_atoms = [surf.atoms for surf in surfdata.surfaces]
-    finder = asesf.SurfaceFinder(surf_atoms, labels=labels, verbose=false)
+    site_coordinations = [Dict(site => c for (site, c) in surf.sitecoords if c != -1) for surf in surfaces]
+    sample_bounds = [Dict(site => b for (site, b) in surf.sitebounds if !isnothing(b)) for surf in surfaces]
+    full_kwargs = merge(
+        Dict(
+            :labels => labels, 
+            :sample_bounds => sample_bounds, 
+            :site_coordinations => site_coordinations,
+            :verbose => false
+        ),
+        Dict(a => b for (a, b) in surfdata.kwargs)
+    )
+    finder = asesf.SurfaceFinder(surf_atoms; full_kwargs...)
+
+    n_sites = length(surface.sites)
+    surfidx = surfdata.n
+    for i in 1:n_sites
+        site = surface.sites[i]
+        if surface.sitecoords[site] == -1
+            surfaces[surfidx].sitecoords[site] = finder.site_coordinations[surfidx-1][site]
+        end
+        if isnothing(surface.sitebounds[site])
+            surfaces[surfidx].sitebounds[site] = finder.sample_bounds[surfidx-1][site]
+        end
+    end
+
     finder.train(
         samples_per_site=surfdata.sf_samples,
-        ads_z_bounds=surfdata.sf_z_bounds,
-        ads_xy_noise=surfdata.sf_xy_noise,
         n_jobs=1
     )
     surfdata.finder = finder

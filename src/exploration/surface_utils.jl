@@ -460,5 +460,57 @@ function scale_surface_to_match!(mod_frame::Dict{String, Any}, ref_frame::Dict{S
     mod_frame["cell"] = mod_newframe["cell"]
     mod_frame["info"] = mod_newframe["info"]
     mod_frame["info"]["unit_cell_mult"] = ref_uc_mult
+"""
+    predict_surface_sites(surfdata::SurfaceData, atoms::Py)
+
+Predicts surface sites for the given atoms using ASESurfaceFinder.
+
+Does two passes through ASESurfaceFinder. First pass identifies
+the `Surface` in `surfdata` that is present in `atoms`, and the
+second pass uses this `Surface`'s cutoff multiplier to re-predict
+the surface sites with the correct neighbor list cutoffs.
+"""
+function predict_surface_sites(surfdata::SurfaceData, atoms::Py)
+    surf, mol, labels = surfdata.finder.predict(atoms, reject_wrong_coordination=surfdata.sf_reject_coord, 
+                                                reject_bonded_hydrogens=surfdata.sf_reject_bonded_h)
+    if pylen(mol) == 0
+        throw(ErrorException("No molecules found on/above surface."))
+    end
+
+    # Do an emergency check to ensure that adsorbed atoms are within greatest cutoff
+    if sum([pylen(label) for label in labels]) == 0
+        cutoff_mult = maximum([surf.cutoff_mult for surf in surfdata.surfaces])
+        surf, mol, labels = surfdata.finder.predict(atoms, nl_cutoffs=aseneighborlist.natural_cutoffs(atoms, mult=cutoff_mult),
+                                                    reject_wrong_coordination=surfdata.sf_reject_coord, 
+                                                    reject_bonded_hydrogens=surfdata.sf_reject_bonded_h)
+    end
+
+    surfname = nothing
+    for label in labels
+        for adsatom in label.keys()
+            sitelabel = pyconvert(String, label[adsatom]["site"])
+            this_surflabel = join(split(sitelabel, '_')[1:end-1], '_')
+            if isnothing(surfname) 
+                surfname = this_surflabel
+            elseif surfname != this_surflabel
+                throw(ErrorException("Multiple surfaces detected for a single geometry, check your ASESurfaceFinder configuration."))
+            end
+        end
+    end
+
+    if isnothing(surfname)
+        @debug "No surface-bound atoms found during ASESurfaceFinder prediction."
+        return surf, mol, labels
+    elseif !haskey(surfdata.nameToSurf, surfname)
+        throw(ErrorException("Surface '$surfname' not found in SurfaceData."))
+    end
+
+    cutoff_mult = surfdata.nameToSurf[surfname].cutoff_mult
+    surf, mol, labels = surfdata.finder.predict(atoms, nl_cutoffs=aseneighborlist.natural_cutoffs(atoms, mult=cutoff_mult),
+                                                reject_wrong_coordination=surfdata.sf_reject_coord, 
+                                                reject_bonded_hydrogens=surfdata.sf_reject_bonded_h)
+    return surf, mol, labels
+end
+
     return    
 end

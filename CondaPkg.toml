@@ -16,4 +16,4 @@ python = ">=3.7,<3.11"
 
 [pip.deps]
 extxyz = "~=0.1.3"
-asesurfacefinder = ">=1.0.5"
+asesurfacefinder = ">=1.1.0"
