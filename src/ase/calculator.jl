@@ -543,6 +543,12 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             if XYZStyle(reacsys_mapped) isa FreeXYZ
             kabsch_fit!(prodsys_mapped, reacsys_mapped)
             @info "Completed Kabsch fit of product system onto reactant system."
+            end
+            # Standardise unit cell between reactants and products (surface-phase only).
+            if XYZStyle(reacsys_mapped) isa OnSurfaceXYZ
+                standardise_unit_cell!(reacsys_mapped, prodsys_mapped)
+                @info "Standardised unit cell between reactant and product systems."
+            end
             permute_hydrogens!(prodsys_mapped, get_hydrogen_idxs(prod_map), reacsys_mapped)
 
             # Save final endpoints.

@@ -634,5 +634,35 @@ function predict_surface_sites(surfdata::SurfaceData, atoms::Py)
     return surf, mol, labels
 end
 
+
+"""
+    standardise_unit_cell!(frame1::Dict{String, Any}, frame2::Dict{String, Any})
+
+Repositions atoms along the z-axis of the smallest height frame and expands its vertical cell vector.
+"""
+function standardise_unit_cell!(frame1::Dict{String, Any}, frame2::Dict{String, Any})
+    cell1 = pyconvert(Matrix, frame1["cell"])
+    cell2 = pyconvert(Matrix, frame2["cell"])
+    if !(cell1[1:2, 1:2] == cell2[1:2, 1:2])
+        throw(ErrorException("Unit cells of frames do not match in xy dimensions."))
+    end
+
+    # Shift height of atoms in the lower frame to match the higher one.
+    min_z1 = minimum(frame1["arrays"]["pos"][3, :])
+    min_z2 = minimum(frame2["arrays"]["pos"][3, :])
+    if min_z1 < min_z2
+        frame1["arrays"]["pos"][3, :] .+= (min_z2 - min_z1)
+    elseif min_z2 < min_z1
+        frame2["arrays"]["pos"][3, :] .+= (min_z1 - min_z2)
+    end
+
+    # Expand the vertical cell vector of the lower frame to match the higher one.
+    if !iszero(cell1[3, 1:2]) || !iszero(cell2[3, 1:2])
+        throw(ErrorException("Standardisation of unit cells with non-zero zx and zy components is not supported yet."))
+    end
+    max_cell_z = maximum([cell1[3, 3], cell2[3, 3]])
+    frame1["cell"][3, 3] = max_cell_z
+    frame2["cell"][3, 3] = max_cell_z
+
     return    
 end
