@@ -367,6 +367,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                 if any(SpeciesStyle(sd.toStr[sid]) isa SurfaceSpecies for sid in reac_sids)
                     reacsys = adsorb_two_frames(sd, reac_sids[1], reac_sids[2])
                     reacsys["info"]["surfid"] = get_surfid(sd.toStr[reac_sids[1]])
+                    reacsys["info"]["chg"] = sd.cache[:charge][reac_sids[1]] + sd.cache[:charge][reac_sids[2]]
                 else
                     reacsys = autode_NCI_conformer_search(sd, reac_sids; name="reacsys")
                 end
@@ -378,6 +379,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                 sid = rd.id_reacs[i][1]
                 if SpeciesStyle(sd.toStr[sid]) isa SurfaceSpecies
                     reacsys = deepcopy(sd.cache[:ads_xyz][sid])
+                    reacsys["info"]["surfid"] = get_surfid(sd.toStr[sid])
                 else
                     reacsys = deepcopy(sd.xyz[sid])
                 end
@@ -395,14 +397,13 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             else
                 reacsys_amsmi = atom_map_smiles(reacsys, reacsys_smi)
             end
-            reacsys_formal_charges = get_formal_charges(reacsys_amsmi)
-            reacsys_initial_magmoms = get_initial_magmoms(reacsys_amsmi)
 
             # Same as above for products.
             if n_prods == 2
                 if any(SpeciesStyle(sd.toStr[sid]) isa SurfaceSpecies for sid in prod_sids)
                     prodsys = adsorb_two_frames(sd, prod_sids[1], prod_sids[2])
                     prodsys["info"]["surfid"] = get_surfid(sd.toStr[prod_sids[1]])
+                    prodsys["info"]["chg"] = sd.cache[:charge][prod_sids[1]] + sd.cache[:charge][prod_sids[2]]
                 else
                     prodsys = autode_NCI_conformer_search(sd, prod_sids; name="prodsys")
                 end
@@ -416,6 +417,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                 sid = rd.id_prods[i][1]
                 if SpeciesStyle(sd.toStr[sid]) isa SurfaceSpecies
                     prodsys = deepcopy(sd.cache[:ads_xyz][sid])
+                    prodsys["info"]["surfid"] = get_surfid(sd.toStr[sid])
                 else
                     prodsys = deepcopy(sd.xyz[sid])
                 end
@@ -436,14 +438,14 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             else
                 prodsys_amsmi = atom_map_smiles(prodsys, prodsys_smi)
             end
-            prodsys_formal_charges = get_formal_charges(prodsys_amsmi)
-            prodsys_initial_magmoms = get_initial_magmoms(prodsys_amsmi)
 
             # Check that any surfaces are consistent across reactants and products.
             if XYZStyle(reacsys) isa OnSurfaceXYZ && !(XYZStyle(prodsys) isa OnSurfaceXYZ)
                 add_surface_beneath!(prodsys, sd.surfdata.surfaces[reacsys["info"]["surfid"]], reacsys["info"]["unit_cell_mult"])
+                prodsys["info"]["surfid"] = reacsys["info"]["surfid"]
             elseif XYZStyle(prodsys) isa OnSurfaceXYZ && !(XYZStyle(reacsys) isa OnSurfaceXYZ)
                 add_surface_beneath!(reacsys, sd.surfdata.surfaces[prodsys["info"]["surfid"]], prodsys["info"]["unit_cell_mult"])
+                reacsys["info"]["surfid"] = prodsys["info"]["surfid"]
             elseif XYZStyle(reacsys) isa OnSurfaceXYZ && XYZStyle(prodsys) isa OnSurfaceXYZ
                 if reacsys["info"]["surfid"] != prodsys["info"]["surfid"]
                     throw(ErrorException("Reactant and product systems in reaction $i are not bound to the same surface."))
@@ -455,18 +457,57 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                 end
             end
 
+            reacsys_formal_charges = get_formal_charges(reacsys_amsmi)
+            reacsys_initial_magmoms = get_initial_magmoms(reacsys_amsmi)
+            prodsys_formal_charges = get_formal_charges(prodsys_amsmi)
+            prodsys_initial_magmoms = get_initial_magmoms(prodsys_amsmi)
+            if XYZStyle(reacsys) isa OnSurfaceXYZ
+                # Add zeroed charges and magmoms for surface atoms.
+                n_surf_atoms = reacsys["N_atoms"] - length(reacsys_formal_charges)
+                reacsys_formal_charges = vcat(zeros(Int, n_surf_atoms), reacsys_formal_charges)
+                reacsys_initial_magmoms = vcat(zeros(Float64, n_surf_atoms), reacsys_initial_magmoms)
+                prodsys_formal_charges = vcat(zeros(Int, n_surf_atoms), prodsys_formal_charges)
+                prodsys_initial_magmoms = vcat(zeros(Float64, n_surf_atoms), prodsys_initial_magmoms)
+                # Correct magmoms, allowing bonded surface atoms to take any
+                # value if necessary.
+                reacsys_surfsite_atoms = get_all_surfsite_atoms(reacsys, sd.surfdata)
+                prodsys_surfsite_atoms = get_all_surfsite_atoms(prodsys, sd.surfdata)
+                if length(reacsys_surfsite_atoms) == 0
+                    reacsys_surfsite_atoms = prodsys_surfsite_atoms
+                elseif length(prodsys_surfsite_atoms) == 0
+                    prodsys_surfsite_atoms = reacsys_surfsite_atoms
+                end
+                correct_magmoms_for_mult!(reacsys_initial_magmoms, prodsys_initial_magmoms, rmult; 
+                                          reac_adjust_idxs=reacsys_surfsite_atoms,
+                                          prod_adjust_idxs=prodsys_surfsite_atoms)
+            else
             correct_magmoms_for_mult!(reacsys_initial_magmoms, prodsys_initial_magmoms, rmult)
+            end
 
+            if XYZStyle(reacsys) isa OnSurfaceXYZ
+                geomopt!(reacsys, calc.calc_builder, sd.surfdata; calcdir=nebdir, mult=rmult, 
+                         chg=reacsys["info"]["chg"], formal_charges=reacsys_formal_charges, 
+                         initial_magmoms=reacsys_initial_magmoms, optimiser=calc.geom_optimiser,
+                         maxiters=calc.maxiters)
+            else
             geomopt!(reacsys, calc.calc_builder; calcdir=nebdir, mult=rmult, 
                           chg=reacsys["info"]["chg"], formal_charges=reacsys_formal_charges, 
                           initial_magmoms=reacsys_initial_magmoms, optimiser=calc.geom_optimiser,
                           maxiters=calc.maxiters)
+            end
             @info "Assembled reactant system."
 
+            if XYZStyle(prodsys) isa OnSurfaceXYZ
+                geomopt!(prodsys, calc.calc_builder, sd.surfdata; calcdir=nebdir, mult=rmult, 
+                         chg=prodsys["info"]["chg"], formal_charges=prodsys_formal_charges, 
+                         initial_magmoms=prodsys_initial_magmoms, optimiser=calc.geom_optimiser,
+                         maxiters=calc.maxiters)
+            else
             geomopt!(prodsys, calc.calc_builder; calcdir=nebdir, mult=rmult, 
                           chg=prodsys["info"]["chg"], formal_charges=prodsys_formal_charges, 
                           initial_magmoms=prodsys_initial_magmoms, optimiser=calc.geom_optimiser,
                           maxiters=calc.maxiters)
+            end
             @info "Assembled product system."
 
             # Atom map endpoints.
@@ -474,15 +515,32 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             reac_map, prod_map = split(rd.mapped_rxns[i], ">>")
             reac_map, prod_map = string(reac_map), string(prod_map)
             reacsys_mapped = atom_map_frame(reac_map, reacsys)
-            reacsys_mapped["info"]["formal_charges"] = get_formal_charges(reac_map)
-            reacsys_mapped["info"]["initial_magmoms"] = get_initial_magmoms(reac_map)
             prodsys_mapped = atom_map_frame(prod_map, prodsys)
-            prodsys_mapped["info"]["formal_charges"] = get_formal_charges(prod_map)
-            prodsys_mapped["info"]["initial_magmoms"] = get_initial_magmoms(prod_map)
-            correct_magmoms_for_mult!(reacsys_mapped["info"]["initial_magmoms"], prodsys_mapped["info"]["initial_magmoms"], rmult)
+            if XYZStyle(reacsys_mapped) isa OnSurfaceXYZ
+                reacsys_mapped["arrays"]["formal_charges"] = vcat(get_formal_charges(reac_map), zeros(Int, n_surf_atoms))
+                reacsys_mapped["arrays"]["initial_magmoms"] = vcat(get_initial_magmoms(reac_map), zeros(Float64, n_surf_atoms))
+                reacsys_surfsite_atoms = get_all_surfsite_atoms(reacsys, sd.surfdata)
+                prodsys_mapped["arrays"]["formal_charges"] = vcat(get_formal_charges(prod_map), zeros(Int, n_surf_atoms))
+                prodsys_mapped["arrays"]["initial_magmoms"] = vcat(get_initial_magmoms(prod_map), zeros(Float64, n_surf_atoms))
+                prodsys_surfsite_atoms = get_all_surfsite_atoms(prodsys, sd.surfdata)
+                if length(reacsys_surfsite_atoms) == 0
+                    reacsys_surfsite_atoms = prodsys_surfsite_atoms
+                elseif length(prodsys_surfsite_atoms) == 0
+                    prodsys_surfsite_atoms = reacsys_surfsite_atoms
+                end
+                correct_magmoms_for_mult!(reacsys_mapped["arrays"]["initial_magmoms"], prodsys_mapped["arrays"]["initial_magmoms"], rmult; 
+                                          reac_adjust_idxs=reacsys_surfsite_atoms, prod_adjust_idxs=prodsys_surfsite_atoms)
+            else
+                reacsys_mapped["arrays"]["formal_charges"] = get_formal_charges(reac_map)
+                reacsys_mapped["arrays"]["initial_magmoms"] = get_initial_magmoms(reac_map)
+                prodsys_mapped["arrays"]["formal_charges"] = get_formal_charges(prod_map)
+                prodsys_mapped["arrays"]["initial_magmoms"] = get_initial_magmoms(prod_map)
+                correct_magmoms_for_mult!(reacsys_mapped["arrays"]["initial_magmoms"], prodsys_mapped["arrays"]["initial_magmoms"], rmult)
+            end
             @info "Remapped atom indices."
 
-            # Kabsch fit product system onto reactant system.
+            # Kabsch fit product system onto reactant system (gas-phase only).
+            if XYZStyle(reacsys_mapped) isa FreeXYZ
             kabsch_fit!(prodsys_mapped, reacsys_mapped)
             @info "Completed Kabsch fit of product system onto reactant system."
             permute_hydrogens!(prodsys_mapped, get_hydrogen_idxs(prod_map), reacsys_mapped)

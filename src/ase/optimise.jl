@@ -129,7 +129,7 @@ function get_initial_magmoms(::SurfaceSpecies, amsmi::String)
     amsmi_replaced = replace(amsmi, r"X\d_\d" => "Fm")
     mol = pybel.readstring("smi", amsmi_replaced)
     n_sites = count(x->x=="Fm", [pyconvert(String, atom.type) for atom in mol.atoms])
-    magmoms = [0 for _ in 1:pylen(mol.atoms)-n_sites]
+    magmoms = [0.0 for _ in 1:pylen(mol.atoms)-n_sites]
     return magmoms
 end
 
@@ -147,7 +147,7 @@ get_initial_magmoms!(sd::SpeciesData, sid) = sd.cache[:initial_magmoms][sid] = g
 
 
 """
-    correct_magmoms_for_mult(reac_magmoms::Vector{Float64}, prod_magmoms::Vector{Float64}, mult::Int)
+    correct_magmoms_for_mult(reac_magmoms::Vector{Float64}, prod_magmoms::Vector{Float64}, mult::Int[, reac_adjust_idxs=nothing, prod_adjust_idxs=nothing])
 
 Identifies a set of initial magnetic moments that are consistent with spin multiplicity `mult` across a whole reaction.
 
@@ -164,8 +164,13 @@ two monoradicals to be a spin up-spin down pair with total mult
 of 1 to match with a singlet-state reactant. If this cannot be
 achieved, resorts to flipping half of an electron pair, e.g. by
 converting singlet carbene to triplet carbene.
+
+If `reac_adjust_idxs` or `prod_adjust_idxs` are provided, these
+atoms can be set to any magmom value to balance the remaining
+mult as a fallback. This can be used with surfaces to set the
+magmom of a surface site atom.
 """
-function correct_magmoms_for_mult!(reac_magmoms::Vector{Float64}, prod_magmoms::Vector{Float64}, mult::Int)
+function correct_magmoms_for_mult!(reac_magmoms::Vector{Float64}, prod_magmoms::Vector{Float64}, mult::Int; reac_adjust_idxs=nothing, prod_adjust_idxs=nothing)
     mdiff(i_magmoms) = (sum(i_magmoms) + 1) - mult
 
     i_reac_magmoms = [Int(i) for i in reac_magmoms]
@@ -184,9 +189,11 @@ function correct_magmoms_for_mult!(reac_magmoms::Vector{Float64}, prod_magmoms::
     lone_flippable_prod_idxs = [i for i in reactive_idxs if i_prod_magmoms[i] == 1]
     double_flippable_reac_idxs = [i for i in reactive_idxs if i_reac_magmoms[i] == 2]
     double_flippable_prod_idxs = [i for i in reactive_idxs if i_prod_magmoms[i] == 2]
-    if rdiff != 0 && length(lone_flippable_reac_idxs)+length(double_flippable_reac_idxs) == 0
+    any_reac_idxs = isnothing(reac_adjust_idxs) ? [] : reac_adjust_idxs
+    any_prod_idxs = isnothing(prod_adjust_idxs) ? [] : prod_adjust_idxs
+    if rdiff != 0 && length(lone_flippable_reac_idxs)+length(double_flippable_reac_idxs) + length(any_reac_idxs) == 0
         error("Reactant magmoms cannot be corrected to match reaction multiplicity (no lone radical electrons).")
-    elseif pdiff != 0 && length(lone_flippable_prod_idxs)+length(double_flippable_prod_idxs) == 0
+    elseif pdiff != 0 && length(lone_flippable_prod_idxs)+length(double_flippable_prod_idxs) + length(any_prod_idxs) == 0
         error("Product magmoms cannot be corrected to match reaction multiplicity (no lone radical electrons).")
     end
 
@@ -196,16 +203,19 @@ function correct_magmoms_for_mult!(reac_magmoms::Vector{Float64}, prod_magmoms::
             flip_idx = pop!(lone_flippable_reac_idxs)
             @debug "Flipping initial magmom of lone electron in atom $(flip_idx) of reactant."
             i_reac_magmoms[flip_idx] *= -1
-            rdiff = mdiff(i_reac_magmoms)
         # Do double flips if diff cannot be resolved with lone flips.
         elseif length(double_flippable_reac_idxs) != 0
             flip_idx = pop!(double_flippable_reac_idxs)
             @debug "Flipping initial magmom of electron pair in atom $(flip_idx) of reactant."
             i_reac_magmoms[flip_idx] = i_reac_magmoms[flip_idx]==0 ? 2 : 0
-            rdiff = mdiff(i_reac_magmoms)
+        elseif length(any_reac_idxs) != 0
+            adjust_idx = pop!(any_reac_idxs)
+            @debug "Adjusting initial magmom of atom $(adjust_idx) of reactant to match reaction multiplicity."
+            i_reac_magmoms[adjust_idx] = -rdiff
         else
             error("Reactant magmoms cannot be corrected to match reaction multiplicity.")
         end
+        rdiff = mdiff(i_reac_magmoms)
     end
 
     while pdiff != 0
@@ -214,16 +224,19 @@ function correct_magmoms_for_mult!(reac_magmoms::Vector{Float64}, prod_magmoms::
             flip_idx = pop!(lone_flippable_prod_idxs)
             @debug "Flipping initial magmom of lone electron in atom $(flip_idx) of product."
             i_prod_magmoms[flip_idx] *= -1
-            pdiff = mdiff(i_prod_magmoms)
         # Do double flips if diff cannot be resolved with lone flips.
         elseif length(double_flippable_prod_idxs) != 0
             flip_idx = pop!(double_flippable_prod_idxs)
             @debug "Flipping initial magmom of electron pair in atom $(flip_idx) of product."
             i_prod_magmoms[flip_idx] = i_prod_magmoms[flip_idx]==0 ? 2 : 0
-            pdiff = mdiff(i_prod_magmoms)
+        elseif length(any_prod_idxs) != 0
+            adjust_idx = pop!(any_prod_idxs)
+            @debug "Adjusting initial magmom of atom $(adjust_idx) of product to match reaction multiplicity."
+            i_prod_magmoms[adjust_idx] = -pdiff
         else
             error("Product magmoms cannot be corrected to match reaction multiplicity.")
         end
+        pdiff = mdiff(i_prod_magmoms)
     end
 
     for i in axes(reac_magmoms, 1)
