@@ -78,13 +78,13 @@ function neb(reacsys, prodsys, calc::ASENEBCalculator; calcdir="./", kwargs...)
     images = [
         [frame_to_atoms(
             reacsys, 
-            reacsys["info"]["formal_charges"], 
-            reacsys["info"]["initial_magmoms"]
+            reacsys["arrays"]["formal_charges"], 
+            reacsys["arrays"]["initial_magmoms"]
         ) for _ in 1:half_images]; 
         [frame_to_atoms(
             prodsys, 
-            prodsys["info"]["formal_charges"], 
-            prodsys["info"]["initial_magmoms"]
+            prodsys["arrays"]["formal_charges"], 
+            prodsys["arrays"]["initial_magmoms"]
         ) for _ in half_images+1:calc.n_images]
     ]
 
@@ -103,20 +103,20 @@ function neb(reacsys, prodsys, calc::ASENEBCalculator; calcdir="./", kwargs...)
 
     @debug "Interpolating reaction path with method: $(calc.interpolation)"
     if calc.interpolation in ["linear", "idpp"]
-        neb.interpolate(method=calc.interpolation)
+        neb.interpolate(method=calc.interpolation, apply_constraint=true)
     else
         throw(ErrorException("Unknown interpolation method, must be one of [\"linear\", \"idpp\"]"))
     end
     aseio.write(joinpath(calcdir, "interp.traj"), images)
 
     if calc.neb_optimiser == "fire"
-        opt = aseopt.FIRE(neb)
+        opt = aseopt.FIRE(neb, trajectory=joinpath(calcdir, "neb.traj"))
     elseif calc.neb_optimiser == "lbfgs"    
-        opt = aseopt.LBFGS(neb)
+        opt = aseopt.LBFGS(neb, trajectory=joinpath(calcdir, "neb.traj"))
     elseif calc.neb_optimiser == "mdmin"
-        opt = aseopt.MDMin(neb)
+        opt = aseopt.MDMin(neb, trajectory=joinpath(calcdir, "neb.traj"))
     elseif calc.neb_optimiser == "ode"
-        opt = aseneb.NEBOptimizer(neb, verbose=1)
+        opt = aseneb.NEBOptimizer(neb, trajectory=joinpath(calcdir, "neb.traj"), verbose=1)
     else
         throw(ArgumentError("Unknown optimiser, must be one of [\"ode\", \"fire\", \"lbfgs\", \"mdmin\"]"))
     end
@@ -141,9 +141,15 @@ function neb(reacsys, prodsys, calc::ASENEBCalculator; calcdir="./", kwargs...)
     catch err
         conv = false
     end
+    # Ensure final energies are calculated for saving.
+    for im in images
+        energy = im.get_potential_energy()
+        forces = im.get_forces()
+        im.calc = asecalc.singlepoint.SinglePointCalculator(im, energy=energy, forces=forces)
+    end
     aseio.write(joinpath(calcdir, "neb_final.traj"), images)
 
-    final_fmax = pyconvert(Float64, opt.get_residual())
+    final_fmax = pyconvert(Float64, neb.get_residual())
     if conv
         @info "NEB converged (fmax = $(final_fmax))"
     else
@@ -169,7 +175,7 @@ function highest_energy_frame(images::Py)
     @debug "TS found at image $(ts_idx)/$(pylen(images))"
     inertias = pyconvert(Vector{Float64}, images[ts_idx-1].get_moments_of_inertia())
     ts = atoms_to_frame(images[ts_idx-1], energies[ts_idx], inertias)
-    ts["info"]["formal_charges"] = pyconvert(Vector{Float64}, images[ts_idx-1].get_initial_charges())
-    ts["info"]["initial_magmoms"] = pyconvert(Vector{Float64}, images[ts_idx-1].get_initial_magnetic_moments())
+    ts["arrays"]["formal_charges"] = pyconvert(Vector{Float64}, images[ts_idx-1].get_initial_charges())
+    ts["arrays"]["initial_magmoms"] = pyconvert(Vector{Float64}, images[ts_idx-1].get_initial_magnetic_moments())
     return ts
 end

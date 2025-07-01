@@ -260,6 +260,9 @@ end
     load_optgeom(savefile::String)
 
 Loads an optimised geometry from a BSON file.
+
+Works around odd BSON behaviour where arrays of strings
+are loaded as `Vector{Any}` instead of `Vector{String}`.
 """
 function load_optgeom(savefile::String)
     savedict = BSON.load(savefile)
@@ -270,14 +273,16 @@ end
 
 
 """
-    save_endpoints(reacsys::Dict{String, Any}, prodsys::Dict{String, Any}, saveto::String)
+    save_endpoints(reacsys::Dict{String, Any}, prodsys::Dict{String, Any}, reacsmi::String, prodsmi::String, saveto::String)
 
 Saves reaction endpoint systems `reacsys` and `prodsys` to a BSON file.
 """
-function save_endpoints(reacsys::Dict{String, Any}, prodsys::Dict{String, Any}, saveto::String)
+function save_endpoints(reacsys::Dict{String, Any}, prodsys::Dict{String, Any}, reacsmi::String, prodsmi::String, saveto::String)
     savedict = Dict(
         :reacsys => reacsys,
-        :prodsys => prodsys
+        :prodsys => prodsys,
+        :reacsmi => reacsmi,
+        :prodsmi => prodsmi
     )
     bson(saveto, savedict)
 end
@@ -290,23 +295,42 @@ Loads reaction endpoint systems from a BSON file.
 """
 function load_endpoints(savefile::String)
     savedict = BSON.load(savefile)
-    return savedict[:reacsys], savedict[:prodsys]
+    savedict[:reacsys]["arrays"]["species"] = String[s for s in savedict[:reacsys]["arrays"]["species"]]
+    savedict[:prodsys]["arrays"]["species"] = String[s for s in savedict[:prodsys]["arrays"]["species"]]
+    return savedict[:reacsys], savedict[:prodsys], savedict[:reacsmi], savedict[:prodsmi]
 end
 
 
 """
     save_tsdata(ts::Dict{String, Any}, conv, mult, sym, geom, chg, saveto::String)
+    save_tsdata(ts::Dict{String, Any}, ads_ts::Dict{String, Any}, conv, mult, sym, geom, chg, saveto::String)
 
 Saves transition state data to a BSON file.
 
 Aside from the ExtXYZ frame `ts`, saves the convergence
 status `conv`, spin multiplicity `mult`, charge `chg`, 
 symmetry number `sym` and geometry identifier `geom`.
+
+If the transition state is on a surface, it should be split
+from the surface and saved as well with the isolated
+geometry passed to `ts` and the adsorbed geometry to `ads_ts`.
 """
 function save_tsdata(ts::Dict{String, Any}, conv, mult, sym, geom, chg, saveto::String)
     savedict = Dict(
         :conv => conv,
         :xyz => ts,
+        :mult => mult,
+        :charge => chg,
+        :sym => sym,
+        :geom => geom
+    )
+    bson(saveto, savedict)
+end
+function save_tsdata(ts::Dict{String, Any}, ads_ts::Dict{String, Any}, conv, mult, sym, geom, chg, saveto::String)
+    savedict = Dict(
+        :conv => conv,
+        :xyz => ts,
+        :ads_xyz => ads_ts,
         :mult => mult,
         :charge => chg,
         :sym => sym,

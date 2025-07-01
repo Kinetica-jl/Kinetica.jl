@@ -6,3 +6,6 @@ docs/build
 
 .envrc
 shell.nix
+
+test/calc_ase_tests
+test/calc_surface_tests

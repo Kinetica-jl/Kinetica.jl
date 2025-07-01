@@ -41,7 +41,9 @@ function calc_species_vibrations!(sd::SpeciesData, sid, calc_builder; calcdir::S
     vib.run()
     vib_energies = vib.get_energies()
     @debug "vib_energies = $(vib_energies)"
-    if sd.cache[:geometry][sid] == 1
+    if SpeciesStyle(sd.toStr[sid]) isa SurfaceSpecies
+        # Do nothing, we want all vibrational energies for harmonic limit TST
+    elseif sd.cache[:geometry][sid] == 1
         vib_energies = vib_energies[pyslice(-(3*sd.xyz[sid]["N_atoms"] - 5), pylen(vib_energies))]
     elseif sd.cache[:geometry][sid] == 2
         vib_energies = vib_energies[pyslice(-(3*sd.xyz[sid]["N_atoms"] - 6), pylen(vib_energies))]
@@ -90,7 +92,7 @@ array. All imaginary frequencies can be ignored by
 passing `ivetol=0.0`.
 """
 function calc_ts_vibrations!(ts_cache::Dict{Symbol, Any}, rid, calc_builder; calcdir::String="./", delta=0.01, ivetol=0.1, kwargs...)
-    atoms = frame_to_atoms(ts_cache[:xyz][rid], ts_cache[:xyz][rid]["info"]["formal_charges"], ts_cache[:xyz][rid]["info"]["initial_magmoms"])
+    atoms = frame_to_atoms(ts_cache[:xyz][rid], ts_cache[:xyz][rid]["arrays"]["formal_charges"], ts_cache[:xyz][rid]["arrays"]["initial_magmoms"])
     atoms.calc = calc_builder(calcdir, ts_cache[:mult][rid], ts_cache[:charge][rid], kwargs...)
 
     vibdir = joinpath(calcdir, "vib")
@@ -99,7 +101,9 @@ function calc_ts_vibrations!(ts_cache::Dict{Symbol, Any}, rid, calc_builder; cal
     vib.run()
     vib_energies = vib.get_energies()
     @debug "vib_energies = $(vib_energies)"
-    if ts_cache[:geometry][rid] == 1
+    if !isempty(ts_cache[:ads_xyz][rid])
+        # Do nothing, we want all vibrational energies for harmonic limit TST
+    elseif ts_cache[:geometry][rid] == 1
         vib_energies = vib_energies[pyslice(-(3*ts_cache[:xyz][rid]["N_atoms"] - 5), pylen(vib_energies))]
     elseif ts_cache[:geometry][rid] == 2
         vib_energies = vib_energies[pyslice(-(3*ts_cache[:xyz][rid]["N_atoms"] - 6), pylen(vib_energies))]

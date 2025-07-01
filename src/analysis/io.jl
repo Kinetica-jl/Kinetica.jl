@@ -66,6 +66,11 @@ However, the original `ODESolveOutput` can be mostly reconstructed
 by instead calling `load_output()`. Some data is necessarily lost
 or converted to a Symbol for reference - mostly data concerning
 the internals of `ODESolution`s. 
+
+Additionally, `SurfaceData` structs cannot be saved due to their
+many references to Python objects. When saving a surface-based CRN,
+the `SpeciesData.surfdata` is therefore not saved, and is set to
+`nothing` in the loaded output. 
 """
 function save_output(out::ODESolveOutput, saveto::String)
     sol_vcs = !isnothing(out.sol_vcs) ? 
@@ -184,6 +189,7 @@ function load_output(outfile::String)
         sd_toStr,
         savedict[:sd][:n],
         savedict[:sd][:xyz],
+        nothing,
         sd_levels,
         Dict()
     )

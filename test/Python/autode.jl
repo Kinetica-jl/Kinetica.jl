@@ -47,7 +47,7 @@ end
     sd.cache[:charge] = Dict{Int, Int}(1 => 0)
     sd.cache[:symmetry] = Dict{Int, Int}()
     sd.cache[:geometry] = Dict{Int, Int}()
-    Kinetica.autode_conformer_search!(sd, 1)
+    Kinetica.conformer_search!(sd, 1)
     @test Float32(sd.xyz[1]["info"]["energy"]) ≈ Float32(-170.64979316539365)
     @test sd.cache[:geometry][1] == 2
 
@@ -55,7 +55,7 @@ end
     ethyne_frame = xyz_to_frame(ethyne_xyz)
     push!(sd, "C#C", ethyne_frame)
     sd.cache[:mult][2] = 1; sd.cache[:charge][2] = 0
-    Kinetica.autode_conformer_search!(sd, 2)
+    Kinetica.conformer_search!(sd, 2)
     @test sd.cache[:geometry][2] == 1
 
     sys = Kinetica.autode_NCI_conformer_search(sd, [1, 2])

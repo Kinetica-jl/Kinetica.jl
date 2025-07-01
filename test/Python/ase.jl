@@ -89,8 +89,8 @@ end
                 [deepcopy(sd.xyz[1]), deepcopy(prodsys)],
                 [deepcopy(prodsys), deepcopy(sd.xyz[1])],
                 [0.0, 0.0])
-    builder = EMTBuilder()
-    calc = ASENEBCalculator(builder, "./calc"; ftol=0.1, climb_ftol=0.5, n_images=5,
+    builder = TBLiteBuilder(; method="GFN1-xTB")
+    calc = ASENEBCalculator(builder, "./calc_ase_tests"; ftol=0.1, climb_ftol=0.5, n_images=5,
                             imaginary_freq_tol=0.1)
     setup_network!(sd, rd, calc)
     k = calc(; T=300.0, P=1e5)
@@ -99,5 +99,5 @@ end
     # without failure.
     @test k isa Vector{Float64}
     @test calculate_entropy_enthalpy(calc, 300.0, 1e5) isa Tuple{Vector{Float64}, Vector{Float64}}
-    rm("./calc", recursive=true)
+    rm("./calc_ase_tests", recursive=true)
 end

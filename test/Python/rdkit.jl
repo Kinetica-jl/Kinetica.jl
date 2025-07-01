@@ -28,7 +28,7 @@ end
     ethene_xyz = xyz_from_smiles("C=C"; generator=:rdkit, seed=10)
     ethene_frame = xyz_to_frame(ethene_xyz)
     amsmi = atom_map_smiles(ethene_frame, "C=C")
-    @test amsmi == "[C:1](=[C:2]([H:5])[H:6])([H:3])[H:4]"
+    @test amsmi == "[C:1](=[C:2]([H:6])[H:5])([H:3])[H:4]"
 
     ethene_frame_mod = xyz_to_frame(ethene_xyz)
     ethene_frame_mod["arrays"]["species"] = reverse(ethene_frame_mod["arrays"]["species"])

@@ -132,7 +132,8 @@ function ASENEBCalculator(calc_builder, calcdir_head; neb_k=0.1, ftol=0.01, clim
             :symmetry => Vector{Int}(),
             :geometry => Vector{Int}(),
             :mult => Vector{Int}(),
-            :charge => Vector{Int}()
+            :charge => Vector{Int}(),
+            :ads_xyz => Vector{Dict{String, Any}}()
         )
         sd, rd = init_network()
     end
@@ -173,13 +174,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             end
         else
             @debug "Creating empty species caches"
-            sd.cache[:vib_energies] = Dict{iType, Vector{Float64}}()
-            sd.cache[:symmetry] = Dict{iType, Int}()
-            sd.cache[:mult] = Dict{iType, Int}()
-            sd.cache[:charge] = Dict{iType, Int}()
-            sd.cache[:formal_charges] = Dict{iType, Vector{Int}}()
-            sd.cache[:geometry] = Dict{iType, Int}()
-            sd.cache[:initial_magmoms] = Dict{iType, Vector{Float64}}()
+            populate_sd_cache!(sd)
         end
     end
 
@@ -194,6 +189,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
     for i in active_species
         if !("energy_ASE" in keys(sd.xyz[i]["info"]))
             specoptdir = joinpath(specoptdir_head, "spec_$(lpad(i, 6, "0"))")
+            is_surf_species = SpeciesStyle(sd.toStr[i]) isa SurfaceSpecies
             opt_complete = false
             if isdir(specoptdir) 
                 optfile = joinpath(specoptdir, "opt_final.bson")
@@ -203,6 +199,9 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                     sd.xyz[i] = optgeom[:frame]
                     sd.cache[:symmetry][i] = optgeom[:sym]
                     sd.cache[:geometry][i] = optgeom[:geom]
+                    if is_surf_species
+                        sd.cache[:ads_xyz][i] = adsorb_frame(optgeom[:frame], sd.surfdata, sd.toStr[i], optgeom[:frame]["info"]["ads_heights"])
+                    end
                     get_mult!(sd, i)
                     get_charge!(sd, i) 
                     get_formal_charges!(sd, i)
@@ -218,7 +217,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                 cd(specoptdir)
                 get_mult!(sd, i)
                 get_charge!(sd, i) 
-                autode_conformer_search!(sd, i)
+                conformer_search!(sd, i)
                 get_formal_charges!(sd, i)
                 get_initial_magmoms!(sd, i)
                 conv = geomopt!(sd, i, calc.calc_builder; optimiser=calc.geom_optimiser, maxiters=calc.maxiters)
@@ -251,6 +250,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             reverse_idx = findfirst(==(reverse_rhash), calc.cached_rhashes)
             if calc.ts_cache[:symmetry][reverse_idx] > -1 
                 push!(calc.ts_cache[:xyz], calc.ts_cache[:xyz][reverse_idx])
+                push!(calc.ts_cache[:ads_xyz], calc.ts_cache[:ads_xyz][reverse_idx])
                 push!(calc.ts_cache[:vib_energies], calc.ts_cache[:vib_energies][reverse_idx])
                 push!(calc.ts_cache[:reacsys_energies], calc.ts_cache[:reacsys_energies][reverse_idx])
                 push!(calc.ts_cache[:prodsys_energies], calc.ts_cache[:prodsys_energies][reverse_idx])
@@ -273,7 +273,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
         if isdir(nebdir) 
             @info "Searching for completed calculations in $nebdir"
             if isfile(joinpath(nebdir, "endpts.bson"))
-                reacsys_mapped, prodsys_mapped = load_endpoints(joinpath(nebdir, "endpts.bson"))
+                reacsys_mapped, prodsys_mapped, reacsys_smi, prodsys_smi = load_endpoints(joinpath(nebdir, "endpts.bson"))
                 rmult = get_rxn_mult(reacsys_mapped, prodsys_mapped)
                 endpoints_complete = true
                 @info "Found completed endpoint calculations."
@@ -288,6 +288,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                 # the TS is unconverged and doesn't exist, and does not have vibdata.
                 if tsdata[:conv] || (!(calc.remove_unconverged) && length(tsdata[:xyz]) > 0)
                     push!(calc.ts_cache[:xyz], tsdata[:xyz])
+                    haskey(tsdata, :ads_xyz) ? push!(calc.ts_cache[:ads_xyz], tsdata[:ads_xyz]) : push!(calc.ts_cache[:ads_xyz], Dict{String, Any}())
                     push!(calc.ts_cache[:mult], tsdata[:mult])
                     push!(calc.ts_cache[:charge], tsdata[:charge])
                     push!(calc.ts_cache[:symmetry], tsdata[:sym])
@@ -318,6 +319,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
 
                 else
                     push!(calc.ts_cache[:xyz], Dict{String, Any}())
+                    push!(calc.ts_cache[:ads_xyz], Dict{String, Any}())
                     push!(calc.ts_cache[:vib_energies], [0.0+0.0im])
                     push!(calc.ts_cache[:symmetry], -1)
                     push!(calc.ts_cache[:geometry], -1)
@@ -359,79 +361,198 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             rmult = get_rxn_mult(n_reacs, initial_reacsys_mult, n_prods, initial_prodsys_mult)
             @debug "Assuming best overall reaction multiplicity of $rmult."
 
-            if n_reacs > 1
-                reacsys = autode_NCI_conformer_search(sd, reac_sids; name="reacsys")
+            # Two reactants requires either NCI complex search or specialised surface
+            # adsorption, depending on whether a surface species is present.
+            if n_reacs == 2
+                if any(SpeciesStyle(sd.toStr[sid]) isa SurfaceSpecies for sid in reac_sids)
+                    reacsys = adsorb_two_frames(sd, reac_sids[1], reac_sids[2])
+                    reacsys["info"]["surfid"] = get_surfid(sd.toStr[reac_sids[1]])
+                    reacsys["info"]["chg"] = sd.cache[:charge][reac_sids[1]] + sd.cache[:charge][reac_sids[2]]
+                else
+                    reacsys = autode_NCI_conformer_search(sd, reac_sids; name="reacsys")
+                end
                 reacsys["info"]["n_species"] = length(reac_sids)
                 reacsys_smi = join([sd.toStr[sid] for sid in reac_sids], ".")
-            else
+
+            # Single reactants can be loaded from saved geometries. 
+            elseif n_reacs == 1
                 sid = rd.id_reacs[i][1]
-                reacsys = sd.xyz[sid]
+                if SpeciesStyle(sd.toStr[sid]) isa SurfaceSpecies
+                    reacsys = deepcopy(sd.cache[:ads_xyz][sid])
+                    reacsys["info"]["surfid"] = get_surfid(sd.toStr[sid])
+                else
+                    reacsys = deepcopy(sd.xyz[sid])
+                end
                 reacsys_smi = sd.toStr[sid]
                 reacsys["info"]["chg"] = sd.cache[:charge][sid]
                 reacsys["info"]["n_species"] = 1
+            else
+                throw(ErrorException("Cannot handle more than 2 reactants in a reaction."))
             end
             reacsys["info"]["mult"] = rmult
-            reacsys_amsmi = atom_map_smiles(reacsys, reacsys_smi)
-            reacsys_formal_charges = get_formal_charges(reacsys_amsmi)
-            reacsys_initial_magmoms = get_initial_magmoms(reacsys_amsmi)
+            if XYZStyle(reacsys) isa OnSurfaceXYZ
+                reacsys_nosurf = deepcopy(reacsys)
+                remove_surface_atoms!(reacsys_nosurf, sd.surfdata, get_surfid(reacsys_smi), true)
+                reacsys_amsmi = atom_map_smiles(reacsys_nosurf, reacsys_smi)
+            else
+                reacsys_amsmi = atom_map_smiles(reacsys, reacsys_smi)
+            end
 
-            if n_prods > 1
-                prodsys = autode_NCI_conformer_search(sd, prod_sids; name="prodsys")
+            # Same as above for products.
+            if n_prods == 2
+                if any(SpeciesStyle(sd.toStr[sid]) isa SurfaceSpecies for sid in prod_sids)
+                    prodsys = adsorb_two_frames(sd, prod_sids[1], prod_sids[2])
+                    prodsys["info"]["surfid"] = get_surfid(sd.toStr[prod_sids[1]])
+                    prodsys["info"]["chg"] = sd.cache[:charge][prod_sids[1]] + sd.cache[:charge][prod_sids[2]]
+                else
+                    prodsys = autode_NCI_conformer_search(sd, prod_sids; name="prodsys")
+                end
                 if prodsys["info"]["chg"] != reacsys["info"]["chg"]
                     throw(ErrorException("Charge not conserved in reaction $i: chg(R) = $(reacsys["info"]["chg"]), chg(P) = $(prodsys["info"]["chg"])"))
                 end
                 prodsys["info"]["n_species"] = length(prod_sids)
                 prodsys_smi = join([sd.toStr[sid] for sid in prod_sids], ".")
-            else
+
+            elseif n_prods == 1
                 sid = rd.id_prods[i][1]
+                if SpeciesStyle(sd.toStr[sid]) isa SurfaceSpecies
+                    prodsys = deepcopy(sd.cache[:ads_xyz][sid])
+                    prodsys["info"]["surfid"] = get_surfid(sd.toStr[sid])
+                else
+                    prodsys = deepcopy(sd.xyz[sid])
+                end
                 if sd.cache[:charge][sid] != reacsys["info"]["chg"]
                     throw(ErrorException("Charge not conserved in reaction $i: chg(R) = $(reacsys["info"]["chg"]), chg(P) = $(sd.cache[:charge][sid])"))
                 end
-                prodsys = sd.xyz[sid]
                 prodsys_smi = sd.toStr[sid]
                 prodsys["info"]["chg"] = sd.cache[:charge][sid]
                 prodsys["info"]["n_species"] = 1
+            else
+                throw(ErrorException("Cannot handle more than 2 products in a reaction."))
             end
             prodsys["info"]["mult"] = rmult
-            prodsys_amsmi = atom_map_smiles(prodsys, prodsys_smi)
+            if XYZStyle(prodsys) isa OnSurfaceXYZ
+                prodsys_nosurf = deepcopy(prodsys)
+                remove_surface_atoms!(prodsys_nosurf, sd.surfdata, get_surfid(prodsys_smi), true)
+                prodsys_amsmi = atom_map_smiles(prodsys_nosurf, prodsys_smi)
+            else
+                prodsys_amsmi = atom_map_smiles(prodsys, prodsys_smi)
+            end
+
+            # Check that any surfaces are consistent across reactants and products.
+            if XYZStyle(reacsys) isa OnSurfaceXYZ && !(XYZStyle(prodsys) isa OnSurfaceXYZ)
+                add_surface_beneath!(prodsys, sd.surfdata.surfaces[reacsys["info"]["surfid"]], reacsys["info"]["unit_cell_mult"])
+                prodsys["info"]["surfid"] = reacsys["info"]["surfid"]
+            elseif XYZStyle(prodsys) isa OnSurfaceXYZ && !(XYZStyle(reacsys) isa OnSurfaceXYZ)
+                add_surface_beneath!(reacsys, sd.surfdata.surfaces[prodsys["info"]["surfid"]], prodsys["info"]["unit_cell_mult"])
+                reacsys["info"]["surfid"] = prodsys["info"]["surfid"]
+            elseif XYZStyle(reacsys) isa OnSurfaceXYZ && XYZStyle(prodsys) isa OnSurfaceXYZ
+                if reacsys["info"]["surfid"] != prodsys["info"]["surfid"]
+                    throw(ErrorException("Reactant and product systems in reaction $i are not bound to the same surface."))
+                end
+                if reacsys["N_atoms"] > prodsys["N_atoms"]
+                    scale_surface_to_match!(prodsys, reacsys, sd.surfdata.surfaces[reacsys["info"]["surfid"]])
+                elseif reacsys["N_atoms"] < prodsys["N_atoms"]
+                    scale_surface_to_match!(reacsys, prodsys, sd.surfdata.surfaces[reacsys["info"]["surfid"]])
+                end
+            end
+
+            reacsys_formal_charges = get_formal_charges(reacsys_amsmi)
+            reacsys_initial_magmoms = get_initial_magmoms(reacsys_amsmi)
             prodsys_formal_charges = get_formal_charges(prodsys_amsmi)
             prodsys_initial_magmoms = get_initial_magmoms(prodsys_amsmi)
+            if XYZStyle(reacsys) isa OnSurfaceXYZ
+                # Add zeroed charges and magmoms for surface atoms.
+                n_surf_atoms = reacsys["N_atoms"] - length(reacsys_formal_charges)
+                reacsys_formal_charges = vcat(zeros(Int, n_surf_atoms), reacsys_formal_charges)
+                reacsys_initial_magmoms = vcat(zeros(Float64, n_surf_atoms), reacsys_initial_magmoms)
+                prodsys_formal_charges = vcat(zeros(Int, n_surf_atoms), prodsys_formal_charges)
+                prodsys_initial_magmoms = vcat(zeros(Float64, n_surf_atoms), prodsys_initial_magmoms)
+                # Correct magmoms, allowing bonded surface atoms to take any
+                # value if necessary.
+                reacsys_surfsite_atoms = get_all_surfsite_atoms(reacsys, sd.surfdata)
+                prodsys_surfsite_atoms = get_all_surfsite_atoms(prodsys, sd.surfdata)
+                if length(reacsys_surfsite_atoms) == 0
+                    reacsys_surfsite_atoms = prodsys_surfsite_atoms
+                elseif length(prodsys_surfsite_atoms) == 0
+                    prodsys_surfsite_atoms = reacsys_surfsite_atoms
+                end
+                correct_magmoms_for_mult!(reacsys_initial_magmoms, prodsys_initial_magmoms, rmult; 
+                                          reac_adjust_idxs=reacsys_surfsite_atoms,
+                                          prod_adjust_idxs=prodsys_surfsite_atoms)
+            else
+                correct_magmoms_for_mult!(reacsys_initial_magmoms, prodsys_initial_magmoms, rmult)
+            end
 
-            correct_magmoms_for_mult!(reacsys_initial_magmoms, prodsys_initial_magmoms, rmult)
-
-            geomopt!(reacsys, calc.calc_builder; calcdir=nebdir, mult=rmult, 
-                          chg=reacsys["info"]["chg"], formal_charges=reacsys_formal_charges, 
-                          initial_magmoms=reacsys_initial_magmoms, optimiser=calc.geom_optimiser,
-                          maxiters=calc.maxiters)
+            if XYZStyle(reacsys) isa OnSurfaceXYZ
+                geomopt!(reacsys, calc.calc_builder, sd.surfdata; calcdir=nebdir, mult=rmult, 
+                         chg=reacsys["info"]["chg"], formal_charges=reacsys_formal_charges, 
+                         initial_magmoms=reacsys_initial_magmoms, optimiser=calc.geom_optimiser,
+                         maxiters=calc.maxiters)
+            else
+                geomopt!(reacsys, calc.calc_builder; calcdir=nebdir, mult=rmult, 
+                         chg=reacsys["info"]["chg"], formal_charges=reacsys_formal_charges, 
+                         initial_magmoms=reacsys_initial_magmoms, optimiser=calc.geom_optimiser,
+                         maxiters=calc.maxiters)
+            end
             @info "Assembled reactant system."
 
-            geomopt!(prodsys, calc.calc_builder; calcdir=nebdir, mult=rmult, 
-                          chg=prodsys["info"]["chg"], formal_charges=prodsys_formal_charges, 
-                          initial_magmoms=prodsys_initial_magmoms, optimiser=calc.geom_optimiser,
-                          maxiters=calc.maxiters)
+            if XYZStyle(prodsys) isa OnSurfaceXYZ
+                geomopt!(prodsys, calc.calc_builder, sd.surfdata; calcdir=nebdir, mult=rmult, 
+                         chg=prodsys["info"]["chg"], formal_charges=prodsys_formal_charges, 
+                         initial_magmoms=prodsys_initial_magmoms, optimiser=calc.geom_optimiser,
+                         maxiters=calc.maxiters)
+            else
+                geomopt!(prodsys, calc.calc_builder; calcdir=nebdir, mult=rmult, 
+                         chg=prodsys["info"]["chg"], formal_charges=prodsys_formal_charges, 
+                         initial_magmoms=prodsys_initial_magmoms, optimiser=calc.geom_optimiser,
+                         maxiters=calc.maxiters)
+            end
             @info "Assembled product system."
 
             # Atom map endpoints.
-            # Also obtain new formal charge arrays for remapped
-            # endpoints. 
+            # Also obtain new formal charge arrays for remapped endpoints. 
             reac_map, prod_map = split(rd.mapped_rxns[i], ">>")
             reac_map, prod_map = string(reac_map), string(prod_map)
             reacsys_mapped = atom_map_frame(reac_map, reacsys)
-            reacsys_mapped["info"]["formal_charges"] = get_formal_charges(reac_map)
-            reacsys_mapped["info"]["initial_magmoms"] = get_initial_magmoms(reac_map)
             prodsys_mapped = atom_map_frame(prod_map, prodsys)
-            prodsys_mapped["info"]["formal_charges"] = get_formal_charges(prod_map)
-            prodsys_mapped["info"]["initial_magmoms"] = get_initial_magmoms(prod_map)
-            correct_magmoms_for_mult!(reacsys_mapped["info"]["initial_magmoms"], prodsys_mapped["info"]["initial_magmoms"], rmult)
+            if XYZStyle(reacsys_mapped) isa OnSurfaceXYZ
+                reacsys_mapped["arrays"]["formal_charges"] = vcat(get_formal_charges(reac_map), zeros(Int, n_surf_atoms))
+                reacsys_mapped["arrays"]["initial_magmoms"] = vcat(get_initial_magmoms(reac_map), zeros(Float64, n_surf_atoms))
+                reacsys_surfsite_atoms = get_all_surfsite_atoms(reacsys, sd.surfdata)
+                prodsys_mapped["arrays"]["formal_charges"] = vcat(get_formal_charges(prod_map), zeros(Int, n_surf_atoms))
+                prodsys_mapped["arrays"]["initial_magmoms"] = vcat(get_initial_magmoms(prod_map), zeros(Float64, n_surf_atoms))
+                prodsys_surfsite_atoms = get_all_surfsite_atoms(prodsys, sd.surfdata)
+                if length(reacsys_surfsite_atoms) == 0
+                    reacsys_surfsite_atoms = prodsys_surfsite_atoms
+                elseif length(prodsys_surfsite_atoms) == 0
+                    prodsys_surfsite_atoms = reacsys_surfsite_atoms
+                end
+                correct_magmoms_for_mult!(reacsys_mapped["arrays"]["initial_magmoms"], prodsys_mapped["arrays"]["initial_magmoms"], rmult; 
+                                          reac_adjust_idxs=reacsys_surfsite_atoms, prod_adjust_idxs=prodsys_surfsite_atoms)
+            else
+                reacsys_mapped["arrays"]["formal_charges"] = get_formal_charges(reac_map)
+                reacsys_mapped["arrays"]["initial_magmoms"] = get_initial_magmoms(reac_map)
+                prodsys_mapped["arrays"]["formal_charges"] = get_formal_charges(prod_map)
+                prodsys_mapped["arrays"]["initial_magmoms"] = get_initial_magmoms(prod_map)
+                correct_magmoms_for_mult!(reacsys_mapped["arrays"]["initial_magmoms"], prodsys_mapped["arrays"]["initial_magmoms"], rmult)
+            end
             @info "Remapped atom indices."
 
-            # Kabsch fit product system onto reactant system.
-            kabsch_fit!(prodsys_mapped, reacsys_mapped)
-            @info "Completed Kabsch fit of product system onto reactant system."
+            # Kabsch fit product system onto reactant system (gas-phase only).
+            if XYZStyle(reacsys_mapped) isa FreeXYZ
+                kabsch_fit!(prodsys_mapped, reacsys_mapped)
+                @info "Completed Kabsch fit of product system onto reactant system."
+            end
+            # Standardise unit cell between reactants and products (surface-phase only).
+            if XYZStyle(reacsys_mapped) isa OnSurfaceXYZ
+                standardise_unit_cell!(reacsys_mapped, prodsys_mapped)
+                @info "Standardised unit cell between reactant and product systems."
+            end
             permute_hydrogens!(prodsys_mapped, get_hydrogen_idxs(prod_map), reacsys_mapped)
 
             # Save final endpoints.
-            save_endpoints(reacsys_mapped, prodsys_mapped, "endpts.bson")
+            save_endpoints(reacsys_mapped, prodsys_mapped, reacsys_smi, prodsys_smi, "endpts.bson")
         end
 
         # Interpolate and run NEB.
@@ -439,14 +560,31 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             images, conv = neb(reacsys_mapped, prodsys_mapped, calc; calcdir=nebdir)
             if conv
                 ts = highest_energy_frame(images)
-                ts_sym, ts_geom = autode_frame_symmetry(ts; mult=rmult, chg=prodsys_mapped["info"]["chg"])
+                if XYZStyle(ts) isa OnSurfaceXYZ
+                    ts_onsurf = deepcopy(ts)
+                    remove_surface_atoms!(ts, sd.surfdata, reacsys_mapped["info"]["surfid"], true)
+                    ts_sym, ts_geom = autode_frame_symmetry(ts; mult=rmult, chg=prodsys_mapped["info"]["chg"])
+                else
+                    ts_onsurf = Dict{String, Any}()
+                    ts_sym, ts_geom = autode_frame_symmetry(ts; mult=rmult, chg=prodsys_mapped["info"]["chg"])
+                end
             else
                 ts = Dict{String, Any}()
+                ts_onsurf = Dict{String, Any}()
                 ts_sym, ts_geom = -1, -1
             end
 
             # Save TS data.
-            save_tsdata(ts, conv, rmult, ts_sym, ts_geom, prodsys_mapped["info"]["chg"], "ts.bson")
+            # If the TS is on a surface, calculate and subtract the isolated surface energy.
+            if XYZStyle(ts) isa AdsorbateXYZ
+                ts_surface = deepcopy(ts_onsurf)
+                remove_adsorbate_atoms!(ts_surface, sd.surfdata, reacsys_mapped["info"]["surfid"])
+                surf_energy = singlepoint(ts_surface, calc.calc_builder; calcdir=nebdir, mult=rmult, chg=reacsys_mapped["info"]["chg"])
+                ts["info"]["energy_ASE"] -= surf_energy
+                save_tsdata(ts, ts_onsurf, conv, rmult, ts_sym, ts_geom, prodsys_mapped["info"]["chg"], "ts.bson")
+            else
+                save_tsdata(ts, conv, rmult, ts_sym, ts_geom, prodsys_mapped["info"]["chg"], "ts.bson")
+            end
 
             # Save to caches.
             # If unconverged and removal is requested, push blank
@@ -455,6 +593,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             # if this is the case though.
             if conv || (!(calc.remove_unconverged) && length(ts) > 0)
                 push!(calc.ts_cache[:xyz], ts)
+                push!(calc.ts_cache[:ads_xyz], ts_onsurf)
                 push!(calc.ts_cache[:mult], rmult)
                 push!(calc.ts_cache[:charge], prodsys_mapped["info"]["chg"])
                 push!(calc.ts_cache[:symmetry], ts_sym)
@@ -464,6 +603,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
                 push!(calc.ts_cache[:prodsys_energies], prodsys_mapped["info"]["energy_ASE"])
             else
                 push!(calc.ts_cache[:xyz], Dict{String, Any}())
+                push!(calc.ts_cache[:ads_xyz], Dict{String, Any}())
                 push!(calc.ts_cache[:vib_energies], [0.0+0.0im])
                 push!(calc.ts_cache[:symmetry], -1)
                 push!(calc.ts_cache[:geometry], -1)
@@ -512,6 +652,7 @@ function setup_network!(sd::SpeciesData{iType}, rd::RxData, calc::ASENEBCalculat
             reverse_idx = findfirst(==(reverse_rhash), calc.cached_rhashes)
             if calc.ts_cache[:symmetry][reverse_idx] > -1 
                 calc.ts_cache[:xyz][i] = calc.ts_cache[:xyz][reverse_idx]
+                calc.ts_cache[:ads_xyz][i] = calc.ts_cache[:ads_xyz][reverse_idx]
                 calc.ts_cache[:vib_energies][i] = calc.ts_cache[:vib_energies][reverse_idx]
                 calc.ts_cache[:symmetry][i] = calc.ts_cache[:symmetry][reverse_idx]
                 calc.ts_cache[:geometry][i] = calc.ts_cache[:geometry][reverse_idx]
@@ -563,11 +704,15 @@ end
     get_entropy(sd, sid, T, P)
 
 Returns the entropy of a given species in `sd`, indexed by species ID `sid`, at temperature `T` and pressure `P`.
+
+Dispatches to an ideal gas TST method or a harmonic limit method depending
+on whether a species is gas-phase or surface-phase.
 """
-function get_entropy(sd::SpeciesData, sid, T, P)
+get_entropy(sd::SpeciesData, sid, T, P) = get_entropy(SpeciesStyle(sd.toStr[sid]), sd, sid, T, P)
+function get_entropy(::GasSpecies, sd::SpeciesData, sid, T, P)
     return get_entropy(
         sd.cache[:weights][sid],
-        sd.xyz[sid]["arrays"]["inertias"],
+        sd.xyz[sid]["info"]["inertias"],
         sd.cache[:geometry][sid],
         sd.cache[:symmetry][sid],
         sd.cache[:mult][sid],
@@ -575,18 +720,25 @@ function get_entropy(sd::SpeciesData, sid, T, P)
         T, P
     )
 end
+function get_entropy(::SurfaceSpecies, sd::SpeciesData, sid, T, P)
+    return get_entropy(sd.cache[:vib_energies][sid], T)
+end
 
 """
     get_entropy(ts_cache, rid, mass, T, P)
 
 Returns the entropy of the given transition state of reaction ID `rid` at temperature `T` and pressure `P`.
 
+Dispatches to an ideal gas TST method or a harmonic limit method depending
+on whether the transition state is gas-phase or surface-phase.
+
 `mass` is usually provided as a result of accumulating reactant masses.
 """
-function get_entropy(ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
+get_entropy(ts_cache::Dict{Symbol, Any}, rid, mass, T, P) = get_entropy(XYZStyle(ts_cache[:xyz][rid]), ts_cache, rid, mass, T, P)
+function get_entropy(::FreeXYZ, ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
     return get_entropy(
         mass,
-        ts_cache[:xyz][rid]["arrays"]["inertias"],
+        ts_cache[:xyz][rid]["info"]["inertias"],
         ts_cache[:geometry][rid],
         ts_cache[:symmetry][rid],
         ts_cache[:mult][rid],
@@ -594,11 +746,14 @@ function get_entropy(ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
         T, P
     )
 end
+function get_entropy(::AdsorbateXYZ, ts_cache::Dict{Symbol, Any}, rid, mass, T, P)
+    return get_entropy(ts_cache[:vib_energies][rid], T)
+end
 
 """
     get_entropy(mass, inertias, geometry, symmetry, mult, vib_energies, T, P)
 
-Returns the entropy of a given system at temperature `T` and pressure `P`.
+Returns the ideal gas TST entropy of a given system at temperature `T` and pressure `P`.
 
 Used as the generic backend for species-specific and TS-specific
 methods.
@@ -651,27 +806,62 @@ function get_entropy(mass, inertias, geometry, symmetry, mult, vib_energies, T, 
 end
 
 """
+    get_entropy(vib_energies, T)
+
+Returns the harmonic limit entropy of a given system at temperature `T` and pressure `P`.
+
+Used as the generic backend for species-specific and TS-specific
+methods.
+"""
+function get_entropy(vib_energies, T)
+    kT = Constants.kB * T
+    S = 0.0
+    for e in vib_energies
+        x = e/kT
+        S += x / (exp(x) - 1.0) - log(1.0 - exp(-x))
+    end
+    S *= Constants.kB
+
+    return S
+end
+
+
+"""
     get_enthalpy(sd, sid, T)
 
 Returns the enthalpy of a given species in `sd`, indexed by species ID `sid`, at temperature `T`.
+
+Dispatches to an ideal gas TST method or a harmonic limit method depending
+on whether a species is gas-phase or surface-phase.
 """
-function get_enthalpy(sd::SpeciesData, sid, T)
+get_enthalpy(sd::SpeciesData, sid, T) = get_enthalpy(SpeciesStyle(sd.toStr[sid]), sd, sid, T)
+function get_enthalpy(::GasSpecies, sd::SpeciesData, sid, T)
     return get_enthalpy(sd.xyz[sid]["info"]["energy_ASE"], sd.cache[:vib_energies][sid], sd.cache[:geometry][sid], T)
+end
+function get_enthalpy(::SurfaceSpecies, sd::SpeciesData, sid, T)
+    return get_enthalpy(sd.xyz[sid]["info"]["energy_ASE"], sd.cache[:vib_energies][sid], T)
 end
 
 """
     get_enthalpy(ts_cache, rid, T)
 
 Returns the enthalpy of the given transition state of reaction ID `rid` at temperature `T`.
+
+Dispatches to an ideal gas TST method or a harmonic limit method depending
+on whether the transition state is gas-phase or surface-phase.
 """
-function get_enthalpy(ts_cache::Dict{Symbol, Any}, rid, T)
+get_enthalpy(ts_cache::Dict{Symbol, Any}, rid, T) = get_enthalpy(XYZStyle(ts_cache[:xyz][rid]), ts_cache, rid, T)
+function get_enthalpy(::FreeXYZ, ts_cache::Dict{Symbol, Any}, rid, T)
     return get_enthalpy(ts_cache[:xyz][rid]["info"]["energy_ASE"], ts_cache[:vib_energies][rid], ts_cache[:geometry][rid], T)
+end
+function get_enthalpy(::AdsorbateXYZ, ts_cache::Dict{Symbol, Any}, rid, T)
+    return get_enthalpy(ts_cache[:xyz][rid]["info"]["energy_ASE"], ts_cache[:vib_energies][rid], T)
 end
 
 """
     get_enthalpy(energy, vib_energies, geometry, T)
 
-Returns the enthalpy of a given system at temperature `T`.
+Returns the ideal gas TST enthalpy of a given system at temperature `T`.
 
 Used as the generic backend for species-specific and TS-specific
 methods.
@@ -693,6 +883,33 @@ function get_enthalpy(energy, vib_energies, geometry, T)
         H += Constants.kB * T
     elseif geometry == 2
         H += Constants.kB * 1.5 * T
+    end
+
+    # Vibrational heat capacity
+    kT = Constants.kB * T
+    for e in vib_energies
+        H += e / (exp(e/kT) - 1)
+    end
+
+    H += Constants.kB * T
+    return H
+end
+
+"""
+    get_enthalpy(energy, vib_energies, T)
+
+Returns the harmonic limit enthalpy of a given system at temperature `T`.
+
+Used as the generic backend for species-specific and TS-specific
+methods.
+"""
+function get_enthalpy(energy, vib_energies, T)
+    H = 0.0
+    H += energy
+
+    # Add ZPE correction.
+    for e in vib_energies
+        H += 0.5 * e
     end
 
     # Vibrational heat capacity
