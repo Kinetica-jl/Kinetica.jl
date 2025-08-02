@@ -1,0 +1,76 @@
+# comment line 
+calctype breakdown
+minmolcharge 0      
+maxmolcharge 0 
+nchargemol 0
+maxstepcharge 0
+maxtotalcharge 0
+optaftermove .true.
+ignoreinvalidgraphopt .false.
+doinitialopt .false.
+pesfull .false.         ! Required for radicals and charges...
+nimage 6                ! Number of images in each generated reaction-step 
+startfile Start.xyz
+endfile end.xyz
+idppguess .true.
+
+pathoptmethod cineb
+nebmethod quickmin 
+nebiter 500
+cithresh 5d-4
+nebspring 0.05
+nebstep  10.0 
+neboutfreq 5
+stripinactive .true.
+optendsbefore .true.
+optendsduring .false.
+nebrestrend .true.
+
+dofconstraints 0
+atomconstraints 0
+
+pestype xtb
+pesfile xtb.head
+pesopttype xtb 
+pesoptfile xtb.head
+pesexecutable xtb --iterations 1000 --grad
+pesoptexecutable xtb --input xtb.inp --iterations 1000 --etemp 1000 --opt tight --grad
+
+movefile moves_2+3.in
+gdsthresh 0.5 
+gdsspring 0.05
+gdsrestspring 0.05
+nbstrength 0.04
+nbrange 2.5
+kradius 0.05
+ngdsrelax 10000
+gdsdtrelax 0.1
+gdsoutfreq 10
+
+valencerange{
+C 2 4
+H 0 1
+}
+
+reactiveatomtypes{  
+C 
+H 
+}
+
+reactiveatoms{  
+all
+}
+
+reactivevalence{
+}
+
+fixedbonds{
+}
+
+allowedbonds{
+} 
+
+graphfunctype 4          ! Permutationally invariant function (leave!)
+nmcrxn 1
+nrxn 5
+ranseed 15
